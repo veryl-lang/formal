@@ -2,6 +2,9 @@ use clap::ValueEnum;
 use std::{collections::VecDeque, fs, path::Path};
 use veryl_formal_ci::{Commands, Environment, Result, checks::*, error};
 
+#[path = "../../../targets/analyzer/kani/src/bin/check_contracts/analyzer.rs"]
+mod analyzer;
+
 #[derive(Default)]
 struct Recording {
     calls: Vec<Invocation>,
@@ -23,6 +26,7 @@ fn rejects_unknown_checks_suites_and_modes() {
     for (check, suite) in [
         ("unknown", "single"),
         ("value-contracts", "core"),
+        ("value-contracts", "single"),
         ("simulator-contracts", "single"),
         ("cache-contracts", "; true"),
     ] {
@@ -34,16 +38,8 @@ fn rejects_unknown_checks_suites_and_modes() {
 
 #[test]
 fn positive_mode_retains_tests_and_only_changes_adapter_arguments() {
-    for (check, suite) in [
-        ("value-contracts", "single"),
-        ("simulator-contracts", "window-log"),
-        ("simulator-backend-contracts", "core"),
-        ("synthesizer-contracts", "single"),
-        ("emitter-contracts", "single"),
-        ("generated-c-contracts", "single"),
-        ("frontend-contracts", "single"),
-        ("cache-contracts", "single"),
-    ] {
+    for shard in SHARDS {
+        let (check, suite) = (shard.check, shard.suite);
         let all = plan(check, suite, Mode::All).unwrap();
         let positive = plan(check, suite, Mode::Positive).unwrap();
         assert_eq!(all.steps.len(), positive.steps.len());
@@ -58,6 +54,116 @@ fn positive_mode_retains_tests_and_only_changes_adapter_arguments() {
         }
         assert!(changed > 0);
     }
+}
+
+#[test]
+fn value_shards_partition_every_proof_and_production_mutation() {
+    use std::collections::{BTreeMap, BTreeSet};
+    use veryl_formal_runner::Options;
+
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let all: Vec<_> = analyzer::CONTRACTS.iter().collect();
+    let mutations = analyzer::mutations(repo, &all);
+    let mutation_count = mutations.len();
+    let expected: BTreeMap<_, _> = mutations
+        .into_iter()
+        .map(|m| ((m.contract.name, m.name, m.path), m.source))
+        .collect();
+    assert_eq!(
+        expected.len(),
+        mutation_count,
+        "duplicate mutation identity"
+    );
+    let mut contracts = BTreeSet::new();
+    let mut mutations = BTreeSet::new();
+    let mut proof_shards = 0;
+    for shard in SHARDS
+        .iter()
+        .filter(|s| s.check == "value-contracts" && s.suite != "native")
+    {
+        proof_shards += 1;
+        let p = plan(shard.check, shard.suite, Mode::All).unwrap();
+        assert!(p.kani);
+        assert_eq!(p.steps.len(), 1);
+        let step = &p.steps[0];
+        let manifest = step
+            .args
+            .iter()
+            .position(|a| a == "--manifest-path")
+            .unwrap();
+        assert_eq!(step.args[manifest + 1], "targets/analyzer/kani/Cargo.toml");
+        let args = step.args.iter().position(|a| a == "--").unwrap() + 1;
+        let options = Options::parse(step.args[args..].iter().cloned()).unwrap();
+        assert!(!options.contracts.is_empty());
+        assert!(options.groups.is_empty());
+        let selected = options.select("analyzer", &analyzer::CONTRACTS).unwrap();
+        for contract in &selected {
+            assert!(contracts.insert(contract.name), "overlapping proof shard");
+        }
+        for mutant in analyzer::mutations(repo, &selected) {
+            let key = (mutant.contract.name, mutant.name, mutant.path);
+            assert!(mutations.insert(key), "overlapping mutation shard");
+            assert_eq!(expected.get(&key), Some(&mutant.source));
+        }
+    }
+    assert_eq!(proof_shards, 3);
+    assert_eq!(contracts, all.iter().map(|c| c.name).collect());
+    assert_eq!(mutations, expected.keys().copied().collect());
+}
+
+#[test]
+fn value_native_retains_all_finite_checks_without_installing_kani() {
+    use std::collections::BTreeSet;
+    let p = plan("value-contracts", "native", Mode::All).unwrap();
+    assert!(!p.kani);
+    assert!(!p.workspaces.contains("targets/analyzer/kani ->"));
+    let examples: BTreeSet<_> = p
+        .steps
+        .iter()
+        .filter_map(|s| {
+            s.args
+                .iter()
+                .position(|a| a == "--example")
+                .map(|i| s.args[i + 1].as_str())
+        })
+        .collect();
+    assert_eq!(
+        examples,
+        BTreeSet::from([
+            "check_aggregate_contracts",
+            "check_selection_contracts",
+            "check_ir_contracts",
+            "check_expression_contracts",
+            "check_graph_contracts",
+            "check_dynamic_aggregate_contracts",
+            "check_nonlinear_wide_contracts",
+        ])
+    );
+    let tests: Vec<_> = p.steps.iter().filter(|s| s.args[0] == "test").collect();
+    assert_eq!(tests.len(), 3);
+    assert!(
+        tests
+            .iter()
+            .any(|s| s.args.contains(&"support/Cargo.toml".into()))
+    );
+    assert!(
+        tests
+            .iter()
+            .any(|s| s.args.contains(&"veryl-formal-contract-tests".into()))
+    );
+    assert!(
+        tests
+            .iter()
+            .any(|s| s.args.ends_with(&["--lib".into(), "_contract".into()]))
+    );
+    assert_eq!(p.steps.iter().filter(|s| s.args[0] == "fmt").count(), 4);
+    let mut exec = Recording::default();
+    setup(Path::new("repo"), &p, &Environment::new(), &mut exec).unwrap();
+    assert!(exec.calls.is_empty());
 }
 
 #[test]
@@ -174,7 +280,7 @@ fn cached_kani_restores_its_own_toolchain_without_reinstalling_the_bundle() {
         ("KANI_CACHE_HIT".into(), "true".into()),
     ]);
     let mut exec = Recording::default();
-    let p = plan("value-contracts", "single", Mode::All).unwrap();
+    let p = plan("value-contracts", "storage", Mode::All).unwrap();
     setup(Path::new("repo"), &p, &env, &mut exec).unwrap();
     assert_eq!(exec.calls[0].program, "rustup");
     assert_eq!(
@@ -287,7 +393,7 @@ fn plan_metadata_is_multiline_and_can_be_read_by_github_actions() {
     let dir = tempfile::tempdir().unwrap();
     let output = dir.path().join("output");
     let env = Environment::from([("GITHUB_OUTPUT".into(), output.to_str().unwrap().into())]);
-    let p = plan("value-contracts", "single", Mode::All).unwrap();
+    let p = plan("value-contracts", "storage", Mode::All).unwrap();
     describe(&p, &env).unwrap();
     let text = fs::read_to_string(output).unwrap();
     let mut lines = text.lines();
@@ -373,7 +479,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 15);
+    assert_eq!(all.len(), 18);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -396,6 +502,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
+    assert_eq!(rows("value").len(), 4);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
