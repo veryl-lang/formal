@@ -832,7 +832,8 @@ pub static CONTRACTS: [Contract; 47] = [
     Contract {
         group: "coordinates",
         name: "selection-endpoints",
-        harness: "selection_endpoints_match_reference_semantics",
+        // Kani filters by substring; qualify this name to exclude the checked harness.
+        harness: "coordinates::selection_endpoints_match_reference_semantics",
         message: "selection endpoint semantics mismatch",
         covers: &[
             "colon endpoint is reachable",
@@ -867,7 +868,7 @@ pub static CONTRACTS: [Contract; 47] = [
     Contract {
         group: "coordinates",
         name: "checked-selection-endpoints",
-        harness: "checked_selection_endpoints_match_reference_semantics",
+        harness: "coordinates::checked_selection_endpoints_match_reference_semantics",
         message: "checked selection endpoint semantics mismatch",
         covers: &[
             "checked colon is reachable",
@@ -933,11 +934,13 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "beg < end || end >= self.width as usize || end >= 64",
             "beg < end || end >= 64",
         );
+        // Retain a native-width clamp so arbitrary endpoints expose the width
+        // violation without also overflowing gen_mask_range's beg + 1.
         let legacy = mutate_method(
             &legacy,
             "assign",
             "        let beg = beg.min(self.width as usize - 1);\n",
-            "",
+            "        let beg = beg.min(63);\n",
         );
         let leaking = mutate_method(
             &source,
@@ -1965,11 +1968,13 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "Self::new(payload, width, signed)",
             ),
             (
-                "power-ignores-exponent-unknown",
+                // Keep the exceptional path: removing its guard also enters
+                // the general power loop outside this harness's unwind bound.
+                "power-unknown-exponent-to-zero",
                 "power-exceptions",
                 "power",
-                "if exponent.is_xz() {",
-                "if false {",
+                "return Self::new_x(width, false);",
+                "return Self::new(0, width, false);",
             ),
             (
                 "power-ignores-base-unknown",
