@@ -1,0 +1,35 @@
+module Top(
+    clk: input clock,
+    rst: input reset_async_high,
+    en: input logic,
+    a: input logic<2>,
+    q: output logic<2>,
+    previous: output logic<2>,
+    side: output logic<2>,
+    returned: output logic<2>,
+) {
+    var state: logic<2>;
+    var prev: logic<2>;
+    var copied: logic<2>;
+    var ret: logic<2>;
+    function adjust(x: input logic<2>) -> logic<2> {
+        return x ^ 2'b11;
+    }
+    always_ff {
+        if_reset {
+            state = 0;
+            prev = 0;
+            copied = 0;
+            ret = 0;
+        } else if en {
+            state = state + a;
+            ret = adjust(state + a);
+            copied = state + a + 1;
+            prev = state;
+        }
+    }
+    assign q = state;
+    assign previous = prev;
+    assign side = copied;
+    assign returned = ret;
+}

@@ -1,0 +1,174 @@
+name: Verify compiler contracts
+'on':
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Verification target
+        type: choice
+        options:
+        - all
+        - value
+        - simulator
+        - synthesizer
+        - emitter
+        - frontend
+        - cache
+        default: all
+      mode:
+        description: Contract stage
+        type: choice
+        options:
+        - all
+        - positive
+        default: all
+      update_upstream:
+        description: Verify upstream and update the pinned pointer on success (all/all only)
+        type: boolean
+        default: false
+  schedule:
+  - cron: 23 17 * * *
+  push:
+    branches:
+    - master
+  pull_request: {}
+env:
+  CARGO_TARGET_DIR: ${{ github.workspace }}/support/cli/target
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
+      update: ${{ steps.select.outputs.update }}
+      formal_sha: ${{ steps.select.outputs.formal_sha }}
+      pinned: ${{ steps.select.outputs.pinned }}
+      candidate: ${{ steps.select.outputs.candidate }}
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: formal-ci
+        workspaces: |
+          support/cli -> target
+    - name: Build and test the host CLI
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- bootstrap
+    - name: Resolve the pinned or upstream target once
+      id: select
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- prepare
+  contracts:
+    name: ${{ matrix.check }} (${{ matrix.suite }})
+    needs:
+    - prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      FORMAL_CHECK: ${{ matrix.check }}
+      FORMAL_SUITE: ${{ matrix.suite }}
+      FORMAL_MODE: ${{ needs.prepare.outputs.mode }}
+      VERYL_CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ needs.prepare.outputs.formal_sha }}
+        submodules: recursive
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: formal-ci
+        workspaces: |
+          support/cli -> target
+    - name: Build the host CLI and select verification steps
+      id: ci-cli
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- plan "$FORMAL_CHECK" "$FORMAL_SUITE"
+        --mode "$FORMAL_MODE"
+    - name: Check out the shared Veryl candidate
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- checkout "$VERYL_CANDIDATE"
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: formal-${{ matrix.check }}-${{ matrix.suite }}
+        workspaces: ${{ steps.ci-cli.outputs.workspaces }}
+      env:
+        CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    - uses: actions/cache@v4
+      if: steps.ci-cli.outputs.kani == 'true'
+      id: kani-cache
+      with:
+        key: ${{ runner.os }}-${{ runner.arch }}-formal-kani-${{ steps.ci-cli.outputs.kani-version }}-v1
+        path: |
+          ~/.cargo/bin/kani
+          ~/.cargo/bin/cargo-kani
+          ~/.kani/kani-${{ steps.ci-cli.outputs.kani-version }}
+    - name: Set up verification tools
+      env:
+        KANI_CACHE_HIT: ${{ steps.kani-cache.outputs.cache-hit }}
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- setup "$FORMAL_CHECK" "$FORMAL_SUITE"
+    - name: Run selected contracts and verify source integrity
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- run "$FORMAL_CHECK" "$FORMAL_SUITE"
+        --mode "$FORMAL_MODE"
+    - name: Summarize verification for maintainer triage
+      if: always() && steps.ci-cli.outcome == 'success'
+      env:
+        FORMAL_JOB_STATUS: ${{ job.status }}
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- report
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: formal-${{ matrix.check }}-${{ matrix.suite }}-${{ github.run_attempt }}
+        path: |
+          **/target/contract-logs/**
+          support/target/ci-report.md
+        if-no-files-found: warn
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: formal-fixtures-${{ matrix.check }}-${{ matrix.suite }}-${{ github.run_attempt }}
+        path: '**/target/fixtures/**'
+        if-no-files-found: ignore
+        retention-days: 14
+  update-upstream:
+    needs:
+    - prepare
+    - contracts
+    if: always() && needs.prepare.result == 'success' && needs.prepare.outputs.update == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ needs.prepare.outputs.formal_sha }}
+        submodules: recursive
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: formal-ci
+        workspaces: |
+          support/cli -> target
+    - name: Advance only the verified pointer or report failure
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERYL_CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+        VERYL_PINNED: ${{ needs.prepare.outputs.pinned }}
+        FORMAL_SHA: ${{ needs.prepare.outputs.formal_sha }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        CHECK_RESULTS: ${{ toJSON(needs) }}
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- finalize
+concurrency:
+  group: formal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false

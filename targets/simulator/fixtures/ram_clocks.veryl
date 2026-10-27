@@ -1,0 +1,24 @@
+module Top(
+    clk_a: input 'domain_a clock, rst_a: input 'domain_a reset_async_high,
+    clk_b: input 'domain_b clock, rst_b: input 'domain_b reset_async_high,
+    we: input 'domain_a logic, wa: input 'domain_a logic, ra: input 'domain_a logic,
+    data: input 'domain_a logic<2>, mask: input 'domain_a logic<2>,
+    result: output 'domain_a logic<2>, qa: output 'domain_a logic<2>, qb: output 'domain_b logic<2>,
+) {
+    var mem: 'domain_a logic<2>[2];
+    var a: 'domain_a logic<2>;
+    var b: 'domain_b logic<2>;
+    unsafe(cdc) {
+        always_ff(clk_a) {
+            if we {
+                if mask[0] { mem[wa][0] = data[0]; }
+                if mask[1] { mem[wa][1] = data[1]; }
+            }
+        }
+        always_ff(clk_a, rst_a) { if_reset { a = 0; } else { a = mem[ra]; } }
+        always_ff(clk_b, rst_b) { if_reset { b = 0; } else { b = a; } }
+    }
+    assign result = mem[ra];
+    assign qa = a;
+    assign qb = b;
+}

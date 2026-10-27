@@ -1,0 +1,273 @@
+//! Normalized, already-sized four-state operands at widths 1..=64. Checks modular
+//! add/subtract, negation, unary-plus expansion, and metadata. The public dispatch
+//! proof is one bit; source width/sign decisions and recursive traversal are separate.
+//! X/Z unary plus checks the Table 11-6 identity interpretation documented in
+//! veryl_formal_semantics::arithmetic; it does not resolve the conflicting general X/Z sentence.
+
+use veryl_analyzer::ir::Op;
+use veryl_analyzer::value::{MaskCache, Value, ValueU64};
+use veryl_formal_semantics::arithmetic::{Arithmetic, arithmetic_bit, arithmetic_planes};
+use veryl_formal_semantics::logic4::read_logic;
+
+#[kani::proof]
+#[kani::unwind(2)]
+fn public_arithmetic_one_bit_matches_reference_semantics() {
+    fn bit() -> ValueU64 {
+        ValueU64 {
+            payload: u64::from(kani::any::<bool>()),
+            mask_xz: u64::from(kani::any::<bool>()),
+            width: 1,
+            signed: kani::any(),
+        }
+    }
+    let a = bit();
+    let b = bit();
+    let signed: bool = kani::any();
+    let mode = kani::any::<u8>() & 3;
+    let kind = match mode {
+        0 => Arithmetic::Add,
+        1 => Arithmetic::Subtract,
+        2 => Arithmetic::Negate,
+        _ => Arithmetic::Plus,
+    };
+    let expected = arithmetic_planes(
+        (a.payload as u128, a.mask_xz as u128),
+        (b.payload as u128, b.mask_xz as u128),
+        1,
+        kind,
+    );
+    let expected_signed = if mode < 2 { signed } else { a.signed };
+    let a = Value::U64(a);
+    let b = Value::U64(b);
+    let mut cache = MaskCache::default();
+    let output = match mode {
+        0 => Op::Add.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        1 => Op::Sub.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        2 => Op::Sub.eval_value_unary(&a, 1, signed, &mut cache),
+        _ => Op::Add.eval_value_unary(&a, 1, signed, &mut cache),
+    };
+    let Value::U64(output) = output else {
+        panic!("unexpected BigUint result");
+    };
+    assert!(
+        (output.payload as u128, output.mask_xz as u128) == expected,
+        "public arithmetic semantics mismatch"
+    );
+    assert!(
+        output.width == 1 && output.signed == expected_signed,
+        "public arithmetic semantics mismatch"
+    );
+    kani::cover!(mode == 0, "public addition is reachable");
+    kani::cover!(mode == 1, "public subtraction is reachable");
+    kani::cover!(mode == 2, "public negation is reachable");
+    kani::cover!(mode == 3, "public unary plus is reachable");
+    kani::cover!(
+        mode == 3 && output.payload == 1 && output.mask_xz == 1,
+        "public plus preserves Z"
+    );
+}
+
+fn operand(width: u32) -> ValueU64 {
+    let mask = u64::MAX >> (64 - width);
+    ValueU64 {
+        payload: kani::any::<u64>() & mask,
+        mask_xz: kani::any::<u64>() & mask,
+        width,
+        signed: kani::any(),
+    }
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+fn native_add_sub_matches_reference_semantics() {
+    let width = u32::from(kani::any::<u8>() & 63) + 1;
+    let a = operand(width);
+    let b = operand(width);
+    let signed: bool = kani::any();
+    let subtract: bool = kani::any();
+    let output = a.add_sub(&b, width as usize, signed, subtract);
+    let position = usize::from(kani::any::<u8>() & 63);
+    let expected = arithmetic_bit(
+        (a.payload as u128, a.mask_xz as u128),
+        (b.payload as u128, b.mask_xz as u128),
+        width as usize,
+        if subtract {
+            Arithmetic::Subtract
+        } else {
+            Arithmetic::Add
+        },
+        position,
+    );
+    assert!(
+        read_logic(output.payload as u128, output.mask_xz as u128, position) == expected,
+        "add-sub semantics mismatch"
+    );
+    assert!(
+        output.width == width && output.signed == signed,
+        "add-sub semantics mismatch"
+    );
+    let known = a.mask_xz == 0 && b.mask_xz == 0;
+    let mask = u64::MAX >> (64 - width);
+    kani::cover!(!subtract, "addition is reachable");
+    kani::cover!(subtract, "subtraction is reachable");
+    kani::cover!(width == 1, "one-bit arithmetic is reachable");
+    kani::cover!(width == 64, "width-64 arithmetic is reachable");
+    kani::cover!(signed, "signed arithmetic result is reachable");
+    kani::cover!(!signed, "unsigned arithmetic result is reachable");
+    kani::cover!(
+        known && !subtract && a.payload == mask && b.payload == 1,
+        "addition carry wrap is reachable"
+    );
+    kani::cover!(
+        known && width == 64 && !subtract && a.payload == u64::MAX && b.payload == 1,
+        "native addition overflow is reachable"
+    );
+    kani::cover!(
+        known && subtract && a.payload == 0 && b.payload == 1,
+        "subtraction borrow wrap is reachable"
+    );
+    kani::cover!(
+        known && width == 64 && subtract && a.payload == 0 && b.payload == 1,
+        "native subtraction underflow is reachable"
+    );
+    kani::cover!(
+        known && a.payload == 0 && b.payload == 0,
+        "zero arithmetic is reachable"
+    );
+    kani::cover!(
+        a.mask_xz != 0 && b.mask_xz == 0,
+        "arithmetic unknown LHS is reachable"
+    );
+    kani::cover!(
+        a.mask_xz == 0 && b.mask_xz != 0,
+        "arithmetic unknown RHS is reachable"
+    );
+    kani::cover!(
+        (a.payload & a.mask_xz) != 0 || (b.payload & b.mask_xz) != 0,
+        "arithmetic source Z is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+fn native_negation_matches_reference_semantics() {
+    let width = u32::from(kani::any::<u8>() & 63) + 1;
+    let a = operand(width);
+    let output = a.negate(width as usize);
+    let position = usize::from(kani::any::<u8>() & 63);
+    let expected = arithmetic_bit(
+        (a.payload as u128, a.mask_xz as u128),
+        (0, 0),
+        width as usize,
+        Arithmetic::Negate,
+        position,
+    );
+    assert!(
+        read_logic(output.payload as u128, output.mask_xz as u128, position) == expected,
+        "negation semantics mismatch"
+    );
+    assert!(
+        output.width == width && output.signed == a.signed,
+        "negation semantics mismatch"
+    );
+    let known = a.mask_xz == 0;
+    let sign = 1u64 << (width - 1);
+    kani::cover!(width == 1, "one-bit negation is reachable");
+    kani::cover!(width == 64, "width-64 negation is reachable");
+    kani::cover!(known && a.payload == 0, "negation of zero is reachable");
+    kani::cover!(
+        known && width == 64 && a.payload == 0,
+        "native zero negation carry is reachable"
+    );
+    kani::cover!(
+        known && a.signed && a.payload == sign,
+        "minimum signed negation is reachable"
+    );
+    kani::cover!(
+        known && width == 64 && a.signed && a.payload == sign,
+        "native minimum signed negation is reachable"
+    );
+    kani::cover!(known && a.payload == 1, "negation of one is reachable");
+    kani::cover!(
+        a.mask_xz != 0 && a.payload == 0,
+        "negation source X is reachable"
+    );
+    kani::cover!(
+        (a.mask_xz & a.payload) != 0,
+        "negation source Z is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn native_unary_plus_matches_reference_semantics() {
+    use veryl_formal_semantics::resize::extended_logic_bit;
+    let before = operand(u32::from(kani::any::<u8>() & 63) + 1);
+    let requested = usize::from(kani::any::<u8>() & 63) + 1;
+    let use_sign: bool = kani::any();
+    let width = requested.max(before.width as usize);
+    let position = usize::from(kani::any::<u8>() & 63);
+    let expected = if position < before.width as usize {
+        arithmetic_bit(
+            (before.payload as u128, before.mask_xz as u128),
+            (0, 0),
+            before.width as usize,
+            Arithmetic::Plus,
+            position,
+        )
+    } else {
+        extended_logic_bit(
+            (before.payload as u128, before.mask_xz as u128),
+            before.width as usize,
+            width,
+            before.signed,
+            use_sign,
+            position,
+        )
+    };
+    let output = before.expand(requested, use_sign);
+    assert!(
+        read_logic(output.payload as u128, output.mask_xz as u128, position) == expected,
+        "unary-plus semantics mismatch"
+    );
+    assert!(
+        output.width as usize == width
+            && output.signed == (before.signed && (requested <= before.width as usize || use_sign)),
+        "unary-plus semantics mismatch"
+    );
+    kani::cover!(before.width == 1, "one-bit unary plus is reachable");
+    kani::cover!(width == 64, "width-64 unary plus is reachable");
+    kani::cover!(
+        requested > before.width as usize,
+        "unary plus growth is reachable"
+    );
+    kani::cover!(
+        requested == before.width as usize,
+        "unary plus equal width is reachable"
+    );
+    kani::cover!(
+        requested < before.width as usize,
+        "unary plus smaller request is reachable"
+    );
+    kani::cover!(
+        before.mask_xz != 0
+            && before.mask_xz != (u64::MAX >> (64 - before.width))
+            && before.payload == 0,
+        "unary plus preserves partial X"
+    );
+    kani::cover!(
+        (before.mask_xz & before.payload) != 0,
+        "unary plus preserves Z"
+    );
+    kani::cover!(
+        before.signed && !use_sign && requested > before.width as usize,
+        "unary plus disabled sign is reachable"
+    );
+    kani::cover!(
+        before.signed
+            && use_sign
+            && requested > before.width as usize
+            && (before.mask_xz & before.payload) & (1u64 << (before.width - 1)) != 0,
+        "unary plus extended Z is reachable"
+    );
+}

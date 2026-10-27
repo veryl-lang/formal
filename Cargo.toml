@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    "targets/analyzer/tests",
+    "targets/simulator/tests",
+    "targets/synthesizer/tests",
+    "targets/frontend/tests",
+    "targets/cache/tests",
+]
+exclude = [
+    "veryl",
+    "targets/analyzer/kani",
+    "targets/simulator/kani",
+    "targets/frontend/kani",
+    "targets/simulator/cbmc",
+    "targets/emitter/tests",
+    "semantics",
+    "support",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+log = "0.4.32"
+miette = "7.6"
+tokio = { version = "1.52.3", features = ["full"] }
