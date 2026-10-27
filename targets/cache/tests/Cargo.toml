@@ -1,0 +1,10 @@
+[package]
+name = "veryl-cache-contract-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dev-dependencies]
+veryl-cache = { path = "../../../veryl/crates/cache" }
+veryl-formal-runner = { path = "../../../support" }

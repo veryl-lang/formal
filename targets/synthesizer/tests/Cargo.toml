@@ -1,0 +1,15 @@
+[package]
+name = "veryl-synthesizer-contract-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dev-dependencies]
+veryl-synthesizer = { path = "../../../veryl/crates/synthesizer" }
+veryl-formal-semantics = { path = "../../../semantics" }
+veryl-formal-runner = { path = "../../../support" }
+
+veryl-analyzer = { path = "../../../veryl/crates/analyzer" }
+veryl-parser = { path = "../../../veryl/crates/parser" }
+veryl-metadata = { path = "../../../veryl/crates/metadata" }
