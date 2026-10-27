@@ -1,7 +1,7 @@
 #[path = "../../../contracts.rs"]
 mod contracts;
 use std::path::PathBuf;
-use veryl_formal_runner::{Mode, Options, Runner, USAGE};
+use veryl_formal_runner::{Backend, Mode, Options, Runner, USAGE};
 fn main() {
     let options = Options::parse(std::env::args().skip(1)).unwrap_or_else(|error| {
         eprintln!("{error}\n{USAGE}");
@@ -30,6 +30,13 @@ fn main() {
     } else {
         contracts::mutations(repo, &selected, true)
     };
+    // First-record window proofs include real allocation and direct writes;
+    // their CBMC runs can exceed one minute without finding a counterexample.
+    let harness_timeout = if selected.iter().any(|c| c.group == "window-log") {
+        "180s"
+    } else {
+        "60s"
+    };
     Runner {
         target: "simulator",
         repo,
@@ -43,5 +50,10 @@ fn main() {
         ],
         directories: &["veryl", "targets", "semantics", "support"],
     }
-    .run(options.mode, &selected, &mutations);
+    .run_with_backend(
+        Backend::Kani { harness_timeout },
+        options.mode,
+        &selected,
+        &mutations,
+    );
 }

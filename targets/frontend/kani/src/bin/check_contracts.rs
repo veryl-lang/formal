@@ -1,7 +1,7 @@
 #[path = "../../../contracts.rs"]
 mod contracts;
 use std::path::PathBuf;
-use veryl_formal_runner::{Backend, Mode, Options, Runner, USAGE};
+use veryl_formal_runner::{Mode, Options, Runner, USAGE};
 fn main() {
     let options = Options::parse(std::env::args().skip(1)).unwrap_or_else(|e| {
         eprintln!("{e}\n{USAGE}");
@@ -43,5 +43,5 @@ fn main() {
         ],
         directories: &["veryl", "targets", "semantics", "support"],
     }
-    .run_with_backend(Backend::Kani, options.mode, &selected, &mutations);
+    .run(options.mode, &selected, &mutations);
 }

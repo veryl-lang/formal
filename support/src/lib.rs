@@ -168,7 +168,9 @@ pub fn mutation_result(success: bool, log: &str, contract: &Contract) -> bool {
 
 #[derive(Clone, Copy)]
 pub enum Backend<'a> {
-    Kani,
+    Kani {
+        harness_timeout: &'a str,
+    },
     NativeTests {
         package: &'a str,
         test_target: &'a str,
@@ -196,13 +198,13 @@ pub fn native_mutation_result(exit_code: Option<i32>, log: &str, contract: &Cont
 impl Backend<'_> {
     fn name(self) -> &'static str {
         match self {
-            Self::Kani => "kani",
+            Self::Kani { .. } => "kani",
             Self::NativeTests { .. } => "native-tests",
         }
     }
     fn build_targets(self, repo: &Path, target: &Path, unique: &str) -> (PathBuf, PathBuf) {
         match self {
-            Self::Kani => (target.to_owned(), target.to_owned()),
+            Self::Kani { .. } => (target.to_owned(), target.to_owned()),
             Self::NativeTests { .. } => (
                 repo.join("target"),
                 target
@@ -213,7 +215,9 @@ impl Backend<'_> {
     }
     fn run(self, manifest: &Path, target: &Path, contract: &Contract) -> Output {
         match self {
-            Self::Kani => run_proof(manifest, target, contract),
+            Self::Kani { harness_timeout } => {
+                run_proof(manifest, target, contract, harness_timeout)
+            }
             Self::NativeTests {
                 package,
                 test_target,
@@ -245,13 +249,13 @@ impl Backend<'_> {
     }
     fn positive(self, success: bool, log: &str, contract: &Contract) -> bool {
         match self {
-            Self::Kani => positive_result(success, log, contract),
+            Self::Kani { .. } => positive_result(success, log, contract),
             Self::NativeTests { .. } => native_positive_result(success, log, contract),
         }
     }
     fn mutation(self, output: &Output, log: &str, contract: &Contract) -> bool {
         match self {
-            Self::Kani => mutation_result(output.status.success(), log, contract),
+            Self::Kani { .. } => mutation_result(output.status.success(), log, contract),
             Self::NativeTests { .. } => native_mutation_result(output.status.code(), log, contract),
         }
     }
@@ -265,7 +269,7 @@ fn output_text(output: &Output) -> String {
     )
 }
 
-fn run_proof(manifest: &Path, target: &Path, contract: &Contract) -> Output {
+fn run_proof(manifest: &Path, target: &Path, contract: &Contract, harness_timeout: &str) -> Output {
     Command::new("cargo")
         .args([
             "kani",
@@ -273,7 +277,7 @@ fn run_proof(manifest: &Path, target: &Path, contract: &Contract) -> Output {
             "--harness",
             contract.harness,
             "--harness-timeout",
-            "60s",
+            harness_timeout,
             "-Z",
             "unstable-options",
             "--manifest-path",
@@ -348,7 +352,14 @@ pub struct Runner<'a> {
 
 impl Runner<'_> {
     pub fn run(&self, mode: Mode, contracts: &[&Contract], mutations: &[Mutation]) {
-        self.run_with_backend(Backend::Kani, mode, contracts, mutations);
+        self.run_with_backend(
+            Backend::Kani {
+                harness_timeout: "60s",
+            },
+            mode,
+            contracts,
+            mutations,
+        );
     }
 
     pub fn run_with_backend(
@@ -369,7 +380,7 @@ impl Runner<'_> {
                 "native tests cannot satisfy Kani covers"
             );
         }
-        if matches!(backend, Backend::Kani) {
+        if matches!(backend, Backend::Kani { .. }) {
             let version = Command::new("cargo")
                 .args(["kani", "--version"])
                 .output()
@@ -477,7 +488,7 @@ impl Runner<'_> {
                 );
                 positives += 1;
                 match backend {
-                    Backend::Kani => println!(
+                    Backend::Kani { .. } => println!(
                         "PASS {} and {} reachability checks ({:.2}s wall, including build)",
                         contract.name,
                         contract.covers.len(),
@@ -569,7 +580,7 @@ impl Runner<'_> {
                     "PASS rejected {} with a {} ({:.2}s wall)",
                     mutant.name,
                     match backend {
-                        Backend::Kani => "semantic counterexample",
+                        Backend::Kani { .. } => "semantic counterexample",
                         Backend::NativeTests { .. } => "reference comparison failure",
                     },
                     start.elapsed().as_secs_f64()

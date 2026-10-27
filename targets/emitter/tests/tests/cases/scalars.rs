@@ -101,6 +101,10 @@ fn check_integer_cast_clears_unknown_bits() {
             expected.push(format!("{}{known}", fill.to_string().repeat(28)));
         }
         bench += "$display(\"complete\");$finish;end endmodule\n";
-        assert_eq!(common::execute(&source, &bench), expected);
+        assert_eq!(
+            common::execute(&source, &bench),
+            expected,
+            "emitter scalar output mismatch: integer cast signed={signed}"
+        );
     }
 }
