@@ -1,10 +1,11 @@
 //! Normalized, already-sized four-state operands at widths 1..=64. Checks modular
 //! add/subtract, negation, unary-plus expansion, and metadata. Public single-call
-//! add/subtract/negate proofs use a fresh cache, normalized source widths 1..=3,
+//! proofs use a fresh cache, normalized source widths 1..=3,
 //! independent source signs and caller sign, and natural/natural+2 result widths
-//! (1..=5). They check
-//! complete u128 getters, storage variant, metadata, and input preservation.
-//! The one-bit public dispatch check also retains unary-plus integration.
+//! (1..=5). They check complete u128 getters, storage variant, metadata, and input
+//! preservation. Unary plus observes an arbitrary getter bit; other public
+//! arithmetic proofs compare complete planes.
+//! The one-bit public dispatcher also checks raw native result fields.
 //! Shared-cache sequences, wider public operations, and traversal remain executable checks.
 //! X/Z unary plus checks the Table 11-6 identity interpretation documented in
 //! veryl_formal_semantics::arithmetic; it does not resolve the conflicting general X/Z sentence.
@@ -294,6 +295,66 @@ fn public_arithmetic_small_subtract_matches_reference_semantics() {
 #[kani::use_stub_set(small_native_arithmetic)]
 fn public_arithmetic_small_negate_matches_reference_semantics() {
     public_small_arithmetic::<2>();
+}
+
+// SV-UPLUS identity after preparation is one extended source bit. Arbitrary
+// observation of all 128 positions checks both getter planes, including padding,
+// without packing intermediate vectors. The reference identity is checked over
+// every four-state vector at these result widths in the arithmetic reference tests.
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_small_plus_matches_reference_semantics() {
+    use veryl_formal_semantics::logic4::Logic4;
+    use veryl_formal_semantics::resize::extended_logic_bit;
+    let (native, before) = public_input();
+    let input = Value::U64(native);
+    let grown: bool = kani::any();
+    let width = before.width + if grown { 2 } else { 0 };
+    let signed: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let output = Op::Add.eval_value_unary(&input, width, signed, &mut cache);
+    let expected = extended_logic_bit(
+        before.planes,
+        before.width,
+        width,
+        before.signed,
+        signed,
+        position,
+    );
+    assert!(
+        matches!(output, Value::U64(_))
+            && output.width() == width
+            && output.signed() == (before.signed && (!grown || signed))
+            && read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+        "public arithmetic semantics mismatch"
+    );
+    assert_public_input(&input, before);
+    kani::cover!(before.width == 1, "public plus source width 1 is reachable");
+    kani::cover!(before.width == 2, "public plus source width 2 is reachable");
+    kani::cover!(before.width == 3, "public plus source width 3 is reachable");
+    kani::cover!(grown, "public plus growth is reachable");
+    kani::cover!(!grown, "public plus natural width is reachable");
+    kani::cover!(
+        signed && before.signed && grown && expected == Logic4::One && position >= before.width,
+        "public plus sign extension is reachable"
+    );
+    kani::cover!(
+        !signed && before.signed && grown,
+        "public plus sign suppression is reachable"
+    );
+    kani::cover!(expected == Logic4::X, "public plus preserves X");
+    kani::cover!(expected == Logic4::Z, "public plus preserves Z");
+    kani::cover!(position == 127, "public plus u128 padding is reachable");
+    kani::cover!(
+        signed && before.signed && grown && position >= before.width && expected == Logic4::X,
+        "public plus extended X is reachable"
+    );
+    kani::cover!(
+        signed && before.signed && grown && position >= before.width && expected == Logic4::Z,
+        "public plus extended Z is reachable"
+    );
 }
 
 fn operand(width: u32) -> ValueU64 {

@@ -72,7 +72,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 14] = [
     "public arithmetic sign suppression is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 61] = [
+pub static CONTRACTS: [Contract; 62] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -708,6 +708,26 @@ pub static CONTRACTS: [Contract; 61] = [
             "public negation is reachable",
             "public unary plus is reachable",
             "public plus preserves Z",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-plus",
+        harness: "public_arithmetic_small_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "public plus source width 1 is reachable",
+            "public plus source width 2 is reachable",
+            "public plus source width 3 is reachable",
+            "public plus growth is reachable",
+            "public plus natural width is reachable",
+            "public plus sign extension is reachable",
+            "public plus sign suppression is reachable",
+            "public plus preserves X",
+            "public plus preserves Z",
+            "public plus u128 padding is reachable",
+            "public plus extended X is reachable",
+            "public plus extended Z is reachable",
         ],
     },
     Contract {
@@ -1912,7 +1932,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         for (name, contract_name, path, method, old, new) in [
             (
                 "unary-plus-poisons-unknown",
-                "public-arithmetic",
+                "public-arithmetic-plus",
                 "veryl/crates/analyzer/src/ir/op.rs",
                 "eval_value_unary",
                 "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
@@ -2599,6 +2619,49 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-plus") {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, new) in [
+            ("public-plus-skips-growth", "Op::Add => { x.clone() }"),
+            (
+                "public-plus-adopts-caller-sign",
+                "Op::Add => { let x = x.expand(width, signed); let mut ret = x.into_owned(); if let Value::U64(v) = &mut ret { v.signed = signed; } ret }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name, contract, path,
+                source: mutate_method(&source, "eval_value_unary",
+                    "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }", new),
+            });
+        }
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-plus-loses-extended-Z",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "expand", "mask_xz |= mask;", ""),
+        });
+        for (name, old, new) in [
+            (
+                "public-plus-upper-payload-leak",
+                "Self::U64(x) => x.payload as u128,",
+                "Self::U64(x) => (x.payload as u128) | if x.width == 5 { 1u128 << 100 } else { 0 },",
+            ),
+            (
+                "public-plus-upper-xz-leak",
+                "Self::U64(x) => x.mask_xz as u128,",
+                "Self::U64(x) => (x.mask_xz as u128) | if x.width == 5 { 1u128 << 64 } else { 0 },",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
             });
         }
     }

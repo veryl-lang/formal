@@ -1,6 +1,6 @@
-//! Fresh-cache small binary arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
-//! Execute its first call to preserve cache history, then compare later shared-cache
-//! results. Wider/BigUint operations, unary sequences, and reference anchors remain here.
+//! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
+//! Execute every call to preserve cache history, then compare later shared-cache
+//! results. Wider/BigUint operations, sentinels, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
@@ -65,11 +65,18 @@ fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
 fn check_unary(a: Operand, widths: &[usize]) {
     let x = Value::from_u128(a.planes.0, a.planes.1, a.width, a.signed);
     let mut cache = MaskCache::default();
+    let mut fresh = true;
     for &width in widths {
         for signed in [false, true] {
             let ap = prepared(a, width, signed);
             for (op, kind) in [(Op::Add, Arithmetic::Plus), (Op::Sub, Arithmetic::Negate)] {
                 let result = op.eval_value_unary(&x, width, signed, &mut cache);
+                let covered_first =
+                    fresh && op == Op::Add && small_normalized(a) && width == a.width;
+                fresh = false;
+                if covered_first {
+                    continue;
+                }
                 assert_eq!(
                     (result.payload_u128(), result.mask_xz_u128()),
                     arithmetic_planes(ap, (0, 0), width, kind),

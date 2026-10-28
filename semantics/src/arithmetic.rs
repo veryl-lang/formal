@@ -109,14 +109,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unary_plus_identity_interpretation_preserves_four_state_bits() {
-        for input in [(1, 2), (3, 2), (0, 3), (3, 3), (3, 0)] {
-            assert_eq!(arithmetic_planes(input, (0, 0), 2, Arithmetic::Plus), input);
-            for bit in 0..=2 {
-                assert_eq!(
-                    arithmetic_bit(input, (0, 0), 2, Arithmetic::Plus, bit),
-                    read_logic(input.0, input.1, bit)
-                );
+    fn unary_plus_identity_covers_all_small_four_state_vectors() {
+        use Logic4::{One, X, Z, Zero};
+        let encoding = [Zero, One, X, Z];
+        for width in 1..=5 {
+            let limit = 1u128 << width;
+            for payload in 0..limit {
+                for mask_xz in 0..limit {
+                    let input = (payload, mask_xz);
+                    assert_eq!(
+                        arithmetic_planes(input, (0, 0), width, Arithmetic::Plus),
+                        input
+                    );
+                    for position in 0..128 {
+                        let expected = if position < width {
+                            let code =
+                                ((payload >> position) & 1) + 2 * ((mask_xz >> position) & 1);
+                            encoding[code as usize]
+                        } else {
+                            Zero
+                        };
+                        assert_eq!(
+                            arithmetic_bit(input, (0, 0), width, Arithmetic::Plus, position),
+                            expected
+                        );
+                    }
+                }
             }
         }
     }

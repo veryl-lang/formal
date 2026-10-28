@@ -192,6 +192,7 @@ pub const SHARDS: &[Shard] = &[
             "public-arithmetic-add",
             "public-arithmetic-subtract",
             "public-arithmetic",
+            "public-arithmetic-plus",
             "public-arithmetic-negate",
             "context-merge",
             "context-unary",
