@@ -1,5 +1,5 @@
-//! Public small selection domains are proved in targets/analyzer/kani/src/selection.rs.
-//! Retain wider/BigUint and distant endpoints plus independent model checks.
+//! Public native selection domains are proved in targets/analyzer/kani/src/selection.rs.
+//! Retain BigUint cases and independent model checks; native endpoints are quantified.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::Logic4;
@@ -31,18 +31,9 @@ fn check_selection(payload: u128, mask_xz: u128, width: usize, beg: usize, end: 
     }
 }
 
-// Match the public small proof's complete domain before dropping a native case.
-fn covered_small_selection(payload: u128, xz: u128, width: usize, beg: usize, end: usize) -> bool {
-    (1..=4).contains(&width)
-        && payload < (1u128 << width)
-        && xz < (1u128 << width)
-        && beg <= width + 2
-        && end <= width + 2
-}
-
 #[test]
 fn selection_native_biguint_boundaries() {
-    for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
+    for width in [65, 127, 128] {
         let mask = u128::MAX >> (128 - width);
         for (payload, mask_xz) in [
             (0, 0),
@@ -71,13 +62,6 @@ fn selection_native_biguint_boundaries() {
                 (0, 1),
                 (0, usize::MAX),
             ] {
-                // Native results cannot represent more than 64 stored bits.
-                if width <= 64 && beg >= end && beg - end >= 64 {
-                    continue;
-                }
-                if covered_small_selection(payload, mask_xz, width, beg, end) {
-                    continue;
-                }
                 check_selection(payload, mask_xz, width, beg, end);
             }
         }

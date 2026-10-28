@@ -95,25 +95,26 @@ pub static CONTRACTS: [Contract; 67] = [
     },
     Contract {
         group: "values",
-        name: "public-selection-small",
-        harness: "public_selection_small_matches_reference_semantics",
+        name: "public-selection-native",
+        harness: "public_selection_native_matches_reference_semantics",
         message: "public selection semantics mismatch",
         covers: &[
-            "public selection width 1 is reachable",
-            "public selection width 2 is reachable",
-            "public selection width 3 is reachable",
-            "public selection width 4 is reachable",
-            "public selection reversed endpoints are reachable",
-            "public selection one bit is reachable",
-            "public selection full source is reachable",
-            "public selection missing source is reachable",
-            "public selection overlap is reachable",
-            "public selection highest endpoint is reachable",
-            "public selection maximum end is reachable",
-            "public selection source X is reachable",
-            "public selection source Z is reachable",
-            "public selection signed source is reachable",
-            "public selection u128 padding is reachable",
+            "public native selection source width 1 is reachable",
+            "public native selection source width 64 is reachable",
+            "public native selection reversed endpoints are reachable",
+            "public native selection single bit is reachable",
+            "public native selection 64-bit result is reachable",
+            "public native selection full source is reachable",
+            "public native selection missing source is reachable",
+            "public native selection partial overlap is reachable",
+            "public native selection maximum single endpoint is reachable",
+            "public native selection maximum range is reachable",
+            "public native selection maximum reversed endpoint is reachable",
+            "public native selection signed source is reachable",
+            "public native selection unsigned source is reachable",
+            "public native selection source X is reachable",
+            "public native selection source Z is reachable",
+            "public native selection u128 padding is reachable",
         ],
     },
     Contract {
@@ -3058,7 +3059,10 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             });
         }
     }
-    if let Some(&contract) = selected.iter().find(|c| c.name == "public-selection-small") {
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-selection-native")
+    {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         let old = "Self::U64(x) => Self::U64(x.select(beg, end)),";
         for (name, new) in [
@@ -3073,6 +3077,14 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             (
                 "public-selection-clips-missing-width",
                 "Self::U64(x) => { let mut ret = x.select(beg, end); if ret.width > x.width { ret.trunc(x.width as usize); } Self::U64(ret) },",
+            ),
+            (
+                "public-selection-drops-upper-source",
+                "Self::U64(x) => { let mut x = x.clone(); x.payload &= u32::MAX as u64; Self::U64(x.select(beg, end)) },",
+            ),
+            (
+                "public-selection-missing-bits-are-zero",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); if end >= x.width as usize { ret.mask_xz = 0; } Self::U64(ret) },",
             ),
         ] {
             mutations.push(Mutation {
