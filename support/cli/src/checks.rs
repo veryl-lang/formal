@@ -508,7 +508,7 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
     for step in &mut steps {
         step.env
             .insert("CARGO_TARGET_DIR".into(), "$ROOT/target".into());
-        if check == "simulator-backend-contracts" {
+        if matches!(check, "simulator-backend-contracts" | "emitter-contracts") {
             step.env.insert(
                 "VERYL_AOT_CACHE_DIR".into(),
                 "$ROOT/target/formal-aot-cache".into(),
