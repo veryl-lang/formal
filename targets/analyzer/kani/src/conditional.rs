@@ -1,5 +1,6 @@
 //! Normalized native branches, resolved width/sign, and arbitrary four-state conditions;
-//! a separate public-path proof is one bit. Ambiguous common Z follows Table 11-20.
+//! Public dispatch adds fixed (3, 2)->5 and (64, 32)->64 layouts to one bit.
+//! Their requested widths are 5 and 1 respectively; common Z follows Table 11-20.
 //! No general context propagation or optimizer theorem follows.
 
 use veryl_analyzer::value::Value;
@@ -213,4 +214,76 @@ fn native_conditional_matches_reference_semantics() {
         condition == Some(false) && a.width > b.width && requested < a.width as usize,
         "unselected arm determines width"
     );
+}
+
+// Fixed layouts avoid symbolic dispatch into the BigUint fallback;
+// values, all four states, signedness, and the observed bit remain symbolic.
+// W is the expected output width; R is the requested context width.
+// This proves value dispatch with resolved sizing, not expression-tree traversal.
+fn public_layout<const A: u32, const B: u32, const W: usize, const R: usize>() {
+    fn input(width: u32) -> ValueU64 {
+        let mask = u64::MAX >> (64 - width);
+        ValueU64 {
+            payload: kani::any::<u64>() & mask,
+            mask_xz: kani::any::<u64>() & mask,
+            width,
+            signed: kani::any(),
+        }
+    }
+    let c = input(1);
+    let a = input(A);
+    let b = input(B);
+    let signed: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 63);
+    let condition = read_logic(c.payload as u128, c.mask_xz as u128, 0);
+    let expected = conditional_logic_bit(
+        condition,
+        ((a.payload as u128, a.mask_xz as u128), A as usize, a.signed),
+        ((b.payload as u128, b.mask_xz as u128), B as usize, b.signed),
+        W,
+        signed,
+        position,
+    );
+    let extended_signed = b.signed && signed;
+    let output = Value::U64(c).conditional(&Value::U64(a), &Value::U64(b), R, signed);
+    let Value::U64(output) = output else {
+        panic!("unexpected BigUint result");
+    };
+    let mask = u64::MAX >> (64 - W);
+    assert!(
+        read_logic(output.payload as u128, output.mask_xz as u128, position) == expected
+            && output.width as usize == W
+            && output.signed == signed
+            && output.payload & !mask == 0
+            && output.mask_xz & !mask == 0,
+        "public conditional layout semantics mismatch"
+    );
+    kani::cover!(
+        condition == Logic4::X,
+        "public layout condition X is reachable"
+    );
+    kani::cover!(
+        condition == Logic4::Z,
+        "public layout condition Z is reachable"
+    );
+    kani::cover!(
+        condition == Logic4::Zero && extended_signed && position == W - 1,
+        "public layout signed extension is reachable"
+    );
+    kani::cover!(
+        condition == Logic4::Zero && !extended_signed && position == W - 1,
+        "public layout unsigned extension is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_conditional_widened_matches_reference_semantics() {
+    public_layout::<3, 2, 5, 5>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_conditional_word_matches_reference_semantics() {
+    public_layout::<64, 32, 64, 1>();
 }

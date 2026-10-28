@@ -169,6 +169,8 @@ pub const SHARDS: &[Shard] = &[
             "condition-truth",
             "conditional",
             "public-conditional",
+            "public-conditional-widened",
+            "public-conditional-word",
         ],
     ),
     Shard::value(

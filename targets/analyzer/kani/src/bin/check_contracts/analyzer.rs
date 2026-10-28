@@ -4,7 +4,7 @@ use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
-pub static CONTRACTS: [Contract; 47] = [
+pub static CONTRACTS: [Contract; 49] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -460,6 +460,30 @@ pub static CONTRACTS: [Contract; 47] = [
             "public condition X is reachable",
             "public condition Z is reachable",
             "public common Z becomes X",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-widened",
+        harness: "public_conditional_widened_matches_reference_semantics",
+        message: "public conditional layout semantics mismatch",
+        covers: &[
+            "public layout condition X is reachable",
+            "public layout condition Z is reachable",
+            "public layout signed extension is reachable",
+            "public layout unsigned extension is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-word",
+        harness: "public_conditional_word_matches_reference_semantics",
+        message: "public conditional layout semantics mismatch",
+        covers: &[
+            "public layout condition X is reachable",
+            "public layout condition Z is reachable",
+            "public layout signed extension is reachable",
+            "public layout unsigned extension is reachable",
         ],
     },
     Contract {
@@ -1261,6 +1285,16 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "mask_xz: (on_true.mask_xz & same) | (mask ^ same),",
             "mask_xz: on_false.mask_xz,",
         );
+        let public_conditional_ignores_context_width = replace_once(
+            &source,
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "return Self::U64(a.conditional(b, condition, 1, signed));",
+        );
+        let public_conditional_truncates_word = replace_once(
+            &source,
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); value.trunc(32); return value;",
+        );
         let addition_as_subtraction = mutate_method(
             &source,
             "add_sub",
@@ -1624,6 +1658,16 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "legacy-conditional-false",
                 contract("public-conditional"),
                 legacy_conditional_false,
+            ),
+            (
+                "public-conditional-ignores-context-width",
+                contract("public-conditional-widened"),
+                public_conditional_ignores_context_width,
+            ),
+            (
+                "public-conditional-truncates-word",
+                contract("public-conditional-word"),
+                public_conditional_truncates_word,
             ),
             (
                 "addition-as-subtraction",
