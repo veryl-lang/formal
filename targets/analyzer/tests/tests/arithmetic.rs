@@ -1,8 +1,8 @@
 //! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
 //! Execute every call to preserve cache history. Kani covers the first binary
-//! Add/Sub pair and first six unary calls (natural width, then width + 2)
-//! for normalized sources at widths 1..=3.
-//! Compare later results after executing the complete prefix on the same cache.
+//! Add/Sub pair and all eight unary calls (natural width, then width + 2)
+//! for normalized sources at widths 1..=3. The unary exhaustive run is subsumed.
+//! Boundary sequences still execute every call and compare results outside that scope.
 //! Wider/BigUint operations, sentinels, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
 use veryl_analyzer::ir::Op;
@@ -83,6 +83,8 @@ fn check_unary(a: Operand, widths: &[usize]) {
         (Op::Sub, true, 0),
         (Op::Add, false, 2),
         (Op::Sub, false, 2),
+        (Op::Add, true, 2),
+        (Op::Sub, true, 2),
     ];
     for &width in widths {
         for signed in [false, true] {
@@ -117,7 +119,7 @@ fn check_unary(a: Operand, widths: &[usize]) {
 }
 
 #[test]
-fn arithmetic_exhaustive_four_state_small_widths() {
+fn arithmetic_binary_exhaustive_four_state_small_widths() {
     for a_width in 1..=3 {
         for a_state in 0..(1u128 << (a_width * 2)) {
             for a_signed in [false, true] {
@@ -126,7 +128,6 @@ fn arithmetic_exhaustive_four_state_small_widths() {
                     width: a_width,
                     signed: a_signed,
                 };
-                check_unary(a, &[a_width, a_width + 2]);
                 for b_width in 1..=3 {
                     for b_state in 0..(1u128 << (b_width * 2)) {
                         for b_signed in [false, true] {

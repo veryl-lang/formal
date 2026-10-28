@@ -197,6 +197,8 @@ pub const SHARDS: &[Shard] = &[
             "public-arithmetic-negate-after-signed-plus",
             "public-arithmetic-unsigned-growth-plus",
             "public-arithmetic-unsigned-growth-negate",
+            "public-arithmetic-signed-growth-plus",
+            "public-arithmetic-signed-growth-negate",
             "public-arithmetic",
             "public-arithmetic-plus",
             "public-arithmetic-negate",

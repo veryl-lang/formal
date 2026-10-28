@@ -73,7 +73,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 68] = [
+pub static CONTRACTS: [Contract; 70] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -804,6 +804,50 @@ pub static CONTRACTS: [Contract; 68] = [
             "unary widened sequence X result is reachable",
             "unary widened sequence known one is reachable",
             "unary widened sequence u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-signed-growth-plus",
+        harness: "public_arithmetic_signed_growth_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed growth source width 1 is reachable",
+            "unary signed growth source width 2 is reachable",
+            "unary signed growth source width 3 is reachable",
+            "unary signed growth result width 3 is reachable",
+            "unary signed growth result width 4 is reachable",
+            "unary signed growth result width 5 is reachable",
+            "unary signed growth signed source is reachable",
+            "unary signed growth unsigned source is reachable",
+            "unary signed growth negative signed source is reachable",
+            "unary signed growth X result is reachable",
+            "unary signed growth known one is reachable",
+            "unary signed growth u128 padding is reachable",
+            "unary signed growth extends one",
+            "unary signed growth extends X",
+            "unary signed growth extends Z",
+            "unary signed growth zero-extends unsigned source",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-signed-growth-negate",
+        harness: "public_arithmetic_signed_growth_negate_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed growth source width 1 is reachable",
+            "unary signed growth source width 2 is reachable",
+            "unary signed growth source width 3 is reachable",
+            "unary signed growth result width 3 is reachable",
+            "unary signed growth result width 4 is reachable",
+            "unary signed growth result width 5 is reachable",
+            "unary signed growth signed source is reachable",
+            "unary signed growth unsigned source is reachable",
+            "unary signed growth negative signed source is reachable",
+            "unary signed growth X result is reachable",
+            "unary signed growth known one is reachable",
+            "unary signed growth u128 padding is reachable",
         ],
     },
     Contract {
@@ -2874,6 +2918,49 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "if self.is_xz() {",
                 "if self.is_xz() && width <= 3 {",
             ),
+        });
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-arithmetic-signed-growth-plus",
+            "unary-signed-growth-plus-zero-extends",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let x = x.expand(width, false); x.into_owned() }",
+        ),
+        (
+            "public-arithmetic-signed-growth-negate",
+            "unary-signed-growth-negate-returns-plus",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => Value::U64(if signed && width > 3 { x.clone() } else { x.negate(width) }),",
+        ),
+        (
+            "public-arithmetic-signed-growth-negate",
+            "unary-signed-growth-negate-upper-leak",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut result = x.negate(width); if signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-signed-growth-plus")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-signed-growth-plus-loses-extended-xz",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "expand", "mask_xz |= mask;", "mask_xz |= 0;"),
         });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {

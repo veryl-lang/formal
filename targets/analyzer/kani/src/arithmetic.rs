@@ -922,3 +922,140 @@ fn public_arithmetic_unsigned_growth_plus_matches_reference_semantics() {
 fn public_arithmetic_unsigned_growth_negate_matches_reference_semantics() {
     public_unary_widened_unsigned::<true>();
 }
+
+// Observe calls 7 and 8 after the natural-width and unsigned widened pairs on
+// the same cache. Sources cover normalized widths 1..=3, both signs and every
+// four-state plane; results have width + 2. The signed caller sign-extends signed
+// sources, and zero-extends unsigned sources (IEEE 1800 11.8.2).
+// Unary plus follows the model's documented Table 11-6 identity interpretation.
+fn public_unary_widened_signed<const NEGATE: bool>() {
+    use veryl_formal_semantics::logic4::Logic4;
+    let (native, before) = public_input();
+    let input = Value::U64(native);
+    let natural = before.width;
+    let width = natural + 2;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let _ = Op::Add.eval_value_unary(&input, natural, false, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, natural, false, &mut cache);
+    let _ = Op::Add.eval_value_unary(&input, natural, true, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, natural, true, &mut cache);
+    let _ = Op::Add.eval_value_unary(&input, width, false, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, width, false, &mut cache);
+    let plus = Op::Add.eval_value_unary(&input, width, true, &mut cache);
+    let output = if NEGATE {
+        Op::Sub.eval_value_unary(&input, width, true, &mut cache)
+    } else {
+        plus
+    };
+    let Value::U64(native) = output else {
+        panic!("public arithmetic semantics mismatch");
+    };
+    let output = Value::U64(native);
+    let expected = if NEGATE {
+        veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+            before,
+            before,
+            width,
+            true,
+            Arithmetic::Negate,
+            position,
+        )
+    } else {
+        veryl_formal_semantics::resize::extended_logic_bit(
+            before.planes,
+            natural,
+            width,
+            before.signed,
+            true,
+            position,
+        )
+    };
+    assert!(
+        output.width() == width
+            && output.signed() == before.signed
+            && read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+        "public arithmetic semantics mismatch"
+    );
+    assert_public_input(&input, before);
+    kani::cover!(
+        natural == 1,
+        "unary signed growth source width 1 is reachable"
+    );
+    kani::cover!(
+        natural == 2,
+        "unary signed growth source width 2 is reachable"
+    );
+    kani::cover!(
+        natural == 3,
+        "unary signed growth source width 3 is reachable"
+    );
+    kani::cover!(
+        width == 3,
+        "unary signed growth result width 3 is reachable"
+    );
+    kani::cover!(
+        width == 4,
+        "unary signed growth result width 4 is reachable"
+    );
+    kani::cover!(
+        width == 5,
+        "unary signed growth result width 5 is reachable"
+    );
+    kani::cover!(
+        before.signed,
+        "unary signed growth signed source is reachable"
+    );
+    kani::cover!(
+        !before.signed,
+        "unary signed growth unsigned source is reachable"
+    );
+    kani::cover!(
+        before.signed && before.planes.1 == 0 && before.planes.0 & (1 << (natural - 1)) != 0,
+        "unary signed growth negative signed source is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "unary signed growth X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "unary signed growth known one is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "unary signed growth u128 padding is reachable"
+    );
+    if !NEGATE {
+        kani::cover!(
+            before.signed && position >= natural && position < width && expected == Logic4::One,
+            "unary signed growth extends one"
+        );
+        kani::cover!(
+            before.signed && position >= natural && position < width && expected == Logic4::X,
+            "unary signed growth extends X"
+        );
+        kani::cover!(
+            before.signed && position >= natural && position < width && expected == Logic4::Z,
+            "unary signed growth extends Z"
+        );
+        kani::cover!(
+            !before.signed && position >= natural && position < width && expected == Logic4::Zero,
+            "unary signed growth zero-extends unsigned source"
+        );
+    }
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_signed_growth_plus_matches_reference_semantics() {
+    public_unary_widened_signed::<false>();
+}
+
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_signed_growth_negate_matches_reference_semantics() {
+    public_unary_widened_signed::<true>();
+}
