@@ -692,3 +692,102 @@ fn public_arithmetic_negate_after_plus_matches_reference_semantics() {
         "unary initial pair u128 padding is reachable"
     );
 }
+
+// Continue the executable unary trace at natural width: unsigned Plus/Negate,
+// then signed Plus/Negate. Each proof observes its own result after executing
+// every preceding call on the same cache. Earlier outputs have separate proofs.
+// Sources span all normalized four-state values and both signs at widths 1..=3.
+// Result metadata follows 11.8.2; unary plus uses the model's Table 11-6 reading.
+fn public_unary_signed_after_initial<const NEGATE: bool>() {
+    use veryl_formal_semantics::logic4::Logic4;
+    let (native, before) = public_input();
+    let input = Value::U64(native);
+    let width = before.width;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let _ = Op::Add.eval_value_unary(&input, width, false, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, width, false, &mut cache);
+    let plus = Op::Add.eval_value_unary(&input, width, true, &mut cache);
+    let output = if NEGATE {
+        Op::Sub.eval_value_unary(&input, width, true, &mut cache)
+    } else {
+        plus
+    };
+    assert!(
+        matches!(output, Value::U64(_))
+            && output.width() == width
+            && output.signed() == before.signed,
+        "public arithmetic semantics mismatch"
+    );
+    if NEGATE {
+        let expected = veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+            before,
+            before,
+            width,
+            true,
+            Arithmetic::Negate,
+            position,
+        );
+        assert!(
+            read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+            "public arithmetic semantics mismatch"
+        );
+        kani::cover!(
+            expected == Logic4::X,
+            "unary signed sequence X result is reachable"
+        );
+        kani::cover!(
+            expected == Logic4::One,
+            "unary signed sequence known one is reachable"
+        );
+        kani::cover!(
+            position == 127,
+            "unary signed sequence u128 padding is reachable"
+        );
+    } else {
+        // At unchanged width, the model's unary-plus identity is the source
+        // planes themselves. Equality checks padding through bit 127 as well.
+        assert!(
+            output.payload_u128() == before.planes.0 && output.mask_xz_u128() == before.planes.1,
+            "public arithmetic semantics mismatch"
+        );
+        kani::cover!(
+            before.planes.1 & !before.planes.0 != 0,
+            "unary signed sequence X result is reachable"
+        );
+        kani::cover!(
+            before.planes.1 == 0 && before.planes.0 != 0,
+            "unary signed sequence known one is reachable"
+        );
+        kani::cover!(
+            before.planes.1 & before.planes.0 != 0,
+            "unary signed sequence Z result is reachable"
+        );
+    }
+    assert_public_input(&input, before);
+    kani::cover!(width == 1, "unary signed sequence width 1 is reachable");
+    kani::cover!(width == 2, "unary signed sequence width 2 is reachable");
+    kani::cover!(width == 3, "unary signed sequence width 3 is reachable");
+    kani::cover!(
+        before.signed,
+        "unary signed sequence signed source is reachable"
+    );
+    kani::cover!(
+        !before.signed,
+        "unary signed sequence unsigned source is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_plus_after_unsigned_pair_matches_reference_semantics() {
+    public_unary_signed_after_initial::<false>();
+}
+
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_negate_after_signed_plus_matches_reference_semantics() {
+    public_unary_signed_after_initial::<true>();
+}

@@ -73,7 +73,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 64] = [
+pub static CONTRACTS: [Contract; 66] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -732,6 +732,38 @@ pub static CONTRACTS: [Contract; 64] = [
             "unary initial pair unsigned source is reachable",
             "unary initial pair X result is reachable",
             "unary initial pair u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-plus-after-unsigned-pair",
+        harness: "public_arithmetic_plus_after_unsigned_pair_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed sequence width 1 is reachable",
+            "unary signed sequence width 2 is reachable",
+            "unary signed sequence width 3 is reachable",
+            "unary signed sequence signed source is reachable",
+            "unary signed sequence unsigned source is reachable",
+            "unary signed sequence X result is reachable",
+            "unary signed sequence known one is reachable",
+            "unary signed sequence Z result is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-negate-after-signed-plus",
+        harness: "public_arithmetic_negate_after_signed_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed sequence width 1 is reachable",
+            "unary signed sequence width 2 is reachable",
+            "unary signed sequence width 3 is reachable",
+            "unary signed sequence signed source is reachable",
+            "unary signed sequence unsigned source is reachable",
+            "unary signed sequence X result is reachable",
+            "unary signed sequence known one is reachable",
+            "unary signed sequence u128 padding is reachable",
         ],
     },
     Contract {
@@ -2714,6 +2746,44 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "ret.payload = (ret.payload & mask) | (1u64 << 63);",
             ),
         });
+    }
+    // These mutations preserve the unsigned prefix and corrupt only signed calls.
+    for (contract_name, name, old, new) in [
+        (
+            "public-arithmetic-plus-after-unsigned-pair",
+            "unary-signed-plus-grows-natural-width",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let x = x.expand(width + usize::from(signed), signed); x.into_owned() }",
+        ),
+        (
+            "public-arithmetic-plus-after-unsigned-pair",
+            "unary-signed-plus-upper-leak",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let mut result = x.expand(width, signed).into_owned(); if signed { if let Value::U64(x) = &mut result { x.payload |= 1u64 << 63; } } result }",
+        ),
+        (
+            "public-arithmetic-negate-after-signed-plus",
+            "unary-signed-negate-returns-plus",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => Value::U64(if signed { x.clone() } else { x.negate(width) }),",
+        ),
+        (
+            "public-arithmetic-negate-after-signed-plus",
+            "unary-signed-negate-upper-leak",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut result = x.negate(width); if signed { result.payload |= 1u64 << 63; } Value::U64(result) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", old, new),
+            });
+        }
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();

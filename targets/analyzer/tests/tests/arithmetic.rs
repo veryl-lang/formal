@@ -1,6 +1,7 @@
 //! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
 //! Execute every call to preserve cache history. Kani covers the first binary
-//! Add/Sub pair and unary +/− pair in small layouts; compare later results.
+//! Add/Sub pair and first four natural-width unary calls in small layouts.
+//! Compare later results after executing the complete prefix on the same cache.
 //! Wider/BigUint operations, sentinels, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
 use veryl_analyzer::ir::Op;
@@ -74,7 +75,12 @@ fn check_unary(a: Operand, widths: &[usize]) {
     let mut cache = MaskCache::default();
     let mut calls = 0;
     let mut prefix_matches = true;
-    let prefix = [(Op::Add, false), (Op::Sub, false)];
+    let prefix = [
+        (Op::Add, false),
+        (Op::Sub, false),
+        (Op::Add, true),
+        (Op::Sub, true),
+    ];
     for &width in widths {
         for signed in [false, true] {
             let ap = prepared(a, width, signed);
