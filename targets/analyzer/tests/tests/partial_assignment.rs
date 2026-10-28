@@ -1,6 +1,9 @@
-//! Tests share the executable Rust reference semantics with the Kani proofs.
+//! Public Value dispatch and conversions complement the native assignment proof.
+//! Native bit/metadata semantics are proved in
+//! `targets/analyzer/kani/src/partial_assignment.rs`. Reference truth tables and
+//! native/BigUint integration remain executable checks.
 
-use veryl_analyzer::value::{Value, ValueU64};
+use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
 use veryl_formal_semantics::partial_assignment::{assigned_logic_bit, reference_plane};
 
@@ -21,58 +24,6 @@ fn assignment_contract_reference_semantics_four_state_truth_table() {
             assigned_logic_bit((payload, mask_xz), (0, 0), 0, 1, 1),
             expected
         );
-    }
-}
-
-#[test]
-fn assignment_contract_exhaustive_four_state_small_widths() {
-    for width in 1..=4 {
-        let mask = (1u64 << width) - 1;
-        // Each payload/mask_xz pair represents one of 0, 1, x, z per bit.
-        let states = 1u64 << (2 * width);
-        for dst_state in 0..states {
-            for rhs_state in 0..states {
-                let dst_payload = dst_state & mask;
-                let dst_xz = dst_state >> width;
-                let rhs_payload = rhs_state & mask;
-                let rhs_xz = rhs_state >> width;
-                for beg in 0..width {
-                    for end in 0..=beg {
-                        for signed in [false, true] {
-                            let mut actual = ValueU64 {
-                                payload: dst_payload,
-                                mask_xz: dst_xz,
-                                width: width as u32,
-                                signed,
-                            };
-                            let rhs = ValueU64 {
-                                payload: rhs_payload,
-                                mask_xz: rhs_xz,
-                                width: width as u32,
-                                signed: !signed,
-                            };
-                            actual.assign(rhs, beg, end);
-                            assert_eq!(
-                                actual.payload as u128,
-                                reference_plane(
-                                    dst_payload as u128,
-                                    rhs_payload as u128,
-                                    width,
-                                    beg,
-                                    end,
-                                )
-                            );
-                            assert_eq!(
-                                actual.mask_xz as u128,
-                                reference_plane(dst_xz as u128, rhs_xz as u128, width, beg, end,)
-                            );
-                            assert_eq!(actual.width as usize, width);
-                            assert_eq!(actual.signed, signed);
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
