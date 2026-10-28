@@ -4,7 +4,76 @@ use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
-pub static CONTRACTS: [Contract; 47] = [
+const PUBLIC_RESIZE_COVERS: [&str; 6] = [
+    "public resize request 1 is reachable",
+    "public resize request 2 is reachable",
+    "public resize request 3 is reachable",
+    "public resize request 4 is reachable",
+    "public resize request 5 is reachable",
+    "public resize request 6 is reachable",
+];
+
+const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
+    "public condition zero is reachable",
+    "public condition one is reachable",
+    "public condition X is reachable",
+    "public condition Z is reachable",
+    "public common Z becomes X",
+    "small conditional one-bit condition is reachable",
+    "small conditional two-bit condition is reachable",
+    "small conditional zero context is reachable",
+    "small conditional unit context is reachable",
+    "small conditional wide context is reachable",
+    "small conditional known one dominates unknown",
+    "small conditional signed extension is reachable",
+    "small conditional sign suppression is reachable",
+    "small conditional u128 padding is reachable",
+];
+
+const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
+    "public assignment source width 1 is reachable",
+    "public assignment source width 4 is reachable",
+    "public assignment source width 63 is reachable",
+    "public assignment source width 64 is reachable",
+    "public assignment ignored write is reachable",
+    "public assignment clipped write is reachable",
+    "public assignment reversed endpoints are reachable",
+    "public assignment maximum high bound is reachable",
+    "public assignment maximum low bound is reachable",
+    "public assignment full destination is reachable",
+    "public assignment X result is reachable",
+    "public assignment Z result is reachable",
+    "public assignment different signs are reachable",
+    "public assignment u128 padding is reachable",
+    "public assignment destination width 1 is reachable",
+    "public assignment destination width 4 is reachable",
+    "public assignment destination width 14 is reachable",
+    "public assignment destination width 32 is reachable",
+    "public assignment destination width 63 is reachable",
+    "public assignment destination width 64 is reachable",
+    "public assignment source width 14 is reachable",
+    "public assignment source width 32 is reachable",
+];
+
+const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
+    "public arithmetic operation is reachable",
+    "public arithmetic source width 1 is reachable",
+    "public arithmetic source width 2 is reachable",
+    "public arithmetic source width 3 is reachable",
+    "public arithmetic result width 1 is reachable",
+    "public arithmetic result width 5 is reachable",
+    "public arithmetic signed context is reachable",
+    "public arithmetic unsigned context is reachable",
+    "public arithmetic growth is reachable",
+    "public arithmetic natural width is reachable",
+    "public arithmetic source X is reachable",
+    "public arithmetic source Z is reachable",
+    "public arithmetic signed extension is reachable",
+    "public arithmetic sign suppression is reachable",
+    "public arithmetic u128 padding is reachable",
+];
+
+pub static CONTRACTS: [Contract; 64] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -35,6 +104,29 @@ pub static CONTRACTS: [Contract; 47] = [
     },
     Contract {
         group: "values",
+        name: "public-selection-small",
+        harness: "public_selection_small_matches_reference_semantics",
+        message: "public selection semantics mismatch",
+        covers: &[
+            "public selection width 1 is reachable",
+            "public selection width 2 is reachable",
+            "public selection width 3 is reachable",
+            "public selection width 4 is reachable",
+            "public selection reversed endpoints are reachable",
+            "public selection one bit is reachable",
+            "public selection full source is reachable",
+            "public selection missing source is reachable",
+            "public selection overlap is reachable",
+            "public selection highest endpoint is reachable",
+            "public selection maximum end is reachable",
+            "public selection source X is reachable",
+            "public selection source Z is reachable",
+            "public selection signed source is reachable",
+            "public selection u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
         name: "partial-assignment",
         harness: "native_assignment_matches_reference_semantics",
         message: "partial-assignment semantics mismatch",
@@ -49,6 +141,13 @@ pub static CONTRACTS: [Contract; 47] = [
     },
     Contract {
         group: "values",
+        name: "public-assignment-native",
+        harness: "public_assignment_native_matches_reference_semantics",
+        message: "public assignment semantics mismatch",
+        covers: &PUBLIC_ASSIGNMENT_COVERS,
+    },
+    Contract {
+        group: "values",
         name: "truncation",
         harness: "native_truncation_matches_reference_semantics",
         message: "truncation semantics mismatch",
@@ -60,6 +159,34 @@ pub static CONTRACTS: [Contract; 47] = [
             "truncated X is reachable",
             "truncated Z is reachable",
         ],
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-one",
+        harness: "public_resize_one_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-two",
+        harness: "public_resize_two_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-three",
+        harness: "public_resize_three_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-four",
+        harness: "public_resize_four_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
     },
     Contract {
         group: "values",
@@ -452,14 +579,53 @@ pub static CONTRACTS: [Contract; 47] = [
     Contract {
         group: "values",
         name: "public-conditional",
-        harness: "public_conditional_one_bit_matches_reference_semantics",
-        message: "public conditional semantics mismatch",
+        harness: "public_conditional_small_11_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-12",
+        harness: "public_conditional_small_12_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-21",
+        harness: "public_conditional_small_21_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-22",
+        harness: "public_conditional_small_22_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-widened",
+        harness: "public_conditional_widened_matches_reference_semantics",
+        message: "public conditional layout semantics mismatch",
         covers: &[
-            "public condition zero is reachable",
-            "public condition one is reachable",
-            "public condition X is reachable",
-            "public condition Z is reachable",
-            "public common Z becomes X",
+            "public layout condition X is reachable",
+            "public layout condition Z is reachable",
+            "public layout signed extension is reachable",
+            "public layout unsigned extension is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-word",
+        harness: "public_conditional_word_matches_reference_semantics",
+        message: "public conditional layout semantics mismatch",
+        covers: &[
+            "public layout condition X is reachable",
+            "public layout condition Z is reachable",
+            "public layout signed extension is reachable",
+            "public layout unsigned extension is reachable",
         ],
     },
     Contract {
@@ -520,6 +686,56 @@ pub static CONTRACTS: [Contract; 47] = [
     },
     Contract {
         group: "values",
+        name: "public-arithmetic-add",
+        harness: "public_arithmetic_small_add_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-subtract",
+        harness: "public_arithmetic_small_subtract_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-initial-pair",
+        harness: "public_arithmetic_initial_pair_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "arithmetic initial pair observes addition",
+            "arithmetic initial pair observes subtraction",
+            "arithmetic initial pair LHS width 1 is reachable",
+            "arithmetic initial pair LHS width 2 is reachable",
+            "arithmetic initial pair LHS width 3 is reachable",
+            "arithmetic initial pair RHS width 1 is reachable",
+            "arithmetic initial pair RHS width 2 is reachable",
+            "arithmetic initial pair RHS width 3 is reachable",
+            "arithmetic initial pair wider LHS is reachable",
+            "arithmetic initial pair wider RHS is reachable",
+            "arithmetic initial pair mixed source signs are reachable",
+            "arithmetic initial pair X result is reachable",
+            "arithmetic initial pair u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-unary-initial-pair",
+        harness: "public_arithmetic_negate_after_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary initial pair width 1 is reachable",
+            "unary initial pair width 2 is reachable",
+            "unary initial pair width 3 is reachable",
+            "unary initial pair signed source is reachable",
+            "unary initial pair unsigned source is reachable",
+            "unary initial pair X result is reachable",
+            "unary initial pair u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
         name: "public-arithmetic",
         harness: "public_arithmetic_one_bit_matches_reference_semantics",
         message: "public arithmetic semantics mismatch",
@@ -530,6 +746,33 @@ pub static CONTRACTS: [Contract; 47] = [
             "public unary plus is reachable",
             "public plus preserves Z",
         ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-plus",
+        harness: "public_arithmetic_small_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "public plus source width 1 is reachable",
+            "public plus source width 2 is reachable",
+            "public plus source width 3 is reachable",
+            "public plus growth is reachable",
+            "public plus natural width is reachable",
+            "public plus sign extension is reachable",
+            "public plus sign suppression is reachable",
+            "public plus preserves X",
+            "public plus preserves Z",
+            "public plus u128 padding is reachable",
+            "public plus extended X is reachable",
+            "public plus extended Z is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-negate",
+        harness: "public_arithmetic_small_negate_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
     },
     Contract {
         group: "values",
@@ -769,6 +1012,7 @@ pub static CONTRACTS: [Contract; 47] = [
         message: "shape index semantics mismatch",
         covers: &[
             "scalar index shape is reachable",
+            "extent-four final index is reachable",
             "unit scalar coercion is reachable",
             "three-dimensional last element is reachable",
             "missing coordinate is reachable",
@@ -789,6 +1033,7 @@ pub static CONTRACTS: [Contract; 47] = [
         message: "shape range semantics mismatch",
         covers: &[
             "scalar range is reachable",
+            "extent-four prefix block is reachable",
             "unit whole range is reachable",
             "three-dimensional whole range is reachable",
             "outer prefix block is reachable",
@@ -1261,6 +1506,16 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "mask_xz: (on_true.mask_xz & same) | (mask ^ same),",
             "mask_xz: on_false.mask_xz,",
         );
+        let public_conditional_ignores_context_width = replace_once(
+            &source,
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "return Self::U64(a.conditional(b, condition, 1, signed));",
+        );
+        let public_conditional_truncates_word = replace_once(
+            &source,
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); value.trunc(32); return value;",
+        );
         let addition_as_subtraction = mutate_method(
             &source,
             "add_sub",
@@ -1626,6 +1881,16 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 legacy_conditional_false,
             ),
             (
+                "public-conditional-ignores-context-width",
+                contract("public-conditional-widened"),
+                public_conditional_ignores_context_width,
+            ),
+            (
+                "public-conditional-truncates-word",
+                contract("public-conditional-word"),
+                public_conditional_truncates_word,
+            ),
+            (
                 "addition-as-subtraction",
                 contract("add-sub"),
                 addition_as_subtraction,
@@ -1673,7 +1938,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             ("unmasked-negation", contract("negation"), unmasked_negation),
             (
                 "negation-ignores-unknown",
-                contract("public-arithmetic"),
+                contract("public-arithmetic-negate"),
                 negation_ignores_unknown,
             ),
             (
@@ -1704,7 +1969,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         for (name, contract_name, path, method, old, new) in [
             (
                 "unary-plus-poisons-unknown",
-                "public-arithmetic",
+                "public-arithmetic-plus",
                 "veryl/crates/analyzer/src/ir/op.rs",
                 "eval_value_unary",
                 "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
@@ -2288,6 +2553,336 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 source,
             });
         }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "shape-index",
+            "shape-index-rejects-four-extent",
+            "calc_index",
+            " -> Option<usize> {\n",
+            " -> Option<usize> {\n        if self.0.contains(&Some(4)) { return None; }\n",
+        ),
+        (
+            "shape-index",
+            "shape-total-zero-before-unresolved",
+            "total",
+            "if self.0.iter().any(Option::is_none) {",
+            "if !self.0.contains(&Some(0)) && self.0.iter().any(Option::is_none) {",
+        ),
+        (
+            "shape-range",
+            "shape-range-rejects-four-extent",
+            "calc_range",
+            " -> Option<(usize, usize)> {\n",
+            " -> Option<(usize, usize)> {\n        if self.0.contains(&Some(4)) { return None; }\n",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/shape.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-conditional-small-22",
+            "public-conditional-ignores-condition-high-bit",
+            "let condition = self.truth();",
+            "let mut condition_value = self.clone(); condition_value.trunc(1); let condition = condition_value.truth();",
+        ),
+        (
+            "public-conditional",
+            "public-conditional-zero-context-widens",
+            "let context_width = width;",
+            "let context_width = if width == 0 { 4 } else { width };",
+        ),
+        (
+            "public-conditional-small-12",
+            "public-conditional-zero-context-selects-width",
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); if context_width == 0 && condition == Some(true) { value.trunc(a.width as usize); } return value;",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(CORE)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-arithmetic-add",
+            "public-add-disables-left-sign",
+            "eval_value_binary",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let x = x.expand(width, false);",
+        ),
+        (
+            "public-arithmetic-add",
+            "public-add-forces-biguint-context",
+            "eval_value_binary",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let width = width.max(65); let x = x.expand(width, signed);",
+        ),
+        (
+            "public-arithmetic-subtract",
+            "public-subtract-skips-right-extension",
+            "eval_value_binary",
+            "Op::Sub => {\n                let x = x.expand(width, signed);\n                let y = y.expand(width, signed);",
+            "Op::Sub => {\n                let x = x.expand(width, signed);\n                let y = std::borrow::Cow::Borrowed(y);",
+        ),
+        (
+            "public-arithmetic-negate",
+            "public-negate-adopts-caller-sign",
+            "eval_value_unary",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut ret = x.negate(width); ret.signed = signed; Value::U64(ret) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-initial-pair")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "arithmetic-initial-pair-subtracts-as-add",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Value::U64(x.add_sub(y, width, signed, true))",
+                "Value::U64(x.add_sub(y, width, signed, false))",
+            ),
+        });
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "arithmetic-initial-pair-subtraction-upper-leak",
+            contract, path: CORE,
+            source: mutate_method(&source, "add_sub",
+                "Self::new(payload & Self::gen_mask(width), width, signed)",
+                "{ let mut result = Self::new(payload & Self::gen_mask(width), width, signed); if subtract { result.payload |= 1u64 << 63; } result }"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-unary-initial-pair")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-initial-pair-negates-as-plus",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_unary",
+                "Value::U64(x) => Value::U64(x.negate(width)),",
+                "Value::U64(x) => Value::U64(x.clone()),",
+            ),
+        });
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-initial-pair-negation-upper-leak",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "negate",
+                "ret.payload &= mask;",
+                "ret.payload = (ret.payload & mask) | (1u64 << 63);",
+            ),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-add-upper-payload-leak",
+                "Self::U64(x) => x.payload as u128,",
+                "Self::U64(x) => (x.payload as u128) | if x.width == 5 { 1u128 << 100 } else { 0 },",
+            ),
+            (
+                "public-add-upper-xz-leak",
+                "Self::U64(x) => x.mask_xz as u128,",
+                "Self::U64(x) => (x.mask_xz as u128) | if x.width == 5 { 1u128 << 64 } else { 0 },",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-plus") {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, new) in [
+            ("public-plus-skips-growth", "Op::Add => { x.clone() }"),
+            (
+                "public-plus-adopts-caller-sign",
+                "Op::Add => { let x = x.expand(width, signed); let mut ret = x.into_owned(); if let Value::U64(v) = &mut ret { v.signed = signed; } ret }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name, contract, path,
+                source: mutate_method(&source, "eval_value_unary",
+                    "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }", new),
+            });
+        }
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-plus-loses-extended-Z",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "expand", "mask_xz |= mask;", ""),
+        });
+        for (name, old, new) in [
+            (
+                "public-plus-upper-payload-leak",
+                "Self::U64(x) => x.payload as u128,",
+                "Self::U64(x) => (x.payload as u128) | if x.width == 5 { 1u128 << 100 } else { 0 },",
+            ),
+            (
+                "public-plus-upper-xz-leak",
+                "Self::U64(x) => x.mask_xz as u128,",
+                "Self::U64(x) => (x.mask_xz as u128) | if x.width == 5 { 1u128 << 64 } else { 0 },",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-assignment-native")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-assignment-reaches-biguint-constructor",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "from_u128", "if width <= 64 {", "if width < 64 {"),
+        });
+        for (name, new) in [
+            (
+                "public-assignment-swaps-endpoints",
+                "x.assign(value, end, beg)",
+            ),
+            (
+                "public-assignment-clears-source-xz",
+                "x.assign(ValueU64 { mask_xz: 0, ..value }, beg, end)",
+            ),
+            (
+                "public-assignment-adopts-source-sign",
+                "{ x.signed = value.signed; x.assign(value, beg, end) }",
+            ),
+            (
+                "public-assignment-adopts-source-width",
+                "{ x.width = value.width; x.assign(value, beg, end) }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(
+                    &source,
+                    "x.assign(value, beg, end)\n            }\n            Self::BigUint(x) => {",
+                    &format!("{new}\n            }}\n            Self::BigUint(x) => {{"),
+                ),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-selection-small") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        let old = "Self::U64(x) => Self::U64(x.select(beg, end)),";
+        for (name, new) in [
+            (
+                "public-selection-sorts-ascending",
+                "Self::U64(x) => Self::U64(x.select(beg.min(end), beg.max(end))),",
+            ),
+            (
+                "public-selection-preserves-source-sign",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); ret.signed = x.signed; Self::U64(ret) },",
+            ),
+            (
+                "public-selection-clips-missing-width",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); if ret.width > x.width { ret.trunc(x.width as usize); } Self::U64(ret) },",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-resize-four") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-truncation-skips-native",
+                "Self::U64(x) => x.trunc(width),",
+                "Self::U64(_) => {},",
+            ),
+            (
+                "public-truncation-grows-on-noop",
+                "if self_width <= width {",
+                "if self_width == width {",
+            ),
+            (
+                "public-extension-disables-sign",
+                "Cow::Owned(Value::U64(x.expand(width, use_sign)))",
+                "Cow::Owned(Value::U64(x.expand(width, false)))",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+        mutations.push(Mutation {
+            name: "public-resize-constructor-clears-xz",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "from_u128",
+                "mask_xz: mask_xz as u64,",
+                "mask_xz: 0,",
+            ),
+        });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "full-multiply") {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();

@@ -6,8 +6,9 @@
 //! Their precedence is unresolved here: X/Z unary-plus equivalence checks this
 //! interpretation, not an unqualified claim of standard conformance.
 //!
-//! Operands have normalized storage and caller-resolved width/sign. Carry is discarded
-//! beyond the result width.
+//! Prepared views take normalized, already-sized operands. The contextual view
+//! takes source records and caller-resolved width/sign. Carry beyond the result
+//! width is discarded.
 
 use crate::logic4::{Logic4, logic_from_planes, read_logic};
 
@@ -104,19 +105,160 @@ pub fn arithmetic_bit(
     if poison { Logic4::X } else { result }
 }
 
+/// Contextual SV-ARITH/SV-UPLUS view with preparation from 11.6.1 and 11.8.2.
+/// Sources are normalized four-state vectors, widths 1..=128, with a caller
+/// width at least as large as each relevant source. Caller signedness controls
+/// extension; expression-context resolution and result metadata are separate.
+/// Add/subtract/negate inspect every prepared bit: an unknown above the observed
+/// position also poisons an in-range result. No plane vectors are materialized.
+pub fn contextual_arithmetic_bit(
+    a: crate::comparison::Operand,
+    b: crate::comparison::Operand,
+    width: usize,
+    signed: bool,
+    kind: Arithmetic,
+    position: usize,
+) -> Logic4 {
+    use crate::resize::extended_logic_bit;
+    assert!((1..=128).contains(&width));
+    assert!((1..=width).contains(&a.width));
+    let binary = matches!(kind, Arithmetic::Add | Arithmetic::Subtract);
+    if binary {
+        assert!((1..=width).contains(&b.width));
+    }
+    if position >= width {
+        return Logic4::Zero;
+    }
+    let bit = |input: crate::comparison::Operand, index| {
+        extended_logic_bit(
+            input.planes,
+            input.width,
+            width,
+            input.signed,
+            signed,
+            index,
+        )
+    };
+    if kind == Arithmetic::Plus {
+        return bit(a, position);
+    }
+    let subtract = matches!(kind, Arithmetic::Subtract | Arithmetic::Negate);
+    let mut carry = subtract;
+    let mut poison = false;
+    let mut result = Logic4::Zero;
+    for index in 0..width {
+        let (lhs, rhs) = if binary {
+            (bit(a, index), bit(b, index))
+        } else {
+            (Logic4::Zero, bit(a, index))
+        };
+        poison |= matches!(lhs, Logic4::X | Logic4::Z) || matches!(rhs, Logic4::X | Logic4::Z);
+        let x = matches!(lhs, Logic4::One | Logic4::Z);
+        let y = matches!(rhs, Logic4::One | Logic4::Z) != subtract;
+        let sum = x ^ y ^ carry;
+        carry = (x && y) || (x && carry) || (y && carry);
+        if index == position {
+            result = if sum { Logic4::One } else { Logic4::Zero };
+        }
+    }
+    if poison { Logic4::X } else { result }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn unary_plus_identity_interpretation_preserves_four_state_bits() {
-        for input in [(1, 2), (3, 2), (0, 3), (3, 3), (3, 0)] {
-            assert_eq!(arithmetic_planes(input, (0, 0), 2, Arithmetic::Plus), input);
-            for bit in 0..=2 {
+    fn contextual_bits_match_prepared_small_planes() {
+        use crate::comparison::Operand;
+        use crate::resize::{extended_logic_bit, reference_planes};
+        let mut inputs = Vec::new();
+        for width in 1..=3 {
+            let mask = (1u128 << width) - 1;
+            for state in 0..(1u128 << (2 * width)) {
+                for signed in [false, true] {
+                    inputs.push(Operand {
+                        planes: (state & mask, state >> width),
+                        width,
+                        signed,
+                    });
+                }
+            }
+        }
+        let prepare = |input: Operand, width, signed| {
+            reference_planes(width, |position| {
+                extended_logic_bit(
+                    input.planes,
+                    input.width,
+                    width,
+                    input.signed,
+                    signed,
+                    position,
+                )
+            })
+        };
+        let check = |a: Operand, b: Operand, width, signed, kind| {
+            let ap = prepare(a, width, signed);
+            let bp = if matches!(kind, Arithmetic::Add | Arithmetic::Subtract) {
+                prepare(b, width, signed)
+            } else {
+                (0, 0)
+            };
+            let planes = arithmetic_planes(ap, bp, width, kind);
+            for position in 0..128 {
                 assert_eq!(
-                    arithmetic_bit(input, (0, 0), 2, Arithmetic::Plus, bit),
-                    read_logic(input.0, input.1, bit)
+                    contextual_arithmetic_bit(a, b, width, signed, kind, position),
+                    read_logic(planes.0, planes.1, position)
                 );
+            }
+        };
+        let zero = Operand {
+            planes: (0, 0),
+            width: 1,
+            signed: false,
+        };
+        for &a in &inputs {
+            for signed in [false, true] {
+                for growth in [0, 2] {
+                    check(a, zero, a.width + growth, signed, Arithmetic::Negate);
+                    check(a, zero, a.width + growth, signed, Arithmetic::Plus);
+                    for &b in &inputs {
+                        let width = a.width.max(b.width) + growth;
+                        check(a, b, width, signed, Arithmetic::Add);
+                        check(a, b, width, signed, Arithmetic::Subtract);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unary_plus_identity_covers_all_small_four_state_vectors() {
+        use Logic4::{One, X, Z, Zero};
+        let encoding = [Zero, One, X, Z];
+        for width in 1..=5 {
+            let limit = 1u128 << width;
+            for payload in 0..limit {
+                for mask_xz in 0..limit {
+                    let input = (payload, mask_xz);
+                    assert_eq!(
+                        arithmetic_planes(input, (0, 0), width, Arithmetic::Plus),
+                        input
+                    );
+                    for position in 0..128 {
+                        let expected = if position < width {
+                            let code =
+                                ((payload >> position) & 1) + 2 * ((mask_xz >> position) & 1);
+                            encoding[code as usize]
+                        } else {
+                            Zero
+                        };
+                        assert_eq!(
+                            arithmetic_bit(input, (0, 0), width, Arithmetic::Plus, position),
+                            expected
+                        );
+                    }
+                }
             }
         }
     }

@@ -1,36 +1,9 @@
-use veryl_analyzer::ir::VarSelectOp;
-use veryl_formal_semantics::coordinates::{self, Select};
-
-#[test]
-fn selection_endpoint_native_boundaries() {
-    let values = [0, 1, 2, 3, 15, usize::MAX / 2, usize::MAX - 1, usize::MAX];
-    for a in values {
-        for b in values {
-            for array in [false, true] {
-                for (actual, reference) in [
-                    (VarSelectOp::Colon, Select::Colon),
-                    (VarSelectOp::PlusColon, Select::Plus),
-                    (VarSelectOp::MinusColon, Select::Minus),
-                    (VarSelectOp::Step, Select::Step),
-                ] {
-                    assert_eq!(
-                        actual.checked_eval_value(a, b, array),
-                        coordinates::checked_endpoints(reference, a, b, array),
-                        "checked endpoint boundary semantics mismatch"
-                    );
-                    assert_eq!(
-                        actual.eval_value(a, b, array),
-                        coordinates::endpoints(reference, a, b, array),
-                        "{actual:?}, {a}, {b}, array={array}"
-                    );
-                }
-            }
-        }
-    }
-}
+//! Numeric endpoints and single packed/unpacked logic extents are proved in
+//! `targets/analyzer/kani/src/coordinates.rs`. Selection integration and recursive
+//! kind widths remain executable checks.
 
 use veryl_analyzer::conv::Context;
-use veryl_analyzer::ir::{Expression, Shape, Type, TypeKind, VarIndex, VarSelect};
+use veryl_analyzer::ir::{Expression, Shape, Type, TypeKind, VarIndex, VarSelect, VarSelectOp};
 use veryl_analyzer::value::Value;
 
 fn expression(x: i64) -> Expression {
@@ -157,22 +130,6 @@ fn unpacked_clipping_preserves_selected_positions() {
                     assert!(ctx.drain_errors().is_empty());
                 }
             }
-        }
-    }
-}
-
-#[test]
-fn packed_unpacked_bit_counts_reject_overflow() {
-    for packed in [0, 1, 2, usize::MAX / 2, usize::MAX] {
-        for array in [0, 1, 2, usize::MAX] {
-            let mut ty = Type::new(TypeKind::Logic);
-            ty.width_mut().push(Some(packed));
-            ty.array.push(Some(array));
-            assert_eq!(ty.total_width(), Some(packed));
-            assert_eq!(
-                ty.total_bits(),
-                usize::try_from(packed as u128 * array as u128).ok()
-            );
         }
     }
 }

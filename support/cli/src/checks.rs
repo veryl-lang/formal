@@ -134,8 +134,14 @@ pub const SHARDS: &[Shard] = &[
         "storage",
         &[
             "selection",
+            "public-selection-small",
             "partial-assignment",
+            "public-assignment-native",
             "truncation",
+            "public-resize-one",
+            "public-resize-two",
+            "public-resize-three",
+            "public-resize-four",
             "extension",
             "logical-left-shift",
             "logical-right-shift",
@@ -169,6 +175,11 @@ pub const SHARDS: &[Shard] = &[
             "condition-truth",
             "conditional",
             "public-conditional",
+            "public-conditional-small-12",
+            "public-conditional-small-21",
+            "public-conditional-small-22",
+            "public-conditional-widened",
+            "public-conditional-word",
         ],
     ),
     Shard::value(
@@ -178,7 +189,13 @@ pub const SHARDS: &[Shard] = &[
             "add-sub",
             "negation",
             "unary-plus",
+            "public-arithmetic-add",
+            "public-arithmetic-subtract",
+            "public-arithmetic-initial-pair",
+            "public-arithmetic-unary-initial-pair",
             "public-arithmetic",
+            "public-arithmetic-plus",
+            "public-arithmetic-negate",
             "context-merge",
             "context-unary",
             "context-binary",
@@ -628,6 +645,7 @@ pub fn setup(
                 ),
             )?;
         } else {
+            // Rust caches can restore the launchers without Cargo's install metadata.
             executor.execute(
                 root,
                 &Invocation::new(
@@ -635,6 +653,7 @@ pub fn setup(
                     &[
                         "install",
                         "--locked",
+                        "--force",
                         "kani-verifier",
                         "--version",
                         KANI_VERSION,

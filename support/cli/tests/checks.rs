@@ -67,6 +67,17 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .parent()
         .unwrap();
     let all: Vec<_> = analyzer::CONTRACTS.iter().collect();
+    // Kani's default harness filter is a substring match.
+    for contract in &all {
+        assert_eq!(
+            all.iter()
+                .filter(|other| other.harness.contains(contract.harness))
+                .count(),
+            1,
+            "ambiguous Kani harness filter: {}",
+            contract.harness,
+        );
+    }
     let mutations = analyzer::mutations(repo, &all);
     let mutation_count = mutations.len();
     let expected: BTreeMap<_, _> = mutations
@@ -255,6 +266,7 @@ fn setup_installs_pinned_kani_and_preserves_archive_permissions() {
         [
             "install",
             "--locked",
+            "--force",
             "kani-verifier",
             "--version",
             KANI_VERSION

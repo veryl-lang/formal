@@ -2277,6 +2277,7 @@ dependencies = [
 name = "veryl-value-proofs"
 version = "0.1.0"
 dependencies = [
+ "num-bigint",
  "veryl-analyzer",
  "veryl-formal-runner",
  "veryl-formal-semantics",

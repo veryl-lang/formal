@@ -1,6 +1,9 @@
-//! Tests share the executable Rust reference semantics with the Kani proofs.
+//! Native assignment semantics and public constructor/dispatch/getters for every
+//! pairing of widths 1, 4, 63, and 64 are proved in
+//! `targets/analyzer/kani/src/partial_assignment.rs`. Reference truth tables,
+//! the 14-bit regression, and native/BigUint conversions remain executable checks.
 
-use veryl_analyzer::value::{Value, ValueU64};
+use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
 use veryl_formal_semantics::partial_assignment::{assigned_logic_bit, reference_plane};
 
@@ -24,58 +27,6 @@ fn assignment_contract_reference_semantics_four_state_truth_table() {
     }
 }
 
-#[test]
-fn assignment_contract_exhaustive_four_state_small_widths() {
-    for width in 1..=4 {
-        let mask = (1u64 << width) - 1;
-        // Each payload/mask_xz pair represents one of 0, 1, x, z per bit.
-        let states = 1u64 << (2 * width);
-        for dst_state in 0..states {
-            for rhs_state in 0..states {
-                let dst_payload = dst_state & mask;
-                let dst_xz = dst_state >> width;
-                let rhs_payload = rhs_state & mask;
-                let rhs_xz = rhs_state >> width;
-                for beg in 0..width {
-                    for end in 0..=beg {
-                        for signed in [false, true] {
-                            let mut actual = ValueU64 {
-                                payload: dst_payload,
-                                mask_xz: dst_xz,
-                                width: width as u32,
-                                signed,
-                            };
-                            let rhs = ValueU64 {
-                                payload: rhs_payload,
-                                mask_xz: rhs_xz,
-                                width: width as u32,
-                                signed: !signed,
-                            };
-                            actual.assign(rhs, beg, end);
-                            assert_eq!(
-                                actual.payload as u128,
-                                reference_plane(
-                                    dst_payload as u128,
-                                    rhs_payload as u128,
-                                    width,
-                                    beg,
-                                    end,
-                                )
-                            );
-                            assert_eq!(
-                                actual.mask_xz as u128,
-                                reference_plane(dst_xz as u128, rhs_xz as u128, width, beg, end,)
-                            );
-                            assert_eq!(actual.width as usize, width);
-                            assert_eq!(actual.signed, signed);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 fn width_mask(width: usize) -> u128 {
     u128::MAX >> (128 - width)
 }
@@ -93,6 +44,9 @@ fn assignment_contract_native_biguint_boundaries_and_conversions() {
     ];
     for width in [1, 4, 63, 64, 65, 127, 128] {
         for rhs_width in [1, 4, 63, 64, 65, 127, 128] {
+            if matches!(width, 1 | 4 | 63 | 64) && matches!(rhs_width, 1 | 4 | 63 | 64) {
+                continue;
+            }
             for beg in 0..width {
                 // Exercise every in-bounds field, including fields crossing bit 64.
                 for end in 0..=beg {

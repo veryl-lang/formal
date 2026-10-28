@@ -1,3 +1,6 @@
+//! Public small dispatch is proved in targets/analyzer/kani/src/conditional.rs.
+//! Retain wider/BigUint and unsized-literal paths plus independent model checks.
+
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::comparison::Operand;
 use veryl_formal_semantics::conditional::{conditional_logic_bit, merged_logic};
@@ -44,50 +47,17 @@ fn check(condition: Operand, a: Operand, b: Operand, context_width: usize, signe
     }
 }
 
-#[test]
-fn conditional_exhaustive_four_state_small_widths() {
-    for c_width in 1..=2 {
-        for a_width in 1..=2 {
-            for b_width in 1..=2 {
-                for c_state in 0..(1u128 << (c_width * 2)) {
-                    for a_state in 0..(1u128 << (a_width * 2)) {
-                        for b_state in 0..(1u128 << (b_width * 2)) {
-                            let c = Operand {
-                                planes: (c_state & ((1 << c_width) - 1), c_state >> c_width),
-                                width: c_width,
-                                signed: false,
-                            };
-                            for a_signed in [false, true] {
-                                for b_signed in [false, true] {
-                                    let a = Operand {
-                                        planes: (
-                                            a_state & ((1 << a_width) - 1),
-                                            a_state >> a_width,
-                                        ),
-                                        width: a_width,
-                                        signed: a_signed,
-                                    };
-                                    let b = Operand {
-                                        planes: (
-                                            b_state & ((1 << b_width) - 1),
-                                            b_state >> b_width,
-                                        ),
-                                        width: b_width,
-                                        signed: b_signed,
-                                    };
-                                    for signed in [false, true] {
-                                        for context in [0, 1, 4] {
-                                            check(c, a, b, context, signed);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+// The public small contracts cover normalized widths 1..=2 with contexts 0,1,4.
+fn covered_small_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
+    fn normalized_small(x: Operand) -> bool {
+        (1..=2).contains(&x.width)
+            && x.planes.0 < (1u128 << x.width)
+            && x.planes.1 < (1u128 << x.width)
     }
+    normalized_small(c)
+        && normalized_small(a)
+        && normalized_small(b)
+        && matches!(context, 0 | 1 | 4)
 }
 
 #[test]
@@ -139,6 +109,9 @@ fn conditional_native_biguint_boundaries() {
                                     };
                                     for signed in [false, true] {
                                         for context in [0, 1, width, 128] {
+                                            if covered_small_layout(c, a, b, context) {
+                                                continue;
+                                            }
                                             check(c, a, b, context, signed);
                                         }
                                     }
