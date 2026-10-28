@@ -134,6 +134,7 @@ pub const SHARDS: &[Shard] = &[
         "storage",
         &[
             "selection",
+            "public-selection-small",
             "partial-assignment",
             "truncation",
             "public-resize-one",

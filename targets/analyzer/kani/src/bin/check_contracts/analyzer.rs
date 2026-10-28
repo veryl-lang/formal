@@ -30,7 +30,7 @@ const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
     "small conditional u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 56] = [
+pub static CONTRACTS: [Contract; 57] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -57,6 +57,29 @@ pub static CONTRACTS: [Contract; 56] = [
             "selected source X is reachable",
             "selected source Z is reachable",
             "signed input selection is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-selection-small",
+        harness: "public_selection_small_matches_reference_semantics",
+        message: "public selection semantics mismatch",
+        covers: &[
+            "public selection width 1 is reachable",
+            "public selection width 2 is reachable",
+            "public selection width 3 is reachable",
+            "public selection width 4 is reachable",
+            "public selection reversed endpoints are reachable",
+            "public selection one bit is reachable",
+            "public selection full source is reachable",
+            "public selection missing source is reachable",
+            "public selection overlap is reachable",
+            "public selection highest endpoint is reachable",
+            "public selection maximum end is reachable",
+            "public selection source X is reachable",
+            "public selection source Z is reachable",
+            "public selection signed source is reachable",
+            "public selection u128 padding is reachable",
         ],
     },
     Contract {
@@ -2460,6 +2483,31 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     ] {
         if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
             let source = fs::read_to_string(repo.join(CORE)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-selection-small") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        let old = "Self::U64(x) => Self::U64(x.select(beg, end)),";
+        for (name, new) in [
+            (
+                "public-selection-sorts-ascending",
+                "Self::U64(x) => Self::U64(x.select(beg.min(end), beg.max(end))),",
+            ),
+            (
+                "public-selection-preserves-source-sign",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); ret.signed = x.signed; Self::U64(ret) },",
+            ),
+            (
+                "public-selection-clips-missing-width",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); if ret.width > x.width { ret.trunc(x.width as usize); } Self::U64(ret) },",
+            ),
+        ] {
             mutations.push(Mutation {
                 name,
                 contract,

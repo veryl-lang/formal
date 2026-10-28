@@ -62,7 +62,8 @@ mod tests {
     #[test]
     fn reference_planes_encodes_all_small_four_state_vectors() {
         let encoding = [Zero, One, X, Z];
-        for width in 1..=4 {
+        // Four-bit small selections can return seven bits, including missing X.
+        for width in 1..=7 {
             let limit = 1u128 << width;
             for payload in 0..limit {
                 for mask_xz in 0..limit {

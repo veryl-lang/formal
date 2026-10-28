@@ -1,3 +1,6 @@
+//! Public small selection domains are proved in targets/analyzer/kani/src/selection.rs.
+//! Retain wider/BigUint and distant endpoints plus independent model checks.
+
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::Logic4;
 use veryl_formal_semantics::resize::reference_planes;
@@ -28,18 +31,13 @@ fn check_selection(payload: u128, mask_xz: u128, width: usize, beg: usize, end: 
     }
 }
 
-#[test]
-fn selection_exhaustive_four_state_small_widths() {
-    for width in 1..=4 {
-        let mask = (1u128 << width) - 1;
-        for state in 0..(1u128 << (2 * width)) {
-            for beg in 0..=width + 2 {
-                for end in 0..=width + 2 {
-                    check_selection(state & mask, state >> width, width, beg, end);
-                }
-            }
-        }
-    }
+// Match the public small proof's complete domain before dropping a native case.
+fn covered_small_selection(payload: u128, xz: u128, width: usize, beg: usize, end: usize) -> bool {
+    (1..=4).contains(&width)
+        && payload < (1u128 << width)
+        && xz < (1u128 << width)
+        && beg <= width + 2
+        && end <= width + 2
 }
 
 #[test]
@@ -75,6 +73,9 @@ fn selection_native_biguint_boundaries() {
             ] {
                 // Native results cannot represent more than 64 stored bits.
                 if width <= 64 && beg >= end && beg - end >= 64 {
+                    continue;
+                }
+                if covered_small_selection(payload, mask_xz, width, beg, end) {
                     continue;
                 }
                 check_selection(payload, mask_xz, width, beg, end);
