@@ -4,7 +4,16 @@ use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
-pub static CONTRACTS: [Contract; 49] = [
+const PUBLIC_RESIZE_COVERS: [&str; 6] = [
+    "public resize request 1 is reachable",
+    "public resize request 2 is reachable",
+    "public resize request 3 is reachable",
+    "public resize request 4 is reachable",
+    "public resize request 5 is reachable",
+    "public resize request 6 is reachable",
+];
+
+pub static CONTRACTS: [Contract; 53] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -60,6 +69,34 @@ pub static CONTRACTS: [Contract; 49] = [
             "truncated X is reachable",
             "truncated Z is reachable",
         ],
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-one",
+        harness: "public_resize_one_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-two",
+        harness: "public_resize_two_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-three",
+        harness: "public_resize_three_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-resize-four",
+        harness: "public_resize_four_matches_reference_semantics",
+        message: "public resize semantics mismatch",
+        covers: &PUBLIC_RESIZE_COVERS,
     },
     Contract {
         group: "values",
@@ -2332,6 +2369,44 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 source,
             });
         }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-resize-four") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-truncation-skips-native",
+                "Self::U64(x) => x.trunc(width),",
+                "Self::U64(_) => {},",
+            ),
+            (
+                "public-truncation-grows-on-noop",
+                "if self_width <= width {",
+                "if self_width == width {",
+            ),
+            (
+                "public-extension-disables-sign",
+                "Cow::Owned(Value::U64(x.expand(width, use_sign)))",
+                "Cow::Owned(Value::U64(x.expand(width, false)))",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+        mutations.push(Mutation {
+            name: "public-resize-constructor-clears-xz",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "from_u128",
+                "mask_xz: mask_xz as u64,",
+                "mask_xz: 0,",
+            ),
+        });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "full-multiply") {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();

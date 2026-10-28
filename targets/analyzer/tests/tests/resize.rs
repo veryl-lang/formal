@@ -1,3 +1,6 @@
+//! Public small resize domains are proved in targets/analyzer/kani/src/resize.rs.
+//! Retain native/BigUint boundaries and independent reference truth tables.
+
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
 use veryl_formal_semantics::resize::{extended_logic_bit, reference_planes, truncated_logic_bit};
@@ -56,23 +59,15 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
 }
 
 #[test]
-fn resize_exhaustive_four_state_small_widths() {
-    for source_width in 1..=4 {
-        let mask = (1u128 << source_width) - 1;
-        for state in 0..(1u128 << (2 * source_width)) {
-            for width in 1..=6 {
-                check_width_changes(state & mask, state >> source_width, source_width, width);
-            }
-        }
-    }
-}
-
-#[test]
 fn resize_native_biguint_boundaries() {
     for source_width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
         let mask = u128::MAX >> (128 - source_width);
         let sign_bit = 1u128 << (source_width - 1);
         for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
+            // Public small resize contracts quantify every four-state value here.
+            if (1..=4).contains(&source_width) && (1..=6).contains(&width) {
+                continue;
+            }
             for (payload, mask_xz) in [
                 (0, 0),
                 (mask, 0),
