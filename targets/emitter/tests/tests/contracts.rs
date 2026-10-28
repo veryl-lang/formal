@@ -11,3 +11,6 @@ mod sequential;
 
 #[path = "cases/ram_clocks.rs"]
 mod ram_clocks;
+
+#[path = "cases/mixed_expressions.rs"]
+mod mixed_expressions;
