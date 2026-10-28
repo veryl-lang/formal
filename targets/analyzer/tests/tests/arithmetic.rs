@@ -1,3 +1,6 @@
+//! Fresh-cache small binary arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
+//! Execute its first call to preserve cache history, then compare later shared-cache
+//! results. Wider/BigUint operations, unary sequences, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
@@ -12,16 +15,30 @@ fn prepared(x: Operand, width: usize, signed: bool) -> (u128, u128) {
     })
 }
 
+fn small_normalized(input: Operand) -> bool {
+    (1..=3).contains(&input.width) && ((input.planes.0 | input.planes.1) >> input.width) == 0
+}
+
 fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
     let x = Value::from_u128(a.planes.0, a.planes.1, a.width, a.signed);
     let y = Value::from_u128(b.planes.0, b.planes.1, b.width, b.signed);
     let mut cache = MaskCache::default();
+    let mut fresh = true;
     for &width in widths {
         for signed in [false, true] {
             let ap = prepared(a, width, signed);
             let bp = prepared(b, width, signed);
             for (op, kind) in [(Op::Add, Arithmetic::Add), (Op::Sub, Arithmetic::Subtract)] {
                 let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
+                let covered_first = fresh
+                    && op == Op::Add
+                    && small_normalized(a)
+                    && small_normalized(b)
+                    && width == a.width.max(b.width);
+                fresh = false;
+                if covered_first {
+                    continue;
+                }
                 assert_eq!(
                     (result.payload_u128(), result.mask_xz_u128()),
                     arithmetic_planes(ap, bp, width, kind),

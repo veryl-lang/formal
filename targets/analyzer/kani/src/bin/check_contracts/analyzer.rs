@@ -55,7 +55,24 @@ const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
     "public assignment source width 32 is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 58] = [
+const PUBLIC_ARITHMETIC_COVERS: [&str; 14] = [
+    "public arithmetic operation is reachable",
+    "public arithmetic source width 1 is reachable",
+    "public arithmetic source width 2 is reachable",
+    "public arithmetic source width 3 is reachable",
+    "public arithmetic result width 1 is reachable",
+    "public arithmetic result width 5 is reachable",
+    "public arithmetic signed context is reachable",
+    "public arithmetic unsigned context is reachable",
+    "public arithmetic growth is reachable",
+    "public arithmetic natural width is reachable",
+    "public arithmetic source X is reachable",
+    "public arithmetic source Z is reachable",
+    "public arithmetic signed extension is reachable",
+    "public arithmetic sign suppression is reachable",
+];
+
+pub static CONTRACTS: [Contract; 61] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -668,6 +685,20 @@ pub static CONTRACTS: [Contract; 58] = [
     },
     Contract {
         group: "values",
+        name: "public-arithmetic-add",
+        harness: "public_arithmetic_small_add_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-subtract",
+        harness: "public_arithmetic_small_subtract_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
+    },
+    Contract {
+        group: "values",
         name: "public-arithmetic",
         harness: "public_arithmetic_one_bit_matches_reference_semantics",
         message: "public arithmetic semantics mismatch",
@@ -678,6 +709,13 @@ pub static CONTRACTS: [Contract; 58] = [
             "public unary plus is reachable",
             "public plus preserves Z",
         ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-negate",
+        harness: "public_arithmetic_small_negate_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &PUBLIC_ARITHMETIC_COVERS,
     },
     Contract {
         group: "values",
@@ -1843,7 +1881,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             ("unmasked-negation", contract("negation"), unmasked_negation),
             (
                 "negation-ignores-unknown",
-                contract("public-arithmetic"),
+                contract("public-arithmetic-negate"),
                 negation_ignores_unknown,
             ),
             (
@@ -2520,6 +2558,47 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path: CORE,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-arithmetic-add",
+            "public-add-disables-left-sign",
+            "eval_value_binary",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let x = x.expand(width, false);",
+        ),
+        (
+            "public-arithmetic-add",
+            "public-add-forces-biguint-context",
+            "eval_value_binary",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let width = width.max(65); let x = x.expand(width, signed);",
+        ),
+        (
+            "public-arithmetic-subtract",
+            "public-subtract-skips-right-extension",
+            "eval_value_binary",
+            "Op::Sub => {\n                let x = x.expand(width, signed);\n                let y = y.expand(width, signed);",
+            "Op::Sub => {\n                let x = x.expand(width, signed);\n                let y = std::borrow::Cow::Borrowed(y);",
+        ),
+        (
+            "public-arithmetic-negate",
+            "public-negate-adopts-caller-sign",
+            "eval_value_unary",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut ret = x.negate(width); ret.signed = signed; Value::U64(ret) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
             });
         }
     }
