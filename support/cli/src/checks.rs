@@ -171,12 +171,7 @@ pub const SHARDS: &[Shard] = &[
             "reductions",
             "condition-truth",
             "conditional",
-            "public-conditional",
-            "public-conditional-small-12",
-            "public-conditional-small-21",
-            "public-conditional-small-22",
-            "public-conditional-widened",
-            "public-conditional-word",
+            "public-conditional-native",
         ],
     ),
     Shard::value(

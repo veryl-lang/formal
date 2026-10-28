@@ -1,4 +1,4 @@
-//! Public small dispatch is proved in targets/analyzer/kani/src/conditional.rs.
+//! Public native dispatch is proved in targets/analyzer/kani/src/conditional.rs.
 //! Retain wider/BigUint and unsized-literal paths plus independent model checks.
 
 use veryl_analyzer::value::Value;
@@ -47,17 +47,13 @@ fn check(condition: Operand, a: Operand, b: Operand, context_width: usize, signe
     }
 }
 
-// The public small contracts cover normalized widths 1..=2 with contexts 0,1,4.
-fn covered_small_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
-    fn normalized_small(x: Operand) -> bool {
-        (1..=2).contains(&x.width)
-            && x.planes.0 < (1u128 << x.width)
-            && x.planes.1 < (1u128 << x.width)
+// The public proof includes all normalized native branches, small conditions
+// and context requests through 64. Wider conditions, branches and requests remain.
+fn covered_native_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
+    fn normalized(x: Operand, limit: usize) -> bool {
+        (1..=limit).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0
     }
-    normalized_small(c)
-        && normalized_small(a)
-        && normalized_small(b)
-        && matches!(context, 0 | 1 | 4)
+    normalized(c, 2) && normalized(a, 64) && normalized(b, 64) && context <= 64
 }
 
 #[test]
@@ -109,7 +105,7 @@ fn conditional_native_biguint_boundaries() {
                                     };
                                     for signed in [false, true] {
                                         for context in [0, 1, width, 128] {
-                                            if covered_small_layout(c, a, b, context) {
+                                            if covered_native_layout(c, a, b, context) {
                                                 continue;
                                             }
                                             check(c, a, b, context, signed);

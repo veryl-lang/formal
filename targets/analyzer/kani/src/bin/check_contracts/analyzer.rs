@@ -4,23 +4,6 @@ use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
-const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
-    "public condition zero is reachable",
-    "public condition one is reachable",
-    "public condition X is reachable",
-    "public condition Z is reachable",
-    "public common Z becomes X",
-    "small conditional one-bit condition is reachable",
-    "small conditional two-bit condition is reachable",
-    "small conditional zero context is reachable",
-    "small conditional unit context is reachable",
-    "small conditional wide context is reachable",
-    "small conditional known one dominates unknown",
-    "small conditional signed extension is reachable",
-    "small conditional sign suppression is reachable",
-    "small conditional u128 padding is reachable",
-];
-
 const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
     "public assignment source width 1 is reachable",
     "public assignment source width 4 is reachable",
@@ -64,7 +47,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 67] = [
+pub static CONTRACTS: [Contract; 62] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -568,54 +551,31 @@ pub static CONTRACTS: [Contract; 67] = [
     },
     Contract {
         group: "values",
-        name: "public-conditional",
-        harness: "public_conditional_small_11_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-12",
-        harness: "public_conditional_small_12_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-21",
-        harness: "public_conditional_small_21_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-22",
-        harness: "public_conditional_small_22_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-widened",
-        harness: "public_conditional_widened_matches_reference_semantics",
-        message: "public conditional layout semantics mismatch",
+        name: "public-conditional-native",
+        harness: "public_conditional_native_matches_reference_semantics",
+        message: "public conditional semantics mismatch",
         covers: &[
-            "public layout condition X is reachable",
-            "public layout condition Z is reachable",
-            "public layout signed extension is reachable",
-            "public layout unsigned extension is reachable",
-        ],
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-word",
-        harness: "public_conditional_word_matches_reference_semantics",
-        message: "public conditional layout semantics mismatch",
-        covers: &[
-            "public layout condition X is reachable",
-            "public layout condition Z is reachable",
-            "public layout signed extension is reachable",
-            "public layout unsigned extension is reachable",
+            "public native conditional condition width 1 is reachable",
+            "public native conditional condition width 2 is reachable",
+            "public native conditional true width 1 is reachable",
+            "public native conditional true width 64 is reachable",
+            "public native conditional false width 1 is reachable",
+            "public native conditional false width 64 is reachable",
+            "public native conditional context 0 is reachable",
+            "public native conditional context 1 is reachable",
+            "public native conditional context 64 is reachable",
+            "public native conditional false condition is reachable",
+            "public native conditional true condition is reachable",
+            "public native conditional ambiguous condition is reachable",
+            "public native conditional known one dominates unknown",
+            "public native conditional common Z becomes X",
+            "public native conditional context widens branches",
+            "public native conditional context preserves branch width",
+            "public native conditional sign extension is reachable",
+            "public native conditional sign suppression is reachable",
+            "public native conditional signed result is reachable",
+            "public native conditional unsigned result is reachable",
+            "public native conditional u128 padding is reachable",
         ],
     },
     Contract {
@@ -1983,17 +1943,17 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             ),
             (
                 "legacy-conditional-false",
-                contract("public-conditional"),
+                contract("public-conditional-native"),
                 legacy_conditional_false,
             ),
             (
                 "public-conditional-ignores-context-width",
-                contract("public-conditional-widened"),
+                contract("public-conditional-native"),
                 public_conditional_ignores_context_width,
             ),
             (
                 "public-conditional-truncates-word",
-                contract("public-conditional-word"),
+                contract("public-conditional-native"),
                 public_conditional_truncates_word,
             ),
             (
@@ -2696,19 +2656,19 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     for (contract_name, name, old, new) in [
         (
-            "public-conditional-small-22",
+            "public-conditional-native",
             "public-conditional-ignores-condition-high-bit",
             "let condition = self.truth();",
             "let mut condition_value = self.clone(); condition_value.trunc(1); let condition = condition_value.truth();",
         ),
         (
-            "public-conditional",
+            "public-conditional-native",
             "public-conditional-zero-context-widens",
             "let context_width = width;",
             "let context_width = if width == 0 { 4 } else { width };",
         ),
         (
-            "public-conditional-small-12",
+            "public-conditional-native",
             "public-conditional-zero-context-selects-width",
             "return Self::U64(a.conditional(b, condition, context_width, signed));",
             "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); if context_width == 0 && condition == Some(true) { value.trunc(a.width as usize); } return value;",
