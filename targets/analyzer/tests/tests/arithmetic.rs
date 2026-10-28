@@ -1,6 +1,7 @@
 //! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
 //! Execute every call to preserve cache history. Kani covers the first binary
-//! Add/Sub pair and first four natural-width unary calls in small layouts.
+//! Add/Sub pair and first six unary calls (natural width, then width + 2)
+//! for normalized sources at widths 1..=3.
 //! Compare later results after executing the complete prefix on the same cache.
 //! Wider/BigUint operations, sentinels, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
@@ -76,10 +77,12 @@ fn check_unary(a: Operand, widths: &[usize]) {
     let mut calls = 0;
     let mut prefix_matches = true;
     let prefix = [
-        (Op::Add, false),
-        (Op::Sub, false),
-        (Op::Add, true),
-        (Op::Sub, true),
+        (Op::Add, false, 0),
+        (Op::Sub, false, 0),
+        (Op::Add, true, 0),
+        (Op::Sub, true, 0),
+        (Op::Add, false, 2),
+        (Op::Sub, false, 2),
     ];
     for &width in widths {
         for signed in [false, true] {
@@ -88,8 +91,11 @@ fn check_unary(a: Operand, widths: &[usize]) {
                 let result = op.eval_value_unary(&x, width, signed, &mut cache);
                 let covered = prefix_matches
                     && small_normalized(a)
-                    && width == a.width
-                    && prefix.get(calls) == Some(&(op, signed));
+                    && prefix
+                        .get(calls)
+                        .is_some_and(|&(expected_op, expected_sign, extra)| {
+                            op == expected_op && signed == expected_sign && width == a.width + extra
+                        });
                 prefix_matches = covered;
                 calls += 1;
                 if covered {

@@ -791,3 +791,134 @@ fn public_arithmetic_plus_after_unsigned_pair_matches_reference_semantics() {
 fn public_arithmetic_negate_after_signed_plus_matches_reference_semantics() {
     public_unary_signed_after_initial::<true>();
 }
+
+// Observe calls 5 and 6 of the executable trace after the four natural-width
+// calls. Both use width + 2 and an unsigned caller, so preparation zero-extends
+// even signed sources (IEEE 1800 11.8.2). Sources span normalized four-state
+// planes and both signs at widths 1..=3; results have widths 3..=5.
+// Unary plus uses the model's Table 11-6 identity interpretation.
+fn public_unary_widened_unsigned<const NEGATE: bool>() {
+    use veryl_formal_semantics::logic4::Logic4;
+    let (native, before) = public_input();
+    let input = Value::U64(native);
+    let natural = before.width;
+    let width = natural + 2;
+    let mut cache = MaskCache::default();
+    let _ = Op::Add.eval_value_unary(&input, natural, false, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, natural, false, &mut cache);
+    let _ = Op::Add.eval_value_unary(&input, natural, true, &mut cache);
+    let _ = Op::Sub.eval_value_unary(&input, natural, true, &mut cache);
+    let plus = Op::Add.eval_value_unary(&input, width, false, &mut cache);
+    let output = if NEGATE {
+        Op::Sub.eval_value_unary(&input, width, false, &mut cache)
+    } else {
+        plus
+    };
+    // Prove the native dispatch before observing its getters, avoiding expansion
+    // of getter branches for an unreachable BigUint representation.
+    let Value::U64(native) = output else {
+        panic!("public arithmetic semantics mismatch");
+    };
+    let output = Value::U64(native);
+    assert!(
+        output.width() == width && !output.signed(),
+        "public arithmetic semantics mismatch"
+    );
+    if NEGATE {
+        let position = usize::from(kani::any::<u8>() & 127);
+        let expected = veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+            before,
+            before,
+            width,
+            false,
+            Arithmetic::Negate,
+            position,
+        );
+        assert!(
+            read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+            "public arithmetic semantics mismatch"
+        );
+        kani::cover!(
+            expected == Logic4::X,
+            "unary widened sequence X result is reachable"
+        );
+        kani::cover!(
+            expected == Logic4::One,
+            "unary widened sequence known one is reachable"
+        );
+        kani::cover!(
+            position == 127,
+            "unary widened sequence u128 padding is reachable"
+        );
+    } else {
+        // Zero extension leaves both normalized source planes numerically intact.
+        // Full getter equality includes the two added bits and padding to bit 127.
+        assert!(
+            output.payload_u128() == before.planes.0 && output.mask_xz_u128() == before.planes.1,
+            "public arithmetic semantics mismatch"
+        );
+        kani::cover!(
+            before.planes.1 & !before.planes.0 != 0,
+            "unary widened sequence X result is reachable"
+        );
+        kani::cover!(
+            before.planes.1 == 0 && before.planes.0 != 0,
+            "unary widened sequence known one is reachable"
+        );
+        kani::cover!(
+            before.planes.1 & before.planes.0 != 0,
+            "unary widened sequence Z result is reachable"
+        );
+    }
+    assert_public_input(&input, before);
+    kani::cover!(
+        before.width == 1,
+        "unary widened sequence source width 1 is reachable"
+    );
+    kani::cover!(
+        before.width == 2,
+        "unary widened sequence source width 2 is reachable"
+    );
+    kani::cover!(
+        before.width == 3,
+        "unary widened sequence source width 3 is reachable"
+    );
+    kani::cover!(
+        width == 3,
+        "unary widened sequence result width 3 is reachable"
+    );
+    kani::cover!(
+        width == 4,
+        "unary widened sequence result width 4 is reachable"
+    );
+    kani::cover!(
+        width == 5,
+        "unary widened sequence result width 5 is reachable"
+    );
+    kani::cover!(
+        before.signed,
+        "unary widened sequence signed source is reachable"
+    );
+    kani::cover!(
+        !before.signed,
+        "unary widened sequence unsigned source is reachable"
+    );
+    kani::cover!(
+        before.signed && before.planes.1 == 0 && before.planes.0 & (1 << (natural - 1)) != 0,
+        "unary widened sequence suppresses sign extension"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_unsigned_growth_plus_matches_reference_semantics() {
+    public_unary_widened_unsigned::<false>();
+}
+
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_unsigned_growth_negate_matches_reference_semantics() {
+    public_unary_widened_unsigned::<true>();
+}
