@@ -73,7 +73,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 63] = [
+pub static CONTRACTS: [Contract; 64] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -717,6 +717,21 @@ pub static CONTRACTS: [Contract; 63] = [
             "arithmetic initial pair mixed source signs are reachable",
             "arithmetic initial pair X result is reachable",
             "arithmetic initial pair u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-unary-initial-pair",
+        harness: "public_arithmetic_negate_after_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary initial pair width 1 is reachable",
+            "unary initial pair width 2 is reachable",
+            "unary initial pair width 3 is reachable",
+            "unary initial pair signed source is reachable",
+            "unary initial pair unsigned source is reachable",
+            "unary initial pair X result is reachable",
+            "unary initial pair u128 padding is reachable",
         ],
     },
     Contract {
@@ -2668,6 +2683,36 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             source: mutate_method(&source, "add_sub",
                 "Self::new(payload & Self::gen_mask(width), width, signed)",
                 "{ let mut result = Self::new(payload & Self::gen_mask(width), width, signed); if subtract { result.payload |= 1u64 << 63; } result }"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-unary-initial-pair")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-initial-pair-negates-as-plus",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_unary",
+                "Value::U64(x) => Value::U64(x.negate(width)),",
+                "Value::U64(x) => Value::U64(x.clone()),",
+            ),
+        });
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-initial-pair-negation-upper-leak",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "negate",
+                "ret.payload &= mask;",
+                "ret.payload = (ret.payload & mask) | (1u64 << 63);",
+            ),
         });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {

@@ -638,3 +638,57 @@ fn native_unary_plus_matches_reference_semantics() {
         "unary plus extended Z is reachable"
     );
 }
+
+// The first two unary calls share the real cache. Sources are normalized at
+// widths 1..=3, with arbitrary four-state planes and signs. A natural-width
+// unsigned caller leaves the source sign on both results (IEEE 1800 11.8.2).
+// The preceding plus output is covered by public_arithmetic_small_plus.
+// Only the second result is observed here; the first call still executes.
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_negate_after_plus_matches_reference_semantics() {
+    use veryl_formal_semantics::logic4::Logic4;
+    let (native, before) = public_input();
+    let input = Value::U64(native);
+    let width = before.width;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let _ = Op::Add.eval_value_unary(&input, width, false, &mut cache);
+    let output = Op::Sub.eval_value_unary(&input, width, false, &mut cache);
+    let expected = veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+        before,
+        before,
+        width,
+        false,
+        Arithmetic::Negate,
+        position,
+    );
+    assert!(
+        matches!(output, Value::U64(_))
+            && output.width() == width
+            && output.signed() == before.signed
+            && read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+        "public arithmetic semantics mismatch"
+    );
+    assert_public_input(&input, before);
+    kani::cover!(width == 1, "unary initial pair width 1 is reachable");
+    kani::cover!(width == 2, "unary initial pair width 2 is reachable");
+    kani::cover!(width == 3, "unary initial pair width 3 is reachable");
+    kani::cover!(
+        before.signed,
+        "unary initial pair signed source is reachable"
+    );
+    kani::cover!(
+        !before.signed,
+        "unary initial pair unsigned source is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "unary initial pair X result is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "unary initial pair u128 padding is reachable"
+    );
+}
