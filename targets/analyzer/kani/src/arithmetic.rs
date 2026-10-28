@@ -3,10 +3,10 @@
 //! proofs use a fresh cache, normalized source widths 1..=3,
 //! independent source signs and caller sign, and natural/natural+2 result widths
 //! (1..=5). They check complete u128 getters, storage variant, metadata, and input
-//! preservation. Unary plus observes an arbitrary getter bit; other public
-//! arithmetic proofs compare complete planes.
+//! preservation through arbitrary getter-bit observations at all 128 positions.
 //! The one-bit public dispatcher also checks raw native result fields.
-//! Shared-cache sequences, wider public operations, and traversal remain executable checks.
+//! The initial natural-width unsigned Add/Sub pair also has a shared-cache proof.
+//! Longer sequences, wider public operations, and traversal remain executable checks.
 //! X/Z unary plus checks the Table 11-6 identity interpretation documented in
 //! veryl_formal_semantics::arithmetic; it does not resolve the conflicting general X/Z sentence.
 
@@ -153,19 +153,6 @@ fn public_input() -> (ValueU64, Operand) {
     (native, before)
 }
 
-fn prepared_public(input: Operand, width: usize, signed: bool) -> (u128, u128) {
-    veryl_formal_semantics::resize::reference_planes(width, |position| {
-        veryl_formal_semantics::resize::extended_logic_bit(
-            input.planes,
-            input.width,
-            width,
-            input.signed,
-            signed,
-            position,
-        )
-    })
-}
-
 // MODE fixes the public operation before symbolic execution. A symbolic Op value
 // makes Kani expand unrelated dispatcher arms. Input widths and flags still vary.
 fn public_small_arithmetic<const MODE: u8>() {
@@ -198,6 +185,7 @@ fn public_small_arithmetic<const MODE: u8>() {
     let grown: bool = kani::any();
     let width = natural + if grown { 2 } else { 0 };
     let signed: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
     let mut cache = MaskCache::default();
     let actual = match MODE {
         0 => Op::Add.eval_value_binary(&a, &b, width, signed, &mut cache),
@@ -211,13 +199,9 @@ fn public_small_arithmetic<const MODE: u8>() {
         2 => Arithmetic::Negate,
         _ => panic!("invalid arithmetic proof mode"),
     };
-    let ap = prepared_public(ar, width, signed);
-    let bp = if binary {
-        prepared_public(br, width, signed)
-    } else {
-        (0, 0)
-    };
-    let expected = arithmetic_planes(ap, bp, width, kind);
+    let expected = veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+        ar, br, width, signed, kind, position,
+    );
     let expected_signed = if binary {
         signed
     } else {
@@ -228,13 +212,17 @@ fn public_small_arithmetic<const MODE: u8>() {
         matches!(actual, Value::U64(_))
             && actual.width() == width
             && actual.signed() == expected_signed
-            && planes == expected,
+            && read_logic(planes.0, planes.1, position) == expected,
         "public arithmetic semantics mismatch"
     );
     assert_public_input(&a, ar);
     if binary {
         assert_public_input(&b, br);
     }
+    kani::cover!(
+        position == 127,
+        "public arithmetic u128 padding is reachable"
+    );
     kani::cover!(true, "public arithmetic operation is reachable");
     kani::cover!(
         ar.width == 1,
@@ -354,6 +342,95 @@ fn public_arithmetic_small_plus_matches_reference_semantics() {
     kani::cover!(
         signed && before.signed && grown && position >= before.width && expected == Logic4::Z,
         "public plus extended Z is reachable"
+    );
+}
+
+// Initial two calls of the executable binary sequence, on the same cache.
+// The caller starts at natural width in an unsigned context. Both sources retain
+// independent signs and every normalized four-state value at widths 1..=3.
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_arithmetic_initial_pair_matches_reference_semantics() {
+    use veryl_formal_semantics::logic4::Logic4;
+    let (a, ar) = public_input();
+    let (b, br) = public_input();
+    let a = Value::U64(a);
+    let b = Value::U64(b);
+    let width = ar.width.max(br.width);
+    let observe_subtract: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let sum = Op::Add.eval_value_binary(&a, &b, width, false, &mut cache);
+    let difference = Op::Sub.eval_value_binary(&a, &b, width, false, &mut cache);
+    let (output, kind) = if observe_subtract {
+        (difference, Arithmetic::Subtract)
+    } else {
+        (sum, Arithmetic::Add)
+    };
+    let expected = veryl_formal_semantics::arithmetic::contextual_arithmetic_bit(
+        ar, br, width, false, kind, position,
+    );
+    assert!(
+        matches!(output, Value::U64(_))
+            && output.width() == width
+            && !output.signed()
+            && read_logic(output.payload_u128(), output.mask_xz_u128(), position) == expected,
+        "public arithmetic semantics mismatch"
+    );
+    assert_public_input(&a, ar);
+    assert_public_input(&b, br);
+    kani::cover!(
+        !observe_subtract,
+        "arithmetic initial pair observes addition"
+    );
+    kani::cover!(
+        observe_subtract,
+        "arithmetic initial pair observes subtraction"
+    );
+    kani::cover!(
+        ar.width == 1,
+        "arithmetic initial pair LHS width 1 is reachable"
+    );
+    kani::cover!(
+        ar.width == 2,
+        "arithmetic initial pair LHS width 2 is reachable"
+    );
+    kani::cover!(
+        ar.width == 3,
+        "arithmetic initial pair LHS width 3 is reachable"
+    );
+    kani::cover!(
+        br.width == 1,
+        "arithmetic initial pair RHS width 1 is reachable"
+    );
+    kani::cover!(
+        br.width == 2,
+        "arithmetic initial pair RHS width 2 is reachable"
+    );
+    kani::cover!(
+        br.width == 3,
+        "arithmetic initial pair RHS width 3 is reachable"
+    );
+    kani::cover!(
+        ar.width > br.width,
+        "arithmetic initial pair wider LHS is reachable"
+    );
+    kani::cover!(
+        ar.width < br.width,
+        "arithmetic initial pair wider RHS is reachable"
+    );
+    kani::cover!(
+        ar.signed != br.signed,
+        "arithmetic initial pair mixed source signs are reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "arithmetic initial pair X result is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "arithmetic initial pair u128 padding is reachable"
     );
 }
 

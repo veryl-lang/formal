@@ -55,7 +55,7 @@ const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
     "public assignment source width 32 is reachable",
 ];
 
-const PUBLIC_ARITHMETIC_COVERS: [&str; 14] = [
+const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic operation is reachable",
     "public arithmetic source width 1 is reachable",
     "public arithmetic source width 2 is reachable",
@@ -70,9 +70,10 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 14] = [
     "public arithmetic source Z is reachable",
     "public arithmetic signed extension is reachable",
     "public arithmetic sign suppression is reachable",
+    "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 62] = [
+pub static CONTRACTS: [Contract; 63] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -696,6 +697,27 @@ pub static CONTRACTS: [Contract; 62] = [
         harness: "public_arithmetic_small_subtract_matches_reference_semantics",
         message: "public arithmetic semantics mismatch",
         covers: &PUBLIC_ARITHMETIC_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-initial-pair",
+        harness: "public_arithmetic_initial_pair_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "arithmetic initial pair observes addition",
+            "arithmetic initial pair observes subtraction",
+            "arithmetic initial pair LHS width 1 is reachable",
+            "arithmetic initial pair LHS width 2 is reachable",
+            "arithmetic initial pair LHS width 3 is reachable",
+            "arithmetic initial pair RHS width 1 is reachable",
+            "arithmetic initial pair RHS width 2 is reachable",
+            "arithmetic initial pair RHS width 3 is reachable",
+            "arithmetic initial pair wider LHS is reachable",
+            "arithmetic initial pair wider RHS is reachable",
+            "arithmetic initial pair mixed source signs are reachable",
+            "arithmetic initial pair X result is reachable",
+            "arithmetic initial pair u128 padding is reachable",
+        ],
     },
     Contract {
         group: "values",
@@ -2619,6 +2641,54 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-initial-pair")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "arithmetic-initial-pair-subtracts-as-add",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Value::U64(x.add_sub(y, width, signed, true))",
+                "Value::U64(x.add_sub(y, width, signed, false))",
+            ),
+        });
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "arithmetic-initial-pair-subtraction-upper-leak",
+            contract, path: CORE,
+            source: mutate_method(&source, "add_sub",
+                "Self::new(payload & Self::gen_mask(width), width, signed)",
+                "{ let mut result = Self::new(payload & Self::gen_mask(width), width, signed); if subtract { result.payload |= 1u64 << 63; } result }"),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-add-upper-payload-leak",
+                "Self::U64(x) => x.payload as u128,",
+                "Self::U64(x) => (x.payload as u128) | if x.width == 5 { 1u128 << 100 } else { 0 },",
+            ),
+            (
+                "public-add-upper-xz-leak",
+                "Self::U64(x) => x.mask_xz as u128,",
+                "Self::U64(x) => (x.mask_xz as u128) | if x.width == 5 { 1u128 << 64 } else { 0 },",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
             });
         }
     }

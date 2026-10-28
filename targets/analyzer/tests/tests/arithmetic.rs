@@ -1,6 +1,7 @@
 //! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
-//! Execute every call to preserve cache history, then compare later shared-cache
-//! results. Wider/BigUint operations, sentinels, and reference anchors remain here.
+//! Execute every call to preserve cache history. Kani covers the first binary
+//! Add/Sub pair and first unary-plus call in small layouts; compare later results.
+//! Wider/BigUint operations, sentinels, and reference anchors remain here.
 //! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
@@ -23,20 +24,26 @@ fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
     let x = Value::from_u128(a.planes.0, a.planes.1, a.width, a.signed);
     let y = Value::from_u128(b.planes.0, b.planes.1, b.width, b.signed);
     let mut cache = MaskCache::default();
-    let mut fresh = true;
+    let mut calls = 0;
+    let mut initial_add_covered = false;
     for &width in widths {
         for signed in [false, true] {
             let ap = prepared(a, width, signed);
             let bp = prepared(b, width, signed);
             for (op, kind) in [(Op::Add, Arithmetic::Add), (Op::Sub, Arithmetic::Subtract)] {
                 let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
-                let covered_first = fresh
-                    && op == Op::Add
-                    && small_normalized(a)
+                let initial_layout = small_normalized(a)
                     && small_normalized(b)
-                    && width == a.width.max(b.width);
-                fresh = false;
-                if covered_first {
+                    && width == a.width.max(b.width)
+                    && !signed;
+                let covered = initial_layout
+                    && ((calls == 0 && op == Op::Add)
+                        || (calls == 1 && initial_add_covered && op == Op::Sub));
+                if calls == 0 {
+                    initial_add_covered = covered;
+                }
+                calls += 1;
+                if covered {
                     continue;
                 }
                 assert_eq!(
