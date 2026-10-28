@@ -1,7 +1,7 @@
-//! Public Value dispatch and conversions complement the native assignment proof.
-//! Native bit/metadata semantics are proved in
-//! `targets/analyzer/kani/src/partial_assignment.rs`. Reference truth tables and
-//! native/BigUint integration remain executable checks.
+//! Native assignment semantics and public constructor/dispatch/getters for every
+//! pairing of widths 1, 4, 63, and 64 are proved in
+//! `targets/analyzer/kani/src/partial_assignment.rs`. Reference truth tables,
+//! the 14-bit regression, and native/BigUint conversions remain executable checks.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
@@ -44,6 +44,9 @@ fn assignment_contract_native_biguint_boundaries_and_conversions() {
     ];
     for width in [1, 4, 63, 64, 65, 127, 128] {
         for rhs_width in [1, 4, 63, 64, 65, 127, 128] {
+            if matches!(width, 1 | 4 | 63 | 64) && matches!(rhs_width, 1 | 4 | 63 | 64) {
+                continue;
+            }
             for beg in 0..width {
                 // Exercise every in-bounds field, including fields crossing bit 64.
                 for end in 0..=beg {

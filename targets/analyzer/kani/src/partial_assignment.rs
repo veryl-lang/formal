@@ -1,8 +1,12 @@
 //! Normalized destination widths 1..=64, arbitrary prepared RHS planes and metadata,
 //! and arbitrary native endpoints. Checks every stored bit and preserved metadata.
+//! Public constructor/assignment/getter dispatch also covers every pairing of
+//! widths 1, 4, 63, and 64, with normalized four-state planes, independent source
+//! and destination signs, arbitrary usize endpoints, and all 128 getter bits.
 //! Does not prove source sizing, selector decoding, or legal part-select syntax.
+//! Native/BigUint conversions remain executable checks.
 
-use veryl_analyzer::value::ValueU64;
+use veryl_analyzer::value::{Value, ValueU64};
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
 use veryl_formal_semantics::partial_assignment::assigned_logic_bit;
 
@@ -65,4 +69,171 @@ fn native_assignment_matches_reference_semantics() {
     );
     kani::cover!(expected == Logic4::X, "X result is reachable");
     kani::cover!(expected == Logic4::Z, "Z result is reachable");
+}
+
+fn public_native_input<const W: u32>() -> (Value, ValueU64) {
+    let width = W;
+    let mask = u64::MAX >> (64 - width);
+    let before = ValueU64 {
+        payload: kani::any::<u64>() & mask,
+        mask_xz: kani::any::<u64>() & mask,
+        width,
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(
+        before.payload as u128,
+        before.mask_xz as u128,
+        width as usize,
+        before.signed,
+    );
+    assert!(
+        matches!(value, Value::U64(_))
+            && value.width() == width as usize
+            && value.signed() == before.signed
+            && value.payload_u128() == before.payload as u128
+            && value.mask_xz_u128() == before.mask_xz as u128,
+        "public assignment semantics mismatch"
+    );
+    (value, before)
+}
+
+struct PublicAssignmentWitness {
+    before: ValueU64,
+    source: ValueU64,
+    beg: usize,
+    end: usize,
+    position: usize,
+    expected: Logic4,
+}
+
+fn public_native_assignment<const A: u32, const B: u32>() -> PublicAssignmentWitness {
+    let (mut dst, before) = public_native_input::<A>();
+    let (rhs, source) = public_native_input::<B>();
+    let beg: usize = kani::any();
+    let end: usize = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    dst.assign(rhs, beg, end);
+    let expected = if position < before.width as usize {
+        assigned_logic_bit(
+            (before.payload as u128, before.mask_xz as u128),
+            (source.payload as u128, source.mask_xz as u128),
+            position,
+            beg,
+            end,
+        )
+    } else {
+        Logic4::Zero
+    };
+    assert!(
+        matches!(dst, Value::U64(_))
+            && dst.width() == before.width as usize
+            && dst.signed() == before.signed
+            && read_logic(dst.payload_u128(), dst.mask_xz_u128(), position) == expected,
+        "public assignment semantics mismatch"
+    );
+    PublicAssignmentWitness {
+        before,
+        source,
+        beg,
+        end,
+        position,
+        expected,
+    }
+}
+
+fn public_assignment_sources<const A: u32>() {
+    let witness = match kani::any::<u8>() & 3 {
+        0 => public_native_assignment::<A, 1>(),
+        1 => public_native_assignment::<A, 4>(),
+        2 => public_native_assignment::<A, 63>(),
+        _ => public_native_assignment::<A, 64>(),
+    };
+    let PublicAssignmentWitness {
+        before,
+        source,
+        beg,
+        end,
+        position,
+        expected,
+    } = witness;
+    kani::cover!(
+        source.width == 1,
+        "public assignment source width 1 is reachable"
+    );
+    kani::cover!(
+        source.width == 4,
+        "public assignment source width 4 is reachable"
+    );
+    kani::cover!(
+        source.width == 63,
+        "public assignment source width 63 is reachable"
+    );
+    kani::cover!(
+        source.width == 64,
+        "public assignment source width 64 is reachable"
+    );
+    kani::cover!(
+        end >= before.width as usize,
+        "public assignment ignored write is reachable"
+    );
+    kani::cover!(
+        end < before.width as usize && beg >= before.width as usize,
+        "public assignment clipped write is reachable"
+    );
+    kani::cover!(
+        beg < end,
+        "public assignment reversed endpoints are reachable"
+    );
+    kani::cover!(
+        beg == usize::MAX && end == 0,
+        "public assignment maximum high bound is reachable"
+    );
+    kani::cover!(
+        end == usize::MAX,
+        "public assignment maximum low bound is reachable"
+    );
+    kani::cover!(
+        beg == before.width as usize - 1 && end == 0,
+        "public assignment full destination is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "public assignment X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Z,
+        "public assignment Z result is reachable"
+    );
+    kani::cover!(
+        before.signed != source.signed,
+        "public assignment different signs are reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "public assignment u128 padding is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_assignment_one_matches_reference_semantics() {
+    public_assignment_sources::<1>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_assignment_four_matches_reference_semantics() {
+    public_assignment_sources::<4>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_assignment_63_matches_reference_semantics() {
+    public_assignment_sources::<63>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+fn public_assignment_64_matches_reference_semantics() {
+    public_assignment_sources::<64>();
 }
