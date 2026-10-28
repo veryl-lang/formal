@@ -1,7 +1,7 @@
 //! Normalized destination widths 1..=64, arbitrary prepared RHS planes and metadata,
 //! and arbitrary native endpoints. Checks every stored bit and preserved metadata.
 //! Public constructor/assignment/getter dispatch also covers every pairing of
-//! widths 1, 4, 63, and 64, with normalized four-state planes, independent source
+//! widths 1..=64, with normalized four-state planes, independent source
 //! and destination signs, arbitrary usize endpoints, and all 128 getter bits.
 //! Does not prove source sizing, selector decoding, or legal part-select syntax.
 //! Native/BigUint conversions remain executable checks.
@@ -71,8 +71,17 @@ fn native_assignment_matches_reference_semantics() {
     kani::cover!(expected == Logic4::Z, "Z result is reachable");
 }
 
-fn public_native_input<const W: u32>() -> (Value, ValueU64) {
-    let width = W;
+// Kani 0.68 expands the constructor's BigUint allocation before eliminating
+// paths excluded by symbolic native widths. This panic asserts that the
+// conversion is unreachable for every admitted input. Reaching it fails the
+// proof, so the original conversion's return value is never abstracted.
+// Constructor, assignment, getters, and reference operations remain unmodified.
+fn reject_native_biguint(_: u128) -> num_bigint::BigUint {
+    panic!("public assignment semantics mismatch");
+}
+
+fn public_native_input() -> (Value, ValueU64) {
+    let width = u32::from(kani::any::<u8>() & 63) + 1;
     let mask = u64::MAX >> (64 - width);
     let before = ValueU64 {
         payload: kani::any::<u64>() & mask,
@@ -97,18 +106,12 @@ fn public_native_input<const W: u32>() -> (Value, ValueU64) {
     (value, before)
 }
 
-struct PublicAssignmentWitness {
-    before: ValueU64,
-    source: ValueU64,
-    beg: usize,
-    end: usize,
-    position: usize,
-    expected: Logic4,
-}
-
-fn public_native_assignment<const A: u32, const B: u32>() -> PublicAssignmentWitness {
-    let (mut dst, before) = public_native_input::<A>();
-    let (rhs, source) = public_native_input::<B>();
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_biguint)]
+fn public_assignment_native_matches_reference_semantics() {
+    let (mut dst, before) = public_native_input();
+    let (rhs, source) = public_native_input();
     let beg: usize = kani::any();
     let end: usize = kani::any();
     let position = usize::from(kani::any::<u8>() & 127);
@@ -131,31 +134,6 @@ fn public_native_assignment<const A: u32, const B: u32>() -> PublicAssignmentWit
             && read_logic(dst.payload_u128(), dst.mask_xz_u128(), position) == expected,
         "public assignment semantics mismatch"
     );
-    PublicAssignmentWitness {
-        before,
-        source,
-        beg,
-        end,
-        position,
-        expected,
-    }
-}
-
-fn public_assignment_sources<const A: u32>() {
-    let witness = match kani::any::<u8>() & 3 {
-        0 => public_native_assignment::<A, 1>(),
-        1 => public_native_assignment::<A, 4>(),
-        2 => public_native_assignment::<A, 63>(),
-        _ => public_native_assignment::<A, 64>(),
-    };
-    let PublicAssignmentWitness {
-        before,
-        source,
-        beg,
-        end,
-        position,
-        expected,
-    } = witness;
     kani::cover!(
         source.width == 1,
         "public assignment source width 1 is reachable"
@@ -212,28 +190,36 @@ fn public_assignment_sources<const A: u32>() {
         position == 127,
         "public assignment u128 padding is reachable"
     );
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-fn public_assignment_one_matches_reference_semantics() {
-    public_assignment_sources::<1>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-fn public_assignment_four_matches_reference_semantics() {
-    public_assignment_sources::<4>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-fn public_assignment_63_matches_reference_semantics() {
-    public_assignment_sources::<63>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-fn public_assignment_64_matches_reference_semantics() {
-    public_assignment_sources::<64>();
+    kani::cover!(
+        before.width == 1,
+        "public assignment destination width 1 is reachable"
+    );
+    kani::cover!(
+        before.width == 4,
+        "public assignment destination width 4 is reachable"
+    );
+    kani::cover!(
+        before.width == 14,
+        "public assignment destination width 14 is reachable"
+    );
+    kani::cover!(
+        before.width == 32,
+        "public assignment destination width 32 is reachable"
+    );
+    kani::cover!(
+        before.width == 63,
+        "public assignment destination width 63 is reachable"
+    );
+    kani::cover!(
+        before.width == 64,
+        "public assignment destination width 64 is reachable"
+    );
+    kani::cover!(
+        source.width == 14,
+        "public assignment source width 14 is reachable"
+    );
+    kani::cover!(
+        source.width == 32,
+        "public assignment source width 32 is reachable"
+    );
 }

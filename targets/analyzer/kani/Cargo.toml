@@ -16,3 +16,10 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [target.'cfg(not(kani))'.dependencies]
 veryl-formal-runner = { path = "../../../support" }
+
+[target.'cfg(kani)'.dependencies]
+# Match the conversion signature used by the fail-closed native proof guard.
+num-bigint = "0.5.1"
+
+[package.metadata.kani.flags]
+unstable = ["stubbing"]

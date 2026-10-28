@@ -30,7 +30,7 @@ const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
     "small conditional u128 padding is reachable",
 ];
 
-const PUBLIC_ASSIGNMENT_COVERS: [&str; 14] = [
+const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
     "public assignment source width 1 is reachable",
     "public assignment source width 4 is reachable",
     "public assignment source width 63 is reachable",
@@ -45,9 +45,17 @@ const PUBLIC_ASSIGNMENT_COVERS: [&str; 14] = [
     "public assignment Z result is reachable",
     "public assignment different signs are reachable",
     "public assignment u128 padding is reachable",
+    "public assignment destination width 1 is reachable",
+    "public assignment destination width 4 is reachable",
+    "public assignment destination width 14 is reachable",
+    "public assignment destination width 32 is reachable",
+    "public assignment destination width 63 is reachable",
+    "public assignment destination width 64 is reachable",
+    "public assignment source width 14 is reachable",
+    "public assignment source width 32 is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 61] = [
+pub static CONTRACTS: [Contract; 58] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -115,29 +123,8 @@ pub static CONTRACTS: [Contract; 61] = [
     },
     Contract {
         group: "values",
-        name: "public-assignment-one",
-        harness: "public_assignment_one_matches_reference_semantics",
-        message: "public assignment semantics mismatch",
-        covers: &PUBLIC_ASSIGNMENT_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-assignment-four",
-        harness: "public_assignment_four_matches_reference_semantics",
-        message: "public assignment semantics mismatch",
-        covers: &PUBLIC_ASSIGNMENT_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-assignment-63",
-        harness: "public_assignment_63_matches_reference_semantics",
-        message: "public assignment semantics mismatch",
-        covers: &PUBLIC_ASSIGNMENT_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-assignment-64",
-        harness: "public_assignment_64_matches_reference_semantics",
+        name: "public-assignment-native",
+        harness: "public_assignment_native_matches_reference_semantics",
         message: "public assignment semantics mismatch",
         covers: &PUBLIC_ASSIGNMENT_COVERS,
     },
@@ -2536,8 +2523,17 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             });
         }
     }
-    if let Some(&contract) = selected.iter().find(|c| c.name == "public-assignment-64") {
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-assignment-native")
+    {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-assignment-reaches-biguint-constructor",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "from_u128", "if width <= 64 {", "if width < 64 {"),
+        });
         for (name, new) in [
             (
                 "public-assignment-swaps-endpoints",
