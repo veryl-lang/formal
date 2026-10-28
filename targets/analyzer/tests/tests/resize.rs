@@ -1,4 +1,4 @@
-//! Public small resize domains are proved in targets/analyzer/kani/src/resize.rs.
+//! Public native resize domains are proved in targets/analyzer/kani/src/resize.rs.
 //! Retain native/BigUint boundaries and independent reference truth tables.
 
 use veryl_analyzer::value::Value;
@@ -64,8 +64,8 @@ fn resize_native_biguint_boundaries() {
         let mask = u128::MAX >> (128 - source_width);
         let sign_bit = 1u128 << (source_width - 1);
         for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
-            // Public small resize contracts quantify every four-state value here.
-            if (1..=4).contains(&source_width) && (1..=6).contains(&width) {
+            // Public native resize quantifies all four-state values and both flags.
+            if source_width <= 64 && width <= 64 {
                 continue;
             }
             for (payload, mask_xz) in [

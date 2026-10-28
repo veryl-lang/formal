@@ -1,7 +1,7 @@
 //! Normalized native four-state values and target widths bounded by native storage.
 //! Checks bit origins and metadata for truncation/extension, including no-op requests.
-//! Public constructor/resize dispatch also covers source widths 1..=4 and requests
-//! 1..=6. Caller context resolution and arbitrary-width BigUint paths remain separate.
+//! Public constructor/resize dispatch covers every source/request width in 1..=64.
+//! Caller context resolution and arbitrary-width BigUint paths remain separate.
 
 use veryl_analyzer::value::{Value, ValueU64};
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
@@ -123,77 +123,183 @@ fn native_extension_matches_reference_semantics() {
     );
 }
 
-/// Public constructor and resize dispatch over the complete executable small domain:
-/// source widths 1..=4, requests 1..=6, normalized four-state planes, both signs
-/// and extension modes. Every stored bit, zero padding through bit 127, and
-/// original-input metadata are checked.
-fn public_resize_layout<const SOURCE: usize, const REQUESTED: usize>() {
-    let source = SOURCE;
-    let requested = REQUESTED;
-    let mask = (1u128 << source) - 1;
-    let payload = u128::from(kani::any::<u8>()) & mask;
-    let xz = u128::from(kani::any::<u8>()) & mask;
+// BigUint conversion/cloning/masks, heap allocation, and mask-cache access are
+// forbidden in these small native proofs. Each replacement panics, proving it unreachable
+// for every admitted input. Truncation, expansion, constructors, and getters run
+// unchanged. Kani 0.68 otherwise expands unreachable BigUint paths before solving.
+fn reject_resize_biguint(_: u128) -> num_bigint::BigUint {
+    panic!("public resize semantics mismatch");
+}
+fn reject_resize_cache(_: &mut veryl_analyzer::value::MaskCache, _: usize) -> &num_bigint::BigUint {
+    panic!("public resize semantics mismatch");
+}
+fn reject_resize_from_u64(_: u64) -> num_bigint::BigUint {
+    panic!("public resize semantics mismatch");
+}
+fn reject_resize_clone(
+    _: &veryl_analyzer::value::ValueBigUint,
+) -> veryl_analyzer::value::ValueBigUint {
+    panic!("public resize semantics mismatch");
+}
+fn reject_resize_mask(_: usize) -> num_bigint::BigUint {
+    panic!("public resize semantics mismatch");
+}
+unsafe fn reject_resize_allocation(_: std::alloc::Layout) -> *mut u8 {
+    panic!("public resize semantics mismatch");
+}
+
+kani::stub_set!(
+    small_native_resize,
+    stub(
+        veryl_analyzer::value::u128_to_biguint,
+        reject_resize_biguint
+    ),
+    stub(veryl_analyzer::value::MaskCache::get, reject_resize_cache),
+    stub(
+        <num_bigint::BigUint as std::convert::From<u64>>::from,
+        reject_resize_from_u64
+    ),
+    stub(
+        <veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone,
+        reject_resize_clone
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::gen_mask,
+        reject_resize_mask
+    ),
+    stub(std::alloc::alloc, reject_resize_allocation),
+    stub(std::alloc::alloc_zeroed, reject_resize_allocation),
+);
+
+// Quantify the public constructor/clone/truncation/extension path at every native
+// width. All four-state source planes are normalized; widths 1..=64, both source
+// signs and extension flags, no-op requests and padding through bit 127 are included.
+// The independent per-bit model follows IEEE 1800 11.6.1 and 11.8.2.
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_resize)]
+fn public_resize_native_matches_reference_semantics() {
+    let source = usize::from(kani::any::<u8>() & 63) + 1;
+    let requested = usize::from(kani::any::<u8>() & 63) + 1;
+    let mask = u64::MAX >> (64 - source);
+    let payload = u128::from(kani::any::<u64>() & mask);
+    let xz = u128::from(kani::any::<u64>() & mask);
     let signed: bool = kani::any();
     let use_sign: bool = kani::any();
     let position = usize::from(kani::any::<u8>() & 127);
     let input = Value::from_u128(payload, xz, source, signed);
-    let mut truncated = input.clone();
-    truncated.trunc(requested);
-    let tw = source.min(requested);
-    let expected = truncated_logic_bit((payload, xz), tw, position);
-    assert!(
-        matches!(truncated, Value::U64(_))
-            && truncated.width() == tw
-            && truncated.signed() == signed
-            && read_logic(truncated.payload_u128(), truncated.mask_xz_u128(), position) == expected,
-        "public resize semantics mismatch"
-    );
-    let expanded = input.expand(requested, use_sign);
-    let ew = source.max(requested);
-    let expected = extended_logic_bit((payload, xz), source, ew, signed, use_sign, position);
-    assert!(
-        matches!(expanded.as_ref(), Value::U64(_))
-            && expanded.width() == ew
-            && expanded.signed() == (signed && (requested <= source || use_sign))
-            && read_logic(expanded.payload_u128(), expanded.mask_xz_u128(), position) == expected,
-        "public resize semantics mismatch"
-    );
     assert!(
         matches!(input, Value::U64(_))
-            && input.payload_u128() == payload
-            && input.mask_xz_u128() == xz
             && input.width() == source
-            && input.signed() == signed,
+            && input.signed() == signed
+            && input.payload_u128() == payload
+            && input.mask_xz_u128() == xz,
         "public resize semantics mismatch"
     );
-}
-
-macro_rules! public_resize_proof {
-    ($name:ident, $source:literal) => {
-        #[kani::proof]
-        #[kani::unwind(1)]
-        fn $name() {
-            let requested = usize::from(kani::any::<u8>() % 6) + 1;
-            match requested {
-                1 => public_resize_layout::<$source, 1>(),
-                2 => public_resize_layout::<$source, 2>(),
-                3 => public_resize_layout::<$source, 3>(),
-                4 => public_resize_layout::<$source, 4>(),
-                5 => public_resize_layout::<$source, 5>(),
-                6 => public_resize_layout::<$source, 6>(),
-                _ => unreachable!(),
-            }
-            kani::cover!(requested == 1, "public resize request 1 is reachable");
-            kani::cover!(requested == 2, "public resize request 2 is reachable");
-            kani::cover!(requested == 3, "public resize request 3 is reachable");
-            kani::cover!(requested == 4, "public resize request 4 is reachable");
-            kani::cover!(requested == 5, "public resize request 5 is reachable");
-            kani::cover!(requested == 6, "public resize request 6 is reachable");
-        }
+    let Value::U64(native) = input else {
+        panic!("public resize semantics mismatch");
     };
+    let input = Value::U64(native);
+    let mut truncated = input.clone();
+    truncated.trunc(requested);
+    let Value::U64(native) = truncated else {
+        panic!("public resize semantics mismatch");
+    };
+    let truncated = Value::U64(native);
+    let tw = source.min(requested);
+    let expected_t = truncated_logic_bit((payload, xz), tw, position);
+    assert!(
+        truncated.width() == tw
+            && truncated.signed() == signed
+            && read_logic(truncated.payload_u128(), truncated.mask_xz_u128(), position)
+                == expected_t,
+        "public resize semantics mismatch"
+    );
+    let expanded = input.expand(requested, use_sign).into_owned();
+    let Value::U64(native) = expanded else {
+        panic!("public resize semantics mismatch");
+    };
+    let expanded = Value::U64(native);
+    let ew = source.max(requested);
+    let expected_e = extended_logic_bit((payload, xz), source, ew, signed, use_sign, position);
+    assert!(
+        expanded.width() == ew
+            && expanded.signed() == (signed && (requested <= source || use_sign))
+            && read_logic(expanded.payload_u128(), expanded.mask_xz_u128(), position) == expected_e,
+        "public resize semantics mismatch"
+    );
+    assert!(
+        input.width() == source
+            && input.signed() == signed
+            && input.payload_u128() == payload
+            && input.mask_xz_u128() == xz,
+        "public resize semantics mismatch"
+    );
+    kani::cover!(
+        source == 1,
+        "public native resize source width 1 is reachable"
+    );
+    kani::cover!(
+        source == 64,
+        "public native resize source width 64 is reachable"
+    );
+    kani::cover!(
+        requested == 1,
+        "public native resize request 1 is reachable"
+    );
+    kani::cover!(
+        requested == 64,
+        "public native resize request 64 is reachable"
+    );
+    kani::cover!(
+        requested < source,
+        "public native resize smaller request is reachable"
+    );
+    kani::cover!(
+        requested == source,
+        "public native resize equal request is reachable"
+    );
+    kani::cover!(
+        requested > source,
+        "public native resize larger request is reachable"
+    );
+    kani::cover!(signed, "public native resize signed source is reachable");
+    kani::cover!(!signed, "public native resize unsigned source is reachable");
+    kani::cover!(
+        position == 127,
+        "public native resize u128 padding is reachable"
+    );
+    kani::cover!(
+        expected_t == Logic4::X,
+        "public native resize truncated X is reachable"
+    );
+    kani::cover!(
+        expected_t == Logic4::Z,
+        "public native resize truncated Z is reachable"
+    );
+    let added = position >= source && position < ew;
+    kani::cover!(
+        added && signed && !use_sign,
+        "public native resize disables sign extension"
+    );
+    kani::cover!(
+        added && !signed && use_sign,
+        "public native resize zero-extends unsigned source"
+    );
+    kani::cover!(
+        added && signed && use_sign && expected_e == Logic4::Zero,
+        "public native resize extends zero"
+    );
+    kani::cover!(
+        added && expected_e == Logic4::One,
+        "public native resize extends one"
+    );
+    kani::cover!(
+        added && expected_e == Logic4::X,
+        "public native resize extends X"
+    );
+    kani::cover!(
+        added && expected_e == Logic4::Z,
+        "public native resize extends Z"
+    );
 }
-
-public_resize_proof!(public_resize_one_matches_reference_semantics, 1);
-public_resize_proof!(public_resize_two_matches_reference_semantics, 2);
-public_resize_proof!(public_resize_three_matches_reference_semantics, 3);
-public_resize_proof!(public_resize_four_matches_reference_semantics, 4);
