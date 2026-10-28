@@ -266,6 +266,7 @@ fn setup_installs_pinned_kani_and_preserves_archive_permissions() {
         [
             "install",
             "--locked",
+            "--force",
             "kani-verifier",
             "--version",
             KANI_VERSION

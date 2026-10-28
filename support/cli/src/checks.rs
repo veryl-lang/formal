@@ -645,6 +645,7 @@ pub fn setup(
                 ),
             )?;
         } else {
+            // Rust caches can restore the launchers without Cargo's install metadata.
             executor.execute(
                 root,
                 &Invocation::new(
@@ -652,6 +653,7 @@ pub fn setup(
                     &[
                         "install",
                         "--locked",
+                        "--force",
                         "kani-verifier",
                         "--version",
                         KANI_VERSION,
