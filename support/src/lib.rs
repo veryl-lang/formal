@@ -5,6 +5,8 @@
 //! timeout failures alone never qualify. Native comparisons remain tests, not proofs.
 //! Snapshots isolate mutated production sources from originals and reference models;
 //! separate build directories prevent Cargo from reusing mutated native libraries.
+//! Native mutations reuse incremental compiler state only inside their isolated
+//! build directory; original checks retain the caller's compilation settings.
 //!
 //! Progress metadata is written before each check. Only completed runs become
 //! successful; interrupted checks remain unfinished. CI artifacts are diagnostic
@@ -213,7 +215,7 @@ impl Backend<'_> {
             ),
         }
     }
-    fn run(self, manifest: &Path, target: &Path, contract: &Contract) -> Output {
+    fn run(self, manifest: &Path, target: &Path, contract: &Contract, phase: Phase) -> Output {
         match self {
             Self::Kani { harness_timeout } => {
                 run_proof(manifest, target, contract, harness_timeout)
@@ -221,28 +223,7 @@ impl Backend<'_> {
             Self::NativeTests {
                 package,
                 test_target,
-            } => Command::new("timeout")
-                .args([
-                    "--kill-after=5s",
-                    "600s",
-                    "cargo",
-                    "test",
-                    "--locked",
-                    "--manifest-path",
-                ])
-                .arg(manifest)
-                .args([
-                    "--package",
-                    package,
-                    "--test",
-                    test_target,
-                    contract.harness,
-                    "--",
-                    "--exact",
-                    "--nocapture",
-                ])
-                .env("CARGO_TARGET_DIR", target)
-                .env("CARGO_TERM_COLOR", "never")
+            } => native_test_command(manifest, target, contract, package, test_target, phase)
                 .output()
                 .expect("failed to launch timeout/cargo test"),
         }
@@ -259,6 +240,43 @@ impl Backend<'_> {
             Self::NativeTests { .. } => native_mutation_result(output.status.code(), log, contract),
         }
     }
+}
+
+fn native_test_command(
+    manifest: &Path,
+    target: &Path,
+    contract: &Contract,
+    package: &str,
+    test_target: &str,
+    phase: Phase,
+) -> Command {
+    let mut command = Command::new("timeout");
+    command
+        .args([
+            "--kill-after=5s",
+            "600s",
+            "cargo",
+            "test",
+            "--locked",
+            "--manifest-path",
+        ])
+        .arg(manifest)
+        .args([
+            "--package",
+            package,
+            "--test",
+            test_target,
+            contract.harness,
+            "--",
+            "--exact",
+            "--nocapture",
+        ])
+        .env("CARGO_TARGET_DIR", target)
+        .env("CARGO_TERM_COLOR", "never");
+    if phase == Phase::Mutation {
+        command.env("CARGO_INCREMENTAL", "1");
+    }
+    command
 }
 
 fn output_text(output: &Output) -> String {
@@ -471,7 +489,7 @@ impl Runner<'_> {
                 summary.positive_passes = Some(positives);
                 summary.write(&summary_path).unwrap();
                 let start = Instant::now();
-                let output = backend.run(self.manifest, &build_target, contract);
+                let output = backend.run(self.manifest, &build_target, contract, Phase::Positive);
                 let log = output_text(&output);
                 fs::write(logs.join(format!("{}.log", contract.name)), &log).unwrap();
                 let accepted = backend.positive(output.status.success(), &log, contract);
@@ -550,6 +568,7 @@ impl Runner<'_> {
                     &scratch.0.join(relative_manifest),
                     &mutation_target,
                     mutant.contract,
+                    Phase::Mutation,
                 );
                 let mut log = output_text(&output);
                 fs::write(logs.join(format!("{}.log", mutant.name)), &log).unwrap();
@@ -871,6 +890,108 @@ mod tests {
                 .unwrap()
                 .modified()
                 .unwrap()
+        );
+    }
+    #[test]
+    fn incremental_mutations_rebuild_changes_and_reject_an_original_control() {
+        let directory = Scratch(std::env::temp_dir().join(format!(
+            "veryl-incremental-test-{}-{}",
+            std::process::id(),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        )));
+        let package = directory.0.join("toy");
+        fs::create_dir_all(package.join("src")).unwrap();
+        fs::create_dir_all(package.join("tests")).unwrap();
+        fs::write(
+            package.join("Cargo.toml"),
+            "[package]\nname=\"incremental-probe\"\nversion=\"0.1.0\"\nedition=\"2024\"\n[workspace]\n",
+        )
+        .unwrap();
+        fs::write(
+            package.join("Cargo.lock"),
+            "version = 4\n[[package]]\nname = \"incremental-probe\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        let original = "pub const VALUE: u8 = 0;";
+        fs::write(package.join("src/lib.rs"), original).unwrap();
+        fs::write(
+            package.join("tests/probe.rs"),
+            r#"
+#[test]
+fn check() {
+    println!("INCREMENTAL={}", std::env::var("CARGO_INCREMENTAL").unwrap_or_default());
+    assert_eq!(incremental_probe::VALUE, 0, "semantic mismatch");
+}
+"#,
+        )
+        .unwrap();
+        static CONTRACT: Contract = Contract {
+            name: "incremental-check",
+            group: "incremental",
+            harness: "check",
+            message: "semantic mismatch",
+            covers: &[],
+        };
+        let mutations = [("changed", 1), ("original-control", 0)].map(|(name, value)| Mutation {
+            name,
+            contract: &CONTRACT,
+            path: "toy/src/lib.rs",
+            source: format!("pub const VALUE: u8 = {value};"),
+        });
+        let result = std::panic::catch_unwind(|| {
+            Runner {
+                target: "incremental-test",
+                repo: &directory.0,
+                manifest: &package.join("Cargo.toml"),
+                files: &[],
+                directories: &["toy"],
+            }
+            .run_with_backend(
+                Backend::NativeTests {
+                    package: "incremental-probe",
+                    test_target: "probe",
+                },
+                Mode::All,
+                &[&CONTRACT],
+                &mutations,
+            );
+        });
+        assert!(
+            result.is_err(),
+            "an original control must not count as a rejected mutation"
+        );
+        let runs: Vec<_> = fs::read_dir(package.join("target/contract-logs"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(runs.len(), 1);
+        let run = &runs[0];
+        let summary = Summary::parse(&fs::read_to_string(run.join("summary.txt")).unwrap());
+        assert_eq!(summary.status, Status::Failed);
+        assert_eq!(summary.positive_passes, Some(1));
+        assert_eq!(summary.mutation_passes, Some(1));
+        assert_eq!(summary.active_mutation, "original-control");
+        assert_eq!(summary.exit_code, "Some(0)");
+        assert_ne!(summary.build_target, summary.mutation_build_target);
+        assert!(
+            Path::new(&summary.mutation_build_target)
+                .join("debug/incremental")
+                .is_dir()
+        );
+        let inherited = std::env::var("CARGO_INCREMENTAL").unwrap_or_default();
+        let positive = fs::read_to_string(run.join("incremental-check.log")).unwrap();
+        assert!(
+            positive
+                .lines()
+                .any(|line| line == format!("INCREMENTAL={inherited}"))
+        );
+        for name in ["changed", "original-control"] {
+            let log = fs::read_to_string(run.join(format!("{name}.log"))).unwrap();
+            assert!(log.lines().any(|line| line == "INCREMENTAL=1"));
+        }
+        assert_eq!(
+            fs::read_to_string(package.join("src/lib.rs")).unwrap(),
+            original
         );
     }
     #[test]

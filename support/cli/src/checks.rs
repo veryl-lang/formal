@@ -33,9 +33,12 @@ impl Invocation {
         Self::new("cargo", &args.split_ascii_whitespace().collect::<Vec<_>>())
     }
     fn adapter(args: &str, groups: &[&str], mode: Mode) -> Self {
+        Self::selected_adapter(args, "--group", groups, mode)
+    }
+    fn selected_adapter(args: &str, selector: &str, names: &[&str], mode: Mode) -> Self {
         let mut step = Self::cargo(args);
-        for group in groups {
-            step.args.extend(["--group".into(), (*group).into()]);
+        for name in names {
+            step.args.extend([selector.into(), (*name).into()]);
         }
         if mode == Mode::Positive {
             step.args.extend(["--mode".into(), "positive".into()]);
@@ -84,6 +87,7 @@ pub struct Shard {
     pub suite: &'static str,
     pub timeout_minutes: u16,
     groups: &'static [&'static str],
+    contracts: &'static [&'static str],
 }
 
 impl Shard {
@@ -98,6 +102,13 @@ impl Shard {
             suite,
             timeout_minutes,
             groups,
+            contracts: &[],
+        }
+    }
+    const fn value(suite: &'static str, contracts: &'static [&'static str]) -> Self {
+        Self {
+            contracts,
+            ..Self::new("value-contracts", suite, 90, &[])
         }
     }
     fn target(&self) -> &'static str {
@@ -116,7 +127,71 @@ impl Shard {
 }
 
 pub const SHARDS: &[Shard] = &[
-    Shard::new("value-contracts", "single", 180, &[]),
+    Shard::new("value-contracts", "native", 90, &[]),
+    // Balance proof and mutation time together. Tests require an exact partition
+    // of the analyzer catalog, including full-native multiplication.
+    Shard::value(
+        "storage",
+        &[
+            "selection",
+            "partial-assignment",
+            "truncation",
+            "extension",
+            "logical-left-shift",
+            "logical-right-shift",
+            "arithmetic-left-shift",
+            "arithmetic-right-shift",
+            "shape-total",
+            "shape-index",
+            "shape-range",
+            "shape-boundary",
+            "shape-overflow",
+            "selection-endpoints",
+            "packed-unpacked-bits",
+            "checked-selection-endpoints",
+        ],
+    ),
+    Shard::value(
+        "logic",
+        &[
+            "equality",
+            "inequality",
+            "wildcard-equality",
+            "wildcard-inequality",
+            "less-than",
+            "less-equal",
+            "greater-than",
+            "greater-equal",
+            "bitwise",
+            "bit-not",
+            "logical",
+            "reductions",
+            "condition-truth",
+            "conditional",
+            "public-conditional",
+        ],
+    ),
+    Shard::value(
+        "arithmetic",
+        &[
+            "full-multiply",
+            "add-sub",
+            "negation",
+            "unary-plus",
+            "public-arithmetic",
+            "context-merge",
+            "context-unary",
+            "context-binary",
+            "context-cast",
+            "public-nonlinear",
+            "multiplication",
+            "division-remainder",
+            "power",
+            "multiplication-identities",
+            "division-exceptions",
+            "power-exceptions",
+        ],
+    ),
     Shard::new(
         "simulator-contracts",
         "core",
@@ -221,14 +296,14 @@ pub fn matrix(target: &str) -> Result<serde_json::Value> {
 }
 
 pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
-    let groups = SHARDS
+    let shard = SHARDS
         .iter()
         .find(|shard| shard.check == check && shard.suite == suite)
-        .ok_or_else(|| error(format!("unknown check/suite: {check}/{suite}")))?
-        .groups;
+        .ok_or_else(|| error(format!("unknown check/suite: {check}/{suite}")))?;
+    let groups = shard.groups;
     let mut steps = Vec::new();
     match check {
-        "value-contracts" => {
+        "value-contracts" if suite == "native" => {
             steps.push(Invocation::cargo(
                 "fmt --manifest-path targets/analyzer/kani/Cargo.toml --check",
             ));
@@ -265,7 +340,14 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             ));
             steps.push(Invocation::adapter("run --locked -p veryl-formal-contract-tests --example check_dynamic_aggregate_contracts --", &[], mode));
             steps.push(Invocation::adapter("run --locked -p veryl-formal-contract-tests --example check_nonlinear_wide_contracts --", &[], mode));
-            steps.push(Invocation::adapter("run --locked --manifest-path targets/analyzer/kani/Cargo.toml --bin check_contracts --", &[], mode));
+        }
+        "value-contracts" => {
+            steps.push(Invocation::selected_adapter(
+                "run --locked --manifest-path targets/analyzer/kani/Cargo.toml --bin check_contracts --",
+                "--contract",
+                shard.contracts,
+                mode,
+            ));
         }
         "simulator-contracts" => {
             steps.push(Invocation::cargo(
@@ -434,6 +516,9 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
         }
     }
     let workspaces = match check {
+        "value-contracts" if suite == "native" => {
+            ". -> target\nsupport -> target\nsemantics -> target"
+        }
         "value-contracts" => {
             ". -> target\ntargets/analyzer/kani -> target\nsupport -> target\nsemantics -> target"
         }
@@ -450,13 +535,11 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
     };
     Ok(Plan {
         workspaces,
-        kani: matches!(
-            check,
-            "value-contracts"
-                | "simulator-contracts"
-                | "generated-c-contracts"
-                | "frontend-contracts"
-        ),
+        kani: (check == "value-contracts" && suite != "native")
+            || matches!(
+                check,
+                "simulator-contracts" | "generated-c-contracts" | "frontend-contracts"
+            ),
         icarus: check == "emitter-contracts",
         steps,
     })
