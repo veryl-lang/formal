@@ -830,6 +830,7 @@ pub static CONTRACTS: [Contract; 53] = [
         message: "shape index semantics mismatch",
         covers: &[
             "scalar index shape is reachable",
+            "extent-four final index is reachable",
             "unit scalar coercion is reachable",
             "three-dimensional last element is reachable",
             "missing coordinate is reachable",
@@ -850,6 +851,7 @@ pub static CONTRACTS: [Contract; 53] = [
         message: "shape range semantics mismatch",
         covers: &[
             "scalar range is reachable",
+            "extent-four prefix block is reachable",
             "unit whole range is reachable",
             "three-dimensional whole range is reachable",
             "outer prefix block is reachable",
@@ -2367,6 +2369,40 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract: contract("checked-selection-endpoints"),
                 path,
                 source,
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "shape-index",
+            "shape-index-rejects-four-extent",
+            "calc_index",
+            " -> Option<usize> {\n",
+            " -> Option<usize> {\n        if self.0.contains(&Some(4)) { return None; }\n",
+        ),
+        (
+            "shape-index",
+            "shape-total-zero-before-unresolved",
+            "total",
+            "if self.0.iter().any(Option::is_none) {",
+            "if !self.0.contains(&Some(0)) && self.0.iter().any(Option::is_none) {",
+        ),
+        (
+            "shape-range",
+            "shape-range-rejects-four-extent",
+            "calc_range",
+            " -> Option<(usize, usize)> {\n",
+            " -> Option<(usize, usize)> {\n        if self.0.contains(&Some(4)) { return None; }\n",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/shape.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
             });
         }
     }

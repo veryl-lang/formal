@@ -1,3 +1,6 @@
+//! ShapeRef index/range domains are proved in targets/analyzer/kani/src/layout.rs.
+//! Keep owned geometry, wider boundaries, expression coordinates, and model anchors.
+
 use veryl_analyzer::conv::Context;
 use veryl_analyzer::ir::{Expression, Shape, ShapeRef};
 use veryl_analyzer::value::Value;
@@ -98,21 +101,25 @@ fn shape_native_boundaries_and_overflow() {
 }
 
 #[test]
-fn shape_row_major_storage_enumeration() {
+fn shape_reference_row_major_storage_enumeration() {
     let dimensions = [Some(2), Some(3), Some(4)];
-    let shape = ShapeRef::new(&dimensions);
     let mut flat = 0;
     for a in 0..2 {
         for b in 0..3 {
-            assert_eq!(shape.calc_range(&[a, b]), Some((flat, flat + 3)));
+            assert_eq!(layout::range(&dimensions, &[a, b]), Some((flat, flat + 3)));
+            assert_eq!(
+                layout::range_three(&dimensions, &[a, b]),
+                Some((flat, flat + 3))
+            );
             for c in 0..4 {
-                assert_eq!(shape.calc_index(&[a, b, c]), Some(flat));
+                assert_eq!(layout::index(&dimensions, &[a, b, c]), Some(flat));
                 flat += 1;
             }
         }
     }
-    assert_eq!(shape.total(), Some(flat));
-    assert_eq!(shape.calc_range(&[]), Some((0, flat - 1)));
+    assert_eq!(layout::total(&dimensions), Some(flat));
+    assert_eq!(layout::range(&dimensions, &[]), Some((0, flat - 1)));
+    assert_eq!(layout::range_three(&dimensions, &[]), Some((0, flat - 1)));
 }
 
 #[test]

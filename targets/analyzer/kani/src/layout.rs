@@ -1,5 +1,5 @@
 //! Total products use two arbitrary known native extents. General indexing/ranges
-//! use up to three axes with extents 0..=3 or unresolved, and coordinates 0..=7.
+//! use up to three axes with extents 0..=4 or unresolved, and coordinates 0..=7.
 //! Separate native-boundary and overflowing [a, 2] families have narrower shapes.
 //! No arbitrary-rank native-width indexing or source dimension-resolution theorem follows.
 
@@ -46,11 +46,7 @@ fn shape_total_matches_reference_semantics() {
 fn small_shape() -> [Option<usize>; 4] {
     fn extent() -> Option<usize> {
         let code = kani::any::<u8>() & 7;
-        if code == 7 {
-            None
-        } else {
-            Some((code & 3) as usize)
-        }
+        if code < 5 { Some(code as usize) } else { None }
     }
     [extent(), extent(), extent(), extent()]
 }
@@ -69,14 +65,31 @@ fn shape_index_matches_reference_semantics() {
     let data = small_shape();
     let indices = coordinates();
     let rank = usize::from(kani::any::<u8>() & 3);
-    let arity = usize::from(kani::any::<u8>() % 5);
+    let arity = usize::from((kani::any::<u8>() & 7).min(4));
     let shape = &data[..rank];
     let indices = &indices[..arity];
     assert!(
         ShapeRef::new(shape).calc_index(indices) == layout::index(shape, indices),
         "shape index semantics mismatch"
     );
+    // Include the row-major total and the unresolved/zero precedence case.
+    assert!(
+        ShapeRef::new(&[Some(2), Some(3), Some(4)]).total() == Some(24)
+            && ShapeRef::new(&[Some(0), None, Some(4)]).total().is_none(),
+        "shape index semantics mismatch"
+    );
     kani::cover!(rank == 0, "scalar index shape is reachable");
+    kani::cover!(
+        rank == 3
+            && data[0] == Some(2)
+            && data[1] == Some(3)
+            && data[2] == Some(4)
+            && arity == 3
+            && indices[0] == 1
+            && indices[1] == 2
+            && indices[2] == 3,
+        "extent-four final index is reachable"
+    );
     kani::cover!(
         rank == 1 && data[0] == Some(1) && arity == 0,
         "unit scalar coercion is reachable"
@@ -138,7 +151,7 @@ fn shape_range_matches_reference_semantics() {
     let data = small_shape();
     let indices = coordinates();
     let rank = usize::from(kani::any::<u8>() & 3);
-    let arity = usize::from(kani::any::<u8>() % 5);
+    let arity = usize::from((kani::any::<u8>() & 7).min(4));
     let shape = &data[..rank];
     let prefix = &indices[..arity];
     assert!(
@@ -146,6 +159,16 @@ fn shape_range_matches_reference_semantics() {
         "shape range semantics mismatch"
     );
     kani::cover!(rank == 0 && arity == 0, "scalar range is reachable");
+    kani::cover!(
+        rank == 3
+            && data[0] == Some(2)
+            && data[1] == Some(3)
+            && data[2] == Some(4)
+            && arity == 2
+            && prefix[0] == 1
+            && prefix[1] == 2,
+        "extent-four prefix block is reachable"
+    );
     kani::cover!(
         rank == 1 && data[0] == Some(1) && arity == 0,
         "unit whole range is reachable"
