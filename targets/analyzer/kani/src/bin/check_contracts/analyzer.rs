@@ -13,7 +13,24 @@ const PUBLIC_RESIZE_COVERS: [&str; 6] = [
     "public resize request 6 is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 53] = [
+const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
+    "public condition zero is reachable",
+    "public condition one is reachable",
+    "public condition X is reachable",
+    "public condition Z is reachable",
+    "public common Z becomes X",
+    "small conditional one-bit condition is reachable",
+    "small conditional two-bit condition is reachable",
+    "small conditional zero context is reachable",
+    "small conditional unit context is reachable",
+    "small conditional wide context is reachable",
+    "small conditional known one dominates unknown",
+    "small conditional signed extension is reachable",
+    "small conditional sign suppression is reachable",
+    "small conditional u128 padding is reachable",
+];
+
+pub static CONTRACTS: [Contract; 56] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -489,15 +506,30 @@ pub static CONTRACTS: [Contract; 53] = [
     Contract {
         group: "values",
         name: "public-conditional",
-        harness: "public_conditional_one_bit_matches_reference_semantics",
-        message: "public conditional semantics mismatch",
-        covers: &[
-            "public condition zero is reachable",
-            "public condition one is reachable",
-            "public condition X is reachable",
-            "public condition Z is reachable",
-            "public common Z becomes X",
-        ],
+        harness: "public_conditional_small_11_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-12",
+        harness: "public_conditional_small_12_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-21",
+        harness: "public_conditional_small_21_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-conditional-small-22",
+        harness: "public_conditional_small_22_matches_reference_semantics",
+        message: "public small conditional semantics mismatch",
+        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
     },
     Contract {
         group: "values",
@@ -2403,6 +2435,36 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-conditional-small-22",
+            "public-conditional-ignores-condition-high-bit",
+            "let condition = self.truth();",
+            "let mut condition_value = self.clone(); condition_value.trunc(1); let condition = condition_value.truth();",
+        ),
+        (
+            "public-conditional",
+            "public-conditional-zero-context-widens",
+            "let context_width = width;",
+            "let context_width = if width == 0 { 4 } else { width };",
+        ),
+        (
+            "public-conditional-small-12",
+            "public-conditional-zero-context-selects-width",
+            "return Self::U64(a.conditional(b, condition, context_width, signed));",
+            "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); if context_width == 0 && condition == Some(true) { value.trunc(a.width as usize); } return value;",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(CORE)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
             });
         }
     }

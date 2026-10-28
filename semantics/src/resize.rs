@@ -51,3 +51,29 @@ pub fn reference_planes(width: usize, bit: impl Fn(usize) -> Logic4) -> (u128, u
     }
     (payload, mask_xz)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::reference_planes;
+    use crate::logic4::Logic4::{One, X, Z, Zero};
+
+    // The explicit encoding table is independent of read_logic. Keep plane
+    // packing checked when compiler comparisons migrate to per-bit proofs.
+    #[test]
+    fn reference_planes_encodes_all_small_four_state_vectors() {
+        let encoding = [Zero, One, X, Z];
+        for width in 1..=4 {
+            let limit = 1u128 << width;
+            for payload in 0..limit {
+                for mask_xz in 0..limit {
+                    let actual = reference_planes(width, |position| {
+                        let p = (payload >> position) & 1;
+                        let xz = (mask_xz >> position) & 1;
+                        encoding[(p + 2 * xz) as usize]
+                    });
+                    assert_eq!(actual, (payload, mask_xz));
+                }
+            }
+        }
+    }
+}

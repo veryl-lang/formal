@@ -1,10 +1,12 @@
 //! Normalized native branches, resolved width/sign, and arbitrary four-state conditions;
-//! Public dispatch adds fixed (3, 2)->5 and (64, 32)->64 layouts to one bit.
-//! Their requested widths are 5 and 1 respectively; common Z follows Table 11-20.
+//! Public small dispatch covers widths 1..=2 and requests 0,1,4; wider fixed
+//! (3,2)->5 and (64,32)->64 layouts request widths 5 and 1 respectively.
+//! Common Z follows Table 11-20.
 //! No general context propagation or optimizer theorem follows.
 
 use veryl_analyzer::value::Value;
 use veryl_analyzer::value::ValueU64;
+use veryl_formal_semantics::comparison::Operand;
 use veryl_formal_semantics::conditional::conditional_logic_bit;
 use veryl_formal_semantics::gates::logical_truth;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
@@ -18,59 +20,6 @@ fn operand() -> ValueU64 {
         width,
         signed: kani::any(),
     }
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-fn public_conditional_one_bit_matches_reference_semantics() {
-    fn bit() -> ValueU64 {
-        ValueU64 {
-            payload: u64::from(kani::any::<bool>()),
-            mask_xz: u64::from(kani::any::<bool>()),
-            width: 1,
-            signed: kani::any(),
-        }
-    }
-    let c = bit();
-    let a = bit();
-    let b = bit();
-    let signed: bool = kani::any();
-    let condition = read_logic(c.payload as u128, c.mask_xz as u128, 0);
-    let expected = conditional_logic_bit(
-        condition,
-        ((a.payload as u128, a.mask_xz as u128), 1, a.signed),
-        ((b.payload as u128, b.mask_xz as u128), 1, b.signed),
-        1,
-        signed,
-        0,
-    );
-    let common_z = a.payload == 1 && a.mask_xz == 1 && b.payload == 1 && b.mask_xz == 1;
-    let output = Value::U64(c).conditional(&Value::U64(a), &Value::U64(b), 1, signed);
-    let Value::U64(output) = output else {
-        panic!("unexpected BigUint result");
-    };
-    assert!(
-        read_logic(output.payload as u128, output.mask_xz as u128, 0) == expected,
-        "public conditional semantics mismatch"
-    );
-    assert!(
-        output.width == 1 && output.signed == signed && output.payload <= 1 && output.mask_xz <= 1,
-        "public conditional semantics mismatch"
-    );
-    kani::cover!(
-        condition == Logic4::Zero,
-        "public condition zero is reachable"
-    );
-    kani::cover!(
-        condition == Logic4::One,
-        "public condition one is reachable"
-    );
-    kani::cover!(condition == Logic4::X, "public condition X is reachable");
-    kani::cover!(condition == Logic4::Z, "public condition Z is reachable");
-    kani::cover!(
-        condition == Logic4::X && common_z && expected == Logic4::X,
-        "public common Z becomes X"
-    );
 }
 
 #[kani::proof]
@@ -287,3 +236,179 @@ fn public_conditional_widened_matches_reference_semantics() {
 fn public_conditional_word_matches_reference_semantics() {
     public_layout::<64, 32, 64, 1>();
 }
+
+// Each fixed layout admits all normalized four-state values and signs. The
+// complete family covers conditions/branches of widths 1..=2 and requests 0,1,4.
+// Construct through the public API and check its inputs before and after use.
+fn check_small_input(value: &Value, expected: Operand) {
+    assert!(
+        matches!(value, Value::U64(_))
+            && value.payload_u128() == expected.planes.0
+            && value.mask_xz_u128() == expected.planes.1
+            && value.width() == expected.width
+            && value.signed() == expected.signed,
+        "public small conditional semantics mismatch"
+    );
+}
+
+fn small_input<const W: usize>() -> (Value, Operand) {
+    let mask = (1u128 << W) - 1;
+    let expected = Operand {
+        planes: (
+            u128::from(kani::any::<u8>()) & mask,
+            u128::from(kani::any::<u8>()) & mask,
+        ),
+        width: W,
+        signed: kani::any(),
+    };
+    let actual = Value::from_u128(expected.planes.0, expected.planes.1, W, expected.signed);
+    check_small_input(&actual, expected);
+    (actual, expected)
+}
+
+struct SmallConditionalWitness {
+    kind: Logic4,
+    common_z: bool,
+    known_dominance: bool,
+    signed_extension: bool,
+    sign_suppression: bool,
+    upper_padding: bool,
+}
+
+fn small_layout<const C: usize, const A: usize, const B: usize, const R: usize>()
+-> SmallConditionalWitness {
+    let (c, cr) = small_input::<C>();
+    let (a, ar) = small_input::<A>();
+    let (b, br) = small_input::<B>();
+    let signed: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let width = R.max(A).max(B);
+    let condition = logical_truth(cr.planes, C);
+    let expected = conditional_logic_bit(
+        condition,
+        (ar.planes, A, ar.signed),
+        (br.planes, B, br.signed),
+        width,
+        signed,
+        position,
+    );
+    let result = c.conditional(&a, &b, R, signed);
+    assert!(
+        matches!(result, Value::U64(_))
+            && result.width() == width
+            && result.signed() == signed
+            && read_logic(result.payload_u128(), result.mask_xz_u128(), position) == expected,
+        "public small conditional semantics mismatch"
+    );
+    check_small_input(&c, cr);
+    check_small_input(&a, ar);
+    check_small_input(&b, br);
+    SmallConditionalWitness {
+        // Preserve the raw one-bit Z case as well as decoded multi-bit truth.
+        kind: if C == 1 {
+            read_logic(cr.planes.0, cr.planes.1, 0)
+        } else {
+            condition
+        },
+        common_z: condition == Logic4::X
+            && position == 0
+            && ar.planes.0 & 1 == 1
+            && ar.planes.1 & 1 == 1
+            && br.planes.0 & 1 == 1
+            && br.planes.1 & 1 == 1
+            && expected == Logic4::X,
+        known_dominance: condition == Logic4::One && cr.planes.1 != 0,
+        signed_extension: condition == Logic4::One
+            && signed
+            && ar.signed
+            && A < width
+            && position == width - 1,
+        sign_suppression: condition == Logic4::One
+            && !signed
+            && ar.signed
+            && A < width
+            && position == width - 1
+            && expected == Logic4::Zero,
+        upper_padding: position == 127 && expected == Logic4::Zero,
+    }
+}
+
+macro_rules! small_conditional_proof {
+    ($name:ident, $a:literal, $b:literal) => {
+        #[kani::proof]
+        #[kani::unwind(3)]
+        fn $name() {
+            let two_bit: bool = kani::any();
+            let context = match kani::any::<u8>() & 3 {
+                0 => 0,
+                1 => 1,
+                _ => 4,
+            };
+            let witness = match (two_bit, context) {
+                (false, 0) => small_layout::<1, $a, $b, 0>(),
+                (false, 1) => small_layout::<1, $a, $b, 1>(),
+                (false, 4) => small_layout::<1, $a, $b, 4>(),
+                (true, 0) => small_layout::<2, $a, $b, 0>(),
+                (true, 1) => small_layout::<2, $a, $b, 1>(),
+                (true, 4) => small_layout::<2, $a, $b, 4>(),
+                _ => unreachable!(),
+            };
+            kani::cover!(
+                witness.kind == Logic4::Zero,
+                "public condition zero is reachable"
+            );
+            kani::cover!(
+                witness.kind == Logic4::One,
+                "public condition one is reachable"
+            );
+            kani::cover!(witness.kind == Logic4::X, "public condition X is reachable");
+            kani::cover!(witness.kind == Logic4::Z, "public condition Z is reachable");
+            kani::cover!(
+                witness.kind == Logic4::X && witness.common_z,
+                "public common Z becomes X"
+            );
+            kani::cover!(!two_bit, "small conditional one-bit condition is reachable");
+            kani::cover!(two_bit, "small conditional two-bit condition is reachable");
+            kani::cover!(context == 0, "small conditional zero context is reachable");
+            kani::cover!(context == 1, "small conditional unit context is reachable");
+            kani::cover!(context == 4, "small conditional wide context is reachable");
+            kani::cover!(
+                witness.known_dominance,
+                "small conditional known one dominates unknown"
+            );
+            kani::cover!(
+                witness.signed_extension,
+                "small conditional signed extension is reachable"
+            );
+            kani::cover!(
+                witness.sign_suppression,
+                "small conditional sign suppression is reachable"
+            );
+            kani::cover!(
+                witness.upper_padding,
+                "small conditional u128 padding is reachable"
+            );
+        }
+    };
+}
+
+small_conditional_proof!(
+    public_conditional_small_11_matches_reference_semantics,
+    1,
+    1
+);
+small_conditional_proof!(
+    public_conditional_small_12_matches_reference_semantics,
+    1,
+    2
+);
+small_conditional_proof!(
+    public_conditional_small_21_matches_reference_semantics,
+    2,
+    1
+);
+small_conditional_proof!(
+    public_conditional_small_22_matches_reference_semantics,
+    2,
+    2
+);
