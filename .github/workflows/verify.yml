@@ -45,6 +45,8 @@ jobs:
       pinned: ${{ steps.select.outputs.pinned }}
       candidate: ${{ steps.select.outputs.candidate }}
       matrix: ${{ steps.select.outputs.matrix }}
+      lock_digest: ${{ steps.locks.outputs.digest }}
+      lock_artifact: formal-candidate-locks-${{ github.run_attempt }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -62,6 +64,19 @@ jobs:
     - name: Resolve the pinned or upstream target once
       id: select
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- prepare
+    - name: Resolve candidate dependency locks once
+      if: steps.select.outputs.update == 'true'
+      id: locks
+      env:
+        VERYL_CANDIDATE: ${{ steps.select.outputs.candidate }}
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- prepare-locks "$VERYL_CANDIDATE"
+    - uses: actions/upload-artifact@v4
+      if: steps.select.outputs.update == 'true'
+      with:
+        name: formal-candidate-locks-${{ github.run_attempt }}
+        path: support/ci-inputs/candidate-locks.json
+        if-no-files-found: error
+        retention-days: 14
   contracts:
     name: ${{ matrix.check }} (${{ matrix.suite }})
     needs:
@@ -76,6 +91,7 @@ jobs:
       FORMAL_SUITE: ${{ matrix.suite }}
       FORMAL_MODE: ${{ needs.prepare.outputs.mode }}
       VERYL_CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+      FORMAL_LOCK_DIGEST: ${{ needs.prepare.outputs.lock_digest }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -95,6 +111,14 @@ jobs:
         --mode "$FORMAL_MODE"
     - name: Check out the shared Veryl candidate
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- checkout "$VERYL_CANDIDATE"
+    - uses: actions/download-artifact@v4
+      if: needs.prepare.outputs.update == 'true'
+      with:
+        name: ${{ needs.prepare.outputs.lock_artifact }}
+        path: support/ci-inputs
+    - name: Install the shared candidate dependency locks
+      if: needs.prepare.outputs.update == 'true'
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- apply-locks "$VERYL_CANDIDATE" "$FORMAL_LOCK_DIGEST"
     - uses: Swatinem/rust-cache@v2
       with:
         shared-key: formal-${{ matrix.check }}-${{ matrix.suite }}
@@ -160,12 +184,19 @@ jobs:
         shared-key: formal-ci
         workspaces: |
           support/cli -> target
-    - name: Advance only the verified pointer or report failure
+    - uses: actions/download-artifact@v4
+      if: needs.contracts.result == 'success'
+      with:
+        name: ${{ needs.prepare.outputs.lock_artifact }}
+        path: support/ci-inputs
+    - name: Advance the verified pointer and locks or report failure
       env:
         GH_TOKEN: ${{ github.token }}
         VERYL_CANDIDATE: ${{ needs.prepare.outputs.candidate }}
         VERYL_PINNED: ${{ needs.prepare.outputs.pinned }}
         FORMAL_SHA: ${{ needs.prepare.outputs.formal_sha }}
+        FORMAL_LOCK_DIGEST: ${{ needs.prepare.outputs.lock_digest }}
+        FORMAL_LOCK_ARTIFACT: ${{ needs.prepare.outputs.lock_artifact }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         CHECK_RESULTS: ${{ toJSON(needs) }}
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- finalize

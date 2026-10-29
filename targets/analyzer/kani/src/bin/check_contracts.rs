@@ -2,7 +2,7 @@
 #[path = "check_contracts/analyzer.rs"]
 mod analyzer;
 use std::path::PathBuf;
-use veryl_formal_runner::{Mode, Options, Runner, USAGE};
+use veryl_formal_runner::{Backend, Mode, Options, Runner, USAGE};
 
 fn main() {
     let options = Options::parse(std::env::args().skip(1)).unwrap_or_else(|error| {
@@ -35,7 +35,11 @@ fn main() {
     } else {
         analyzer::mutations(repo, &contracts)
     };
-    Runner {
+    assert!(
+        options.mode != Mode::Mutation || !mutations.is_empty(),
+        "selected contracts have no mutations"
+    );
+    let runner = Runner {
         target: "analyzer",
         repo,
         manifest: &proof.join("Cargo.toml"),
@@ -47,6 +51,27 @@ fn main() {
             "LICENSE-APACHE",
         ],
         directories: &["veryl", "targets", "semantics", "support"],
+    };
+    // Preserve the legacy diagnostic profile for existing contracts. The new
+    // profile requires every declared cover to have a witness in the runner.
+    let (explicit, legacy): (Vec<_>, Vec<_>) = contracts
+        .into_iter()
+        .partition(|c| analyzer::uses_explicit_covers(c));
+    let (explicit_mutations, legacy_mutations): (Vec<_>, Vec<_>) = mutations
+        .into_iter()
+        .partition(|m| analyzer::uses_explicit_covers(m.contract));
+    if !legacy.is_empty() && (options.mode != Mode::Mutation || !legacy_mutations.is_empty()) {
+        runner.run(options.mode, &legacy, &legacy_mutations);
     }
-    .run(options.mode, &contracts, &mutations);
+    if !explicit.is_empty() && (options.mode != Mode::Mutation || !explicit_mutations.is_empty()) {
+        runner.run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "60s",
+                auxiliary_covers: analyzer::AUXILIARY_NONLINEAR_COVERS,
+            },
+            options.mode,
+            &explicit,
+            &explicit_mutations,
+        );
+    }
 }

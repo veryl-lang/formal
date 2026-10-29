@@ -1,8 +1,17 @@
+//! Equal-width native traces are proved for widths 1..=4 and 31/32/63/64 with
+//! arbitrary four-state 64-bit amounts and every source/amount sign combination.
+//! Native context widening 4->8/64 is also proved. Keep BigUint source/amount
+//! or context paths and independent model anchors. Wide-amount caller proofs at
+//! widths 1/2/31/32/63/64 use shared fixtures; their real constructors stay checked.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
 use veryl_formal_semantics::resize::{extended_logic_bit, reference_planes};
 use veryl_formal_semantics::shift::{Shift, shifted_logic_bit};
+
+#[path = "../../shift_amount_cases.rs"]
+mod shift_amount_cases;
+use shift_amount_cases::WIDE_SHIFT_AMOUNTS;
 
 const SHIFTS: [(Op, Shift); 4] = [
     (Op::LogicShiftL, Shift::LogicalLeft),
@@ -13,7 +22,7 @@ const SHIFTS: [(Op, Shift); 4] = [
 
 #[test]
 fn shift_context_widens_before_shifting() {
-    for (source_width, width) in [(4, 8), (4, 64), (4, 65), (64, 65), (65, 128)] {
+    for (source_width, width) in [(4, 65), (64, 65), (65, 128)] {
         let mask = u128::MAX >> (128 - source_width);
         let sign = 1u128 << (source_width - 1);
         for source in [(1, 0), (mask, 0), (sign, sign), (1, sign)] {
@@ -93,28 +102,8 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
 }
 
 #[test]
-fn shift_exhaustive_four_state_small_widths() {
-    for width in 1..=4 {
-        let mask = (1u128 << width) - 1;
-        for state in 0..(1u128 << (2 * width)) {
-            for amount in 0..=width + 1 {
-                check_shift(
-                    (state & mask, state >> width),
-                    width,
-                    (amount as u128, 0),
-                    64,
-                );
-            }
-            for amount in [(0, 1), (1, 1), (u64::MAX as u128, 0)] {
-                check_shift((state & mask, state >> width), width, amount, 64);
-            }
-        }
-    }
-}
-
-#[test]
-fn shift_native_biguint_boundaries() {
-    for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
+fn shift_biguint_source_boundaries() {
+    for width in [65, 127, 128] {
         let mask = u128::MAX >> (128 - width);
         let sign = 1u128 << (width - 1);
         for source in [
@@ -133,12 +122,7 @@ fn shift_native_biguint_boundaries() {
             for amount in [0, 1, width - 1, width, width + 1, 63, 64, 65, usize::MAX] {
                 check_shift(source, width, (amount as u128, 0), 64);
             }
-            for amount in [
-                (1, 0),
-                (1u128 << 100, 0),
-                (0, 1u128 << 100),
-                (1u128 << 100, 1u128 << 100),
-            ] {
+            for amount in WIDE_SHIFT_AMOUNTS {
                 check_shift(source, width, amount, 128);
             }
         }
@@ -173,6 +157,30 @@ fn shift_reference_truth_table_and_extreme_amounts() {
                 shifted_logic_bit((p, m), 1, Some(usize::MAX), kind, false, 0),
                 Logic4::Zero
             );
+        }
+    }
+}
+
+#[test]
+fn wide_amount_fixture_construction_matches_reference_bits() {
+    // Keep the production input generator inside executable coverage. This finite
+    // check is exhaustive over the caller proofs' four fixtures and both signs;
+    // the caller proofs do not establish constructor memory safety or behavior
+    // for every u128 input.
+    for (payload, xz) in WIDE_SHIFT_AMOUNTS {
+        for signed in [false, true] {
+            let value = Value::from_u128(payload, xz, 128, signed);
+            let Value::BigUint(big) = &value else {
+                panic!("wide amount constructor chose native storage");
+            };
+            assert!(big.payload.bits() <= 128 && big.mask_xz.bits() <= 128);
+            for position in 0..128 {
+                assert_eq!(big.payload.bit(position), payload >> position & 1 != 0);
+                assert_eq!(big.mask_xz.bit(position), xz >> position & 1 != 0);
+            }
+            assert_eq!((value.payload_u128(), value.mask_xz_u128()), (payload, xz));
+            assert_eq!(value.width(), 128);
+            assert_eq!(value.signed(), signed);
         }
     }
 }

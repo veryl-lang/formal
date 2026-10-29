@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 use std::{env, path::PathBuf};
-use veryl_formal_ci::{Commands, Environment, Process, Result, checks, nightly, report};
+use veryl_formal_ci::{Commands, Environment, Process, Result, checks, locks, nightly, report};
 
 #[derive(Parser)]
 #[command(
@@ -32,6 +32,10 @@ struct Verification {
 enum Operation {
     /// Resolve the pinned or upstream revision and CI matrix.
     Prepare,
+    /// Resolve and export one lock-file artifact for an upstream candidate.
+    PrepareLocks { candidate: String },
+    /// Install the prepared lock files after checking out their candidate.
+    ApplyLocks { candidate: String, digest: String },
     /// Check out the selected Veryl commit.
     Checkout {
         #[arg(value_name = "SHA")]
@@ -63,6 +67,22 @@ fn run(cli: Cli) -> Result<()> {
     let mut executor = checks::Streaming;
     match cli.command {
         Operation::Prepare => nightly::prepare(&root, &env, &mut commands),
+        Operation::PrepareLocks { candidate } => {
+            let digest = locks::create(&root, &candidate, &mut commands)?;
+            if let Some(path) = env.get("GITHUB_OUTPUT") {
+                use std::io::Write;
+                let mut output = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)?;
+                writeln!(output, "digest={digest}")?;
+            }
+            println!("Candidate lock artifact: {} ({digest})", locks::BUNDLE);
+            Ok(())
+        }
+        Operation::ApplyLocks { candidate, digest } => {
+            locks::apply(&root, &candidate, &digest, &mut commands)
+        }
         Operation::Checkout { candidate } => nightly::checkout(&root, &candidate, &mut commands),
         Operation::VerifyClean { candidate } => {
             nightly::verify_clean(&root, &candidate, &mut commands)
@@ -86,7 +106,15 @@ fn run(cli: Cli) -> Result<()> {
                 Some(candidate) => candidate.clone(),
                 None => commands.run(&root, "git", &["rev-parse", "HEAD:veryl"])?,
             };
-            checks::verify(&root, &candidate, &plan, &mut executor, &mut commands)
+            let digest = env.get("FORMAL_LOCK_DIGEST").filter(|s| !s.is_empty());
+            checks::verify(
+                &root,
+                &candidate,
+                digest.map(String::as_str),
+                &plan,
+                &mut executor,
+                &mut commands,
+            )
         }
     }
 }

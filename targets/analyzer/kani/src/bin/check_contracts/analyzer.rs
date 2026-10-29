@@ -4,32 +4,6 @@ use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
-const PUBLIC_RESIZE_COVERS: [&str; 6] = [
-    "public resize request 1 is reachable",
-    "public resize request 2 is reachable",
-    "public resize request 3 is reachable",
-    "public resize request 4 is reachable",
-    "public resize request 5 is reachable",
-    "public resize request 6 is reachable",
-];
-
-const PUBLIC_SMALL_CONDITIONAL_COVERS: [&str; 14] = [
-    "public condition zero is reachable",
-    "public condition one is reachable",
-    "public condition X is reachable",
-    "public condition Z is reachable",
-    "public common Z becomes X",
-    "small conditional one-bit condition is reachable",
-    "small conditional two-bit condition is reachable",
-    "small conditional zero context is reachable",
-    "small conditional unit context is reachable",
-    "small conditional wide context is reachable",
-    "small conditional known one dominates unknown",
-    "small conditional signed extension is reachable",
-    "small conditional sign suppression is reachable",
-    "small conditional u128 padding is reachable",
-];
-
 const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
     "public assignment source width 1 is reachable",
     "public assignment source width 4 is reachable",
@@ -73,7 +47,749 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 64] = [
+const SHIFT_CONTINUATION_COVERS: &[&str] = &[
+    "public shift continuation signed amount is reachable",
+    "public shift continuation signed one fill is reachable",
+    "public shift continuation signed X fill is reachable",
+    "public shift continuation signed Z fill is reachable",
+    "public shift continuation unknown amount is reachable",
+    "public shift continuation arithmetic left overshift is reachable",
+    "public shift continuation upper Z amount is reachable",
+];
+
+const SHIFT_WIDENING_COVERS: &[&str] = &[
+    "public shift widening signed one before left shift is reachable",
+    "public shift widening signed X before logical right is reachable",
+    "public shift widening signed Z fill is reachable",
+    "public shift widening unsigned arithmetic left is reachable",
+    "public shift widening upper Z amount is reachable",
+    "public shift widening overshift padding is reachable",
+];
+
+const WORD_BIG_AMOUNT_COVERS: &[&str] = &[
+    "public wide amount trace signed operand is reachable",
+    "public wide amount trace negative source is reachable",
+    "public wide amount trace signed X source is reachable",
+    "public wide amount trace unsigned Z source is reachable",
+    "public wide amount trace arithmetic left is reachable",
+];
+
+const PUBLIC_INEQUALITY_NATIVE_UNSIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison LHS width 64 is reachable",
+    "public comparison RHS width 64 is reachable",
+];
+
+const PUBLIC_INEQUALITY_NATIVE_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison LHS width 64 is reachable",
+    "public comparison RHS width 64 is reachable",
+];
+
+const PUBLIC_SMALL_WILDCARD_INEQUALITY_UNSIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
+];
+
+const PUBLIC_SMALL_ORDERING_UNSIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
+];
+
+const PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
+];
+
+const PUBLIC_SMALL_ORDERING_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
+];
+
+const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison signed mode is reachable",
+    "public comparison mixed signs are reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison sign extension is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
+];
+
+pub static CONTRACTS: [Contract; 133] = [
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-1-unsigned",
+        harness: "public_small_remainder_width_1_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-1-signed",
+        harness: "public_small_remainder_width_1_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-2-unsigned",
+        harness: "public_small_remainder_width_2_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-2-signed",
+        harness: "public_small_remainder_width_2_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-3-unsigned",
+        harness: "public_small_remainder_width_3_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-3-signed",
+        harness: "public_small_remainder_width_3_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-4-unsigned",
+        harness: "public_small_remainder_width_4_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-4-signed",
+        harness: "public_small_remainder_width_4_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-1-unsigned",
+        harness: "public_small_divide_width_1_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-1-signed",
+        harness: "public_small_divide_width_1_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-2-unsigned",
+        harness: "public_small_divide_width_2_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-2-signed",
+        harness: "public_small_divide_width_2_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-3-unsigned",
+        harness: "public_small_divide_width_3_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-3-signed",
+        harness: "public_small_divide_width_3_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-4-unsigned",
+        harness: "public_small_divide_width_4_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-4-signed",
+        harness: "public_small_divide_width_4_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-multiply",
+        harness: "public_small_multiply_initial_calls_match_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "public small product LHS width 1 is reachable",
+            "public small product LHS width 2 is reachable",
+            "public small product LHS width 3 is reachable",
+            "public small product RHS width 1 is reachable",
+            "public small product RHS width 2 is reachable",
+            "public small product RHS width 3 is reachable",
+            "public small product wider RHS is reachable",
+            "public small product wider LHS is reachable",
+            "public small product mixed signs are reachable",
+            "public small product unknown input is reachable",
+            "public small product zero input is reachable",
+            "public small product sign extension is reachable",
+        ],
+    },
+    Contract {
+        group: "public-wide-resize",
+        name: "public-native-zero-extension-wide",
+        harness: "public_native_zero_extension_wide_matches_reference_semantics",
+        message: "public wide resize semantics mismatch",
+        covers: &[
+            "public native wide zero extension width 1 zero is reachable",
+            "public native wide zero extension width 1 one is reachable",
+            "public native wide zero extension width 1 X is reachable",
+            "public native wide zero extension width 1 Z is reachable",
+            "public native wide zero extension width 64 zero is reachable",
+            "public native wide zero extension width 64 one is reachable",
+            "public native wide zero extension width 64 X is reachable",
+            "public native wide zero extension width 64 Z is reachable",
+            "public native wide zero extension interior widths are reachable",
+        ],
+    },
+    Contract {
+        group: "public-wide-resize",
+        name: "public-native-zero-fill-extension-wide",
+        harness: "public_native_zero_fill_extension_wide_matches_reference_semantics",
+        message: "public wide resize semantics mismatch",
+        covers: &[
+            "public native zero fill extension signed endpoint is reachable",
+            "public native zero fill extension unsigned high Z is reachable",
+            "public native zero fill extension signed lower X is reachable",
+            "public native zero fill extension signed interior Z is reachable",
+            "public native zero fill extension unsigned one is reachable",
+        ],
+    },
+    Contract {
+        group: "public-getters",
+        name: "public-big-getters-128",
+        harness: "public_big_getters_match_reference_bits",
+        message: "public BigUint getter semantics mismatch",
+        covers: &[
+            "public BigUint getters empty digits are reachable",
+            "public BigUint getters high one is reachable",
+            "public BigUint getters high X is reachable",
+            "public BigUint getters high Z and padding are reachable",
+        ],
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-1",
+        harness: "public_small_shift_continuation_width_1_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-2",
+        harness: "public_small_shift_continuation_width_2_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-3",
+        harness: "public_small_shift_continuation_width_3_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-4",
+        harness: "public_small_shift_continuation_width_4_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-31",
+        harness: "public_shift_boundary_width_31_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-32",
+        harness: "public_shift_boundary_width_32_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-63",
+        harness: "public_shift_boundary_width_63_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-64",
+        harness: "public_shift_boundary_width_64_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-widening-4-to-8",
+        harness: "public_shift_widening_4_to_8_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_WIDENING_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-widening-4-to-64",
+        harness: "public_shift_widening_4_to_64_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_WIDENING_COVERS,
+    },
+    Contract {
+        group: "public-getters",
+        name: "public-big-amount-decoding-128",
+        harness: "public_big_amount_decoding_matches_reference",
+        message: "public BigUint amount semantics mismatch",
+        covers: &[
+            "public BigUint amount zero is reachable",
+            "public BigUint amount usize maximum is reachable",
+            "public BigUint oversized amount is reachable",
+            "public BigUint upper X amount is reachable",
+            "public BigUint upper Z amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-small",
+        harness: "public_word64_shift_small_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-high",
+        harness: "public_word64_shift_high_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-upper-x",
+        harness: "public_word64_shift_upper_x_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-upper-z",
+        harness: "public_word64_shift_upper_z_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word32-big-amount-small",
+        harness: "public_word32_shift_small_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word32-big-amount-high",
+        harness: "public_word32_shift_high_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word32-big-amount-upper-x",
+        harness: "public_word32_shift_upper_x_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word32-big-amount-upper-z",
+        harness: "public_word32_shift_upper_z_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-small",
+        harness: "public_shift_big_amount_width_1_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-high",
+        harness: "public_shift_big_amount_width_1_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-upper-x",
+        harness: "public_shift_big_amount_width_1_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-upper-z",
+        harness: "public_shift_big_amount_width_1_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-small",
+        harness: "public_shift_big_amount_width_2_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-high",
+        harness: "public_shift_big_amount_width_2_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-upper-x",
+        harness: "public_shift_big_amount_width_2_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-upper-z",
+        harness: "public_shift_big_amount_width_2_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-small",
+        harness: "public_shift_big_amount_width_31_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-high",
+        harness: "public_shift_big_amount_width_31_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-upper-x",
+        harness: "public_shift_big_amount_width_31_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-upper-z",
+        harness: "public_shift_big_amount_width_31_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-small",
+        harness: "public_shift_big_amount_width_63_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-high",
+        harness: "public_shift_big_amount_width_63_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-upper-x",
+        harness: "public_shift_big_amount_width_63_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-upper-z",
+        harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-less-unsigned-continuation",
+        harness: "public_small_less_unsigned_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_ORDERING_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-less-signed-continuation",
+        harness: "public_small_less_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_ORDERING_SIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-inequality-native-unsigned-continuation",
+        harness: "public_inequality_native_unsigned_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_INEQUALITY_NATIVE_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-inequality-native-signed-continuation",
+        harness: "public_inequality_native_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_INEQUALITY_NATIVE_SIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-inequality-unsigned-continuation",
+        harness: "public_small_wildcard_inequality_unsigned_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_WILDCARD_INEQUALITY_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-inequality-signed-continuation",
+        harness: "public_small_wildcard_inequality_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equality-continuation",
+        harness: "public_small_wildcard_equality_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WILDCARD_CONTINUATION_COVERS,
+    },
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -104,25 +820,26 @@ pub static CONTRACTS: [Contract; 64] = [
     },
     Contract {
         group: "values",
-        name: "public-selection-small",
-        harness: "public_selection_small_matches_reference_semantics",
+        name: "public-selection-native",
+        harness: "public_selection_native_matches_reference_semantics",
         message: "public selection semantics mismatch",
         covers: &[
-            "public selection width 1 is reachable",
-            "public selection width 2 is reachable",
-            "public selection width 3 is reachable",
-            "public selection width 4 is reachable",
-            "public selection reversed endpoints are reachable",
-            "public selection one bit is reachable",
-            "public selection full source is reachable",
-            "public selection missing source is reachable",
-            "public selection overlap is reachable",
-            "public selection highest endpoint is reachable",
-            "public selection maximum end is reachable",
-            "public selection source X is reachable",
-            "public selection source Z is reachable",
-            "public selection signed source is reachable",
-            "public selection u128 padding is reachable",
+            "public native selection source width 1 is reachable",
+            "public native selection source width 64 is reachable",
+            "public native selection reversed endpoints are reachable",
+            "public native selection single bit is reachable",
+            "public native selection 64-bit result is reachable",
+            "public native selection full source is reachable",
+            "public native selection missing source is reachable",
+            "public native selection partial overlap is reachable",
+            "public native selection maximum single endpoint is reachable",
+            "public native selection maximum range is reachable",
+            "public native selection maximum reversed endpoint is reachable",
+            "public native selection signed source is reachable",
+            "public native selection unsigned source is reachable",
+            "public native selection source X is reachable",
+            "public native selection source Z is reachable",
+            "public native selection u128 padding is reachable",
         ],
     },
     Contract {
@@ -162,31 +879,29 @@ pub static CONTRACTS: [Contract; 64] = [
     },
     Contract {
         group: "values",
-        name: "public-resize-one",
-        harness: "public_resize_one_matches_reference_semantics",
+        name: "public-resize-native",
+        harness: "public_resize_native_matches_reference_semantics",
         message: "public resize semantics mismatch",
-        covers: &PUBLIC_RESIZE_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-resize-two",
-        harness: "public_resize_two_matches_reference_semantics",
-        message: "public resize semantics mismatch",
-        covers: &PUBLIC_RESIZE_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-resize-three",
-        harness: "public_resize_three_matches_reference_semantics",
-        message: "public resize semantics mismatch",
-        covers: &PUBLIC_RESIZE_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-resize-four",
-        harness: "public_resize_four_matches_reference_semantics",
-        message: "public resize semantics mismatch",
-        covers: &PUBLIC_RESIZE_COVERS,
+        covers: &[
+            "public native resize source width 1 is reachable",
+            "public native resize source width 64 is reachable",
+            "public native resize request 1 is reachable",
+            "public native resize request 64 is reachable",
+            "public native resize smaller request is reachable",
+            "public native resize equal request is reachable",
+            "public native resize larger request is reachable",
+            "public native resize signed source is reachable",
+            "public native resize unsigned source is reachable",
+            "public native resize u128 padding is reachable",
+            "public native resize truncated X is reachable",
+            "public native resize truncated Z is reachable",
+            "public native resize disables sign extension",
+            "public native resize zero-extends unsigned source",
+            "public native resize extends zero",
+            "public native resize extends one",
+            "public native resize extends X",
+            "public native resize extends Z",
+        ],
     },
     Contract {
         group: "values",
@@ -223,6 +938,29 @@ pub static CONTRACTS: [Contract; 64] = [
             "known signed shift is reachable",
             "shifted source X is reachable",
             "shifted source Z is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-shift-unsigned-native",
+        harness: "public_shift_unsigned_initial_calls_match_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: &[
+            "public shift source width 1 is reachable",
+            "public shift source width 64 is reachable",
+            "public shift zero amount is reachable",
+            "public shift last-bit amount is reachable",
+            "public shift source-width amount is reachable",
+            "public shift amount 64 is reachable",
+            "public shift maximum amount is reachable",
+            "public shift unknown amount is reachable",
+            "public shift amount contains X",
+            "public shift amount contains Z",
+            "public shift amount has an upper unknown",
+            "public shift source contains X",
+            "public shift source contains Z",
+            "public shift source high bit is reachable",
+            "public shift highest native observation is reachable",
         ],
     },
     Contract {
@@ -307,6 +1045,29 @@ pub static CONTRACTS: [Contract; 64] = [
             "comparison X is reachable",
             "known mismatch despite unknown bits is reachable",
             "one versus unknown equality is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-equality-native",
+        harness: "public_equality_native_pair_matches_reference_semantics",
+        message: "public comparison semantics mismatch",
+        covers: &[
+            "public comparison LHS width 1 is reachable",
+            "public comparison LHS width 2 is reachable",
+            "public comparison LHS width 3 is reachable",
+            "public comparison RHS width 1 is reachable",
+            "public comparison RHS width 2 is reachable",
+            "public comparison RHS width 3 is reachable",
+            "public comparison LHS width 64 is reachable",
+            "public comparison RHS width 64 is reachable",
+            "public comparison wider LHS is reachable",
+            "public comparison wider RHS is reachable",
+            "public comparison signed mode is reachable",
+            "public comparison mixed signs are reachable",
+            "public comparison X result is reachable",
+            "public comparison true result is reachable",
+            "public comparison false result is reachable",
         ],
     },
     Contract {
@@ -496,6 +1257,45 @@ pub static CONTRACTS: [Contract; 64] = [
     },
     Contract {
         group: "values",
+        name: "public-bitwise-native",
+        harness: "public_bitwise_native_sequence_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public bitwise LHS width 1 is reachable",
+            "public bitwise LHS width 64 is reachable",
+            "public bitwise RHS width 1 is reachable",
+            "public bitwise RHS width 64 is reachable",
+            "public bitwise wider LHS is reachable",
+            "public bitwise wider RHS is reachable",
+            "public bitwise unchanged context is reachable",
+            "public bitwise width 64 is reachable",
+            "public bitwise signed context is reachable",
+            "public bitwise mixed signs are reachable",
+            "public bitwise source X is reachable",
+            "public bitwise source Z is reachable",
+            "public bitwise u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-not-native",
+        harness: "public_bit_not_native_sequence_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public NOT source width 1 is reachable",
+            "public NOT source width 64 is reachable",
+            "public NOT result width 64 is reachable",
+            "public NOT widened context is reachable",
+            "public NOT unchanged context is reachable",
+            "public NOT signed source is reachable",
+            "public NOT unsigned source is reachable",
+            "public NOT source X is reachable",
+            "public NOT source Z is reachable",
+            "public NOT u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
         name: "logical",
         harness: "native_logical_matches_reference_semantics",
         message: "logical semantics mismatch",
@@ -578,54 +1378,31 @@ pub static CONTRACTS: [Contract; 64] = [
     },
     Contract {
         group: "values",
-        name: "public-conditional",
-        harness: "public_conditional_small_11_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-12",
-        harness: "public_conditional_small_12_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-21",
-        harness: "public_conditional_small_21_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-small-22",
-        harness: "public_conditional_small_22_matches_reference_semantics",
-        message: "public small conditional semantics mismatch",
-        covers: &PUBLIC_SMALL_CONDITIONAL_COVERS,
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-widened",
-        harness: "public_conditional_widened_matches_reference_semantics",
-        message: "public conditional layout semantics mismatch",
+        name: "public-conditional-native",
+        harness: "public_conditional_native_matches_reference_semantics",
+        message: "public conditional semantics mismatch",
         covers: &[
-            "public layout condition X is reachable",
-            "public layout condition Z is reachable",
-            "public layout signed extension is reachable",
-            "public layout unsigned extension is reachable",
-        ],
-    },
-    Contract {
-        group: "values",
-        name: "public-conditional-word",
-        harness: "public_conditional_word_matches_reference_semantics",
-        message: "public conditional layout semantics mismatch",
-        covers: &[
-            "public layout condition X is reachable",
-            "public layout condition Z is reachable",
-            "public layout signed extension is reachable",
-            "public layout unsigned extension is reachable",
+            "public native conditional condition width 1 is reachable",
+            "public native conditional condition width 2 is reachable",
+            "public native conditional true width 1 is reachable",
+            "public native conditional true width 64 is reachable",
+            "public native conditional false width 1 is reachable",
+            "public native conditional false width 64 is reachable",
+            "public native conditional context 0 is reachable",
+            "public native conditional context 1 is reachable",
+            "public native conditional context 64 is reachable",
+            "public native conditional false condition is reachable",
+            "public native conditional true condition is reachable",
+            "public native conditional ambiguous condition is reachable",
+            "public native conditional known one dominates unknown",
+            "public native conditional common Z becomes X",
+            "public native conditional context widens branches",
+            "public native conditional context preserves branch width",
+            "public native conditional sign extension is reachable",
+            "public native conditional sign suppression is reachable",
+            "public native conditional signed result is reachable",
+            "public native conditional unsigned result is reachable",
+            "public native conditional u128 padding is reachable",
         ],
     },
     Contract {
@@ -721,17 +1498,266 @@ pub static CONTRACTS: [Contract; 64] = [
     },
     Contract {
         group: "values",
-        name: "public-arithmetic-unary-initial-pair",
-        harness: "public_arithmetic_negate_after_plus_matches_reference_semantics",
+        name: "public-arithmetic-unsigned-growth-plus",
+        harness: "public_arithmetic_unsigned_growth_plus_matches_reference_semantics",
         message: "public arithmetic semantics mismatch",
         covers: &[
-            "unary initial pair width 1 is reachable",
-            "unary initial pair width 2 is reachable",
-            "unary initial pair width 3 is reachable",
-            "unary initial pair signed source is reachable",
-            "unary initial pair unsigned source is reachable",
-            "unary initial pair X result is reachable",
-            "unary initial pair u128 padding is reachable",
+            "unary widened sequence source width 1 is reachable",
+            "unary widened sequence source width 2 is reachable",
+            "unary widened sequence source width 3 is reachable",
+            "unary widened sequence result width 3 is reachable",
+            "unary widened sequence result width 4 is reachable",
+            "unary widened sequence result width 5 is reachable",
+            "unary widened sequence signed source is reachable",
+            "unary widened sequence unsigned source is reachable",
+            "unary widened sequence suppresses sign extension",
+            "unary widened sequence X result is reachable",
+            "unary widened sequence known one is reachable",
+            "unary widened sequence Z result is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-unsigned-growth-negate",
+        harness: "public_arithmetic_unsigned_growth_negate_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary widened sequence source width 1 is reachable",
+            "unary widened sequence source width 2 is reachable",
+            "unary widened sequence source width 3 is reachable",
+            "unary widened sequence result width 3 is reachable",
+            "unary widened sequence result width 4 is reachable",
+            "unary widened sequence result width 5 is reachable",
+            "unary widened sequence signed source is reachable",
+            "unary widened sequence unsigned source is reachable",
+            "unary widened sequence suppresses sign extension",
+            "unary widened sequence X result is reachable",
+            "unary widened sequence known one is reachable",
+            "unary widened sequence u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-signed-growth-plus",
+        harness: "public_arithmetic_signed_growth_plus_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed growth source width 1 is reachable",
+            "unary signed growth source width 2 is reachable",
+            "unary signed growth source width 3 is reachable",
+            "unary signed growth result width 3 is reachable",
+            "unary signed growth result width 4 is reachable",
+            "unary signed growth result width 5 is reachable",
+            "unary signed growth signed source is reachable",
+            "unary signed growth unsigned source is reachable",
+            "unary signed growth negative signed source is reachable",
+            "unary signed growth X result is reachable",
+            "unary signed growth known one is reachable",
+            "unary signed growth u128 padding is reachable",
+            "unary signed growth extends one",
+            "unary signed growth extends X",
+            "unary signed growth extends Z",
+            "unary signed growth zero-extends unsigned source",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-signed-growth-negate",
+        harness: "public_arithmetic_signed_growth_negate_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "unary signed growth source width 1 is reachable",
+            "unary signed growth source width 2 is reachable",
+            "unary signed growth source width 3 is reachable",
+            "unary signed growth result width 3 is reachable",
+            "unary signed growth result width 4 is reachable",
+            "unary signed growth result width 5 is reachable",
+            "unary signed growth signed source is reachable",
+            "unary signed growth unsigned source is reachable",
+            "unary signed growth negative signed source is reachable",
+            "unary signed growth X result is reachable",
+            "unary signed growth known one is reachable",
+            "unary signed growth u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-natural-signed-add",
+        harness: "public_binary_natural_signed_add_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-natural-signed-subtract",
+        harness: "public_binary_natural_signed_subtract_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-widened-unsigned-add",
+        harness: "public_binary_widened_unsigned_add_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-widened-unsigned-subtract",
+        harness: "public_binary_widened_unsigned_subtract_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-widened-signed-add",
+        harness: "public_binary_widened_signed_add_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-widened-signed-subtract",
+        harness: "public_binary_widened_signed_subtract_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "binary cache sequence LHS width 1 is reachable",
+            "binary cache sequence LHS width 2 is reachable",
+            "binary cache sequence LHS width 3 is reachable",
+            "binary cache sequence RHS width 1 is reachable",
+            "binary cache sequence RHS width 2 is reachable",
+            "binary cache sequence RHS width 3 is reachable",
+            "binary cache sequence wider LHS is reachable",
+            "binary cache sequence wider RHS is reachable",
+            "binary cache sequence mixed source signs are reachable",
+            "binary cache sequence X result is reachable",
+            "binary cache sequence known one is reachable",
+            "binary cache sequence padding observation is reachable",
+            "binary cache sequence left negative extension input is reachable",
+            "binary cache sequence right negative extension input is reachable",
+            "binary cache sequence minimum result width is reachable",
+            "binary cache sequence maximum result width is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-binary-word64",
+        harness: "public_binary_word64_initial_calls_match_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "public word64 addition overflow is reachable",
+            "public word64 subtraction borrow is reachable",
+            "public word64 highest stored bit is reachable",
+            "public word64 source X is reachable",
+            "public word64 source Z is reachable",
+            "public word64 unknown result is reachable",
+            "public word64 mixed source signs are reachable",
+            "public word64 signed sources are reachable",
+            "public word64 unsigned sources are reachable",
+            "public word64 u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-arithmetic-unary-native",
+        harness: "public_unary_native_initial_calls_match_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "public native unary source width 1 is reachable",
+            "public native unary source width 64 is reachable",
+            "public native unary signed source is reachable",
+            "public native unary unsigned source is reachable",
+            "public native unary source X is reachable",
+            "public native unary source Z is reachable",
+            "public native unary unknown negate is reachable",
+            "public native unary known negate is reachable",
+            "public native unary minimum signed value is reachable",
+            "public native unary u128 padding is reachable",
         ],
     },
     Contract {
@@ -1167,6 +2193,26 @@ fn mutate_method(source: &str, name: &str, old: &str, new: &str) -> String {
     let mut mutated = source.to_owned();
     mutated.replace_range(range, &replacement);
     mutated
+}
+
+// Conditional cover statements for other width instantiations remain in
+// Kani's output. They are diagnostic only unless listed in Contract::covers.
+pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
+    "nonlinear fixed width natural call is reachable",
+    "nonlinear fixed width widened call is reachable",
+];
+
+// Named covers are mandatory for this profile; the shared runner validates them.
+// Only these new public proofs omit Kani's automatic per-assertion diagnostics.
+pub fn uses_explicit_covers(contract: &Contract) -> bool {
+    matches!(
+        contract.group,
+        "public-nonlinear"
+            | "public-wide-resize"
+            | "public-getters"
+            | "public-native-sequences"
+            | "public-comparison-sequences"
+    )
 }
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
@@ -1877,17 +2923,17 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             ),
             (
                 "legacy-conditional-false",
-                contract("public-conditional"),
+                contract("public-conditional-native"),
                 legacy_conditional_false,
             ),
             (
                 "public-conditional-ignores-context-width",
-                contract("public-conditional-widened"),
+                contract("public-conditional-native"),
                 public_conditional_ignores_context_width,
             ),
             (
                 "public-conditional-truncates-word",
-                contract("public-conditional-word"),
+                contract("public-conditional-native"),
                 public_conditional_truncates_word,
             ),
             (
@@ -2590,19 +3636,19 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     for (contract_name, name, old, new) in [
         (
-            "public-conditional-small-22",
+            "public-conditional-native",
             "public-conditional-ignores-condition-high-bit",
             "let condition = self.truth();",
             "let mut condition_value = self.clone(); condition_value.trunc(1); let condition = condition_value.truth();",
         ),
         (
-            "public-conditional",
+            "public-conditional-native",
             "public-conditional-zero-context-widens",
             "let context_width = width;",
             "let context_width = if width == 0 { 4 } else { width };",
         ),
         (
-            "public-conditional-small-12",
+            "public-conditional-native",
             "public-conditional-zero-context-selects-width",
             "return Self::U64(a.conditional(b, condition, context_width, signed));",
             "let mut value = Self::U64(a.conditional(b, condition, context_width, signed)); if context_width == 0 && condition == Some(true) { value.trunc(a.width as usize); } return value;",
@@ -2687,7 +3733,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     if let Some(&contract) = selected
         .iter()
-        .find(|c| c.name == "public-arithmetic-unary-initial-pair")
+        .find(|c| c.name == "public-arithmetic-unary-native")
     {
         let path = "veryl/crates/analyzer/src/ir/op.rs";
         let source = fs::read_to_string(repo.join(path)).unwrap();
@@ -2711,7 +3757,1256 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 &source,
                 "negate",
                 "ret.payload &= mask;",
-                "ret.payload = (ret.payload & mask) | (1u64 << 63);",
+                "ret.payload = (ret.payload & mask) | if width < 64 { 1u64 << 63 } else { 0 };",
+            ),
+        });
+    }
+    // These mutations preserve the unsigned prefix and corrupt only signed calls.
+    for (contract_name, name, old, new) in [
+        (
+            "public-arithmetic-unary-native",
+            "unary-signed-plus-grows-natural-width",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let x = x.expand(width + usize::from(signed), signed); x.into_owned() }",
+        ),
+        (
+            "public-arithmetic-unary-native",
+            "unary-signed-plus-upper-leak",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let mut result = x.expand(width, signed).into_owned(); if signed { if let Value::U64(x) = &mut result { if x.width < 64 { x.payload |= 1u64 << 63; } } } result }",
+        ),
+        (
+            "public-arithmetic-unary-native",
+            "unary-signed-negate-returns-plus",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => Value::U64(if signed { x.clone() } else { x.negate(width) }),",
+        ),
+        (
+            "public-arithmetic-unary-native",
+            "unary-signed-negate-upper-leak",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut result = x.negate(width); if signed && width < 64 { result.payload |= 1u64 << 63; } Value::U64(result) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-arithmetic-unsigned-growth-plus",
+            "unary-unsigned-growth-plus-skips-growth",
+            "eval_value_unary",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let x = x.expand(if signed { width } else { x.width() }, signed); x.into_owned() }",
+        ),
+        (
+            "public-arithmetic-unsigned-growth-plus",
+            "unary-unsigned-growth-plus-poisons-added-bit",
+            "eval_value_unary",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let natural = x.width(); let mut result = x.expand(width, signed).into_owned(); if !signed && width > natural { if let Value::U64(x) = &mut result { x.payload |= 1u64 << natural; } } result }",
+        ),
+        (
+            "public-arithmetic-unsigned-growth-negate",
+            "unary-unsigned-growth-negate-returns-plus",
+            "eval_value_unary",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => Value::U64(if !signed && width > 3 { x.clone() } else { x.negate(width) }),",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-unsigned-growth-negate")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-unsigned-growth-negate-ignores-unknown",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "negate",
+                "if self.is_xz() {",
+                "if self.is_xz() && width <= 3 {",
+            ),
+        });
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-arithmetic-signed-growth-plus",
+            "unary-signed-growth-plus-zero-extends",
+            "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+            "Op::Add => { let x = x.expand(width, false); x.into_owned() }",
+        ),
+        (
+            "public-arithmetic-signed-growth-negate",
+            "unary-signed-growth-negate-returns-plus",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => Value::U64(if signed && width > 3 { x.clone() } else { x.negate(width) }),",
+        ),
+        (
+            "public-arithmetic-signed-growth-negate",
+            "unary-signed-growth-negate-upper-leak",
+            "Value::U64(x) => Value::U64(x.negate(width)),",
+            "Value::U64(x) => { let mut result = x.negate(width); if signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-signed-growth-plus")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "unary-signed-growth-plus-loses-extended-xz",
+            contract,
+            path: CORE,
+            source: mutate_method(&source, "expand", "mask_xz |= mask;", "mask_xz |= 0;"),
+        });
+    }
+    for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-direction",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, signed, true, false)",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-inclusive",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, signed, false, true)",
+        ),
+        (
+            "public-small-less-signed-continuation",
+            "public-less-signed-unsigned-order",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, false, false, false)",
+        ),
+        (
+            "public-small-less-signed-continuation",
+            "public-less-signed-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::Less => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, signed);",
+            "Op::Less => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, false);",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self::new_bit_x1(false, relation)",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self { signed: true, ..Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation) }",
+        ),
+        (
+            "public-inequality-native-unsigned-continuation",
+            "public-inequality-continuation-not-negated",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, false, true)",
+            "x.equal(y, false, false)",
+        ),
+        (
+            "public-inequality-native-unsigned-continuation",
+            "public-inequality-continuation-uses-wildcard",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, false, true)",
+            "x.equal(y, true, true)",
+        ),
+        (
+            "public-inequality-native-signed-continuation",
+            "public-inequality-continuation-zero-sign-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::Ne => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed();",
+            "Op::Ne => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = false;",
+        ),
+        (
+            "public-small-wildcard-equality-continuation",
+            "public-wildcard-continuation-swaps-operands",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "y.equal(x, true, false)",
+        ),
+        (
+            "public-inequality-native-unsigned-continuation",
+            "public-inequality-continuation-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "Self::new_bit_1x(mismatch, unknown)",
+            "Self { signed: true, ..Self::new_bit_1x(mismatch, unknown) }",
+        ),
+        (
+            "public-small-wildcard-equality-continuation",
+            "public-wildcard-continuation-ignores-wildcards",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "x.equal(y, false, false)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-not-negated",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "x.equal(y, true, false)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-swaps-operands",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "y.equal(x, true, true)",
+        ),
+        (
+            "public-small-wildcard-inequality-signed-continuation",
+            "public-wildcard-inequality-signed-ignores-wildcards",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "x.equal(y, false, true)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "Self::new_bit_1x(mismatch, unknown)",
+            "Self { signed: true, ..Self::new_bit_1x(mismatch, unknown) }",
+        ),
+        (
+            "public-small-wildcard-inequality-signed-continuation",
+            "public-wildcard-inequality-signed-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::NeWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed();",
+            "Op::NeWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = false;",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-equality-native") {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-equality-inverted",
+                "x.equal(y, false, false)",
+                "x.equal(y, false, true)",
+            ),
+            (
+                "public-equality-uses-wildcard",
+                "x.equal(y, false, false)",
+                "x.equal(y, true, false)",
+            ),
+            (
+                "public-equality-ignores-upper-payload",
+                "x.equal(y, false, false)",
+                "{ let mut x = x.clone(); let mut y = y.clone(); x.payload &= u32::MAX as u64; y.payload &= u32::MAX as u64; x.equal(&y, false, false) }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+        let old = "Value::U64(ret).expand(width, false).into_owned()\n            }\n            Op::Ne =>";
+        for (name, new) in [
+            (
+                "public-equality-skips-result-growth",
+                "Value::U64(ret)\n            }\n            Op::Ne =>",
+            ),
+            (
+                "public-equality-upper-padding-leak",
+                "{ let mut ret = ret; ret.payload |= 1u64 << 63; Value::U64(ret).expand(width, false).into_owned() }\n            }\n            Op::Ne =>",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-as-or",
+            "eval_value_binary",
+            "Value::U64(x.bit_and(y, width))",
+            "Value::U64(x.bit_or(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-or-as-and",
+            "eval_value_binary",
+            "Value::U64(x.bit_or(y, width))",
+            "Value::U64(x.bit_and(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-xor-as-xnor",
+            "eval_value_binary",
+            "Value::U64(x.bit_xor(y, width))",
+            "Value::U64(x.bit_xnor(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-xnor-as-xor",
+            "eval_value_binary",
+            "Value::U64(x.bit_xnor(y, width))",
+            "Value::U64(x.bit_xor(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-disables-left-sign",
+            "eval_value_binary",
+            "let x = resize(x, width, signed);",
+            "let x = resize(x, width, false);",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-upper-padding-leak",
+            "eval_value_binary",
+            "Value::U64(x.bit_and(y, width))",
+            "{ let mut result = x.bit_and(y, width); if width < 64 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-not-native",
+            "public-not-returns-input",
+            "eval_value_unary",
+            "Value::U64(x) => Value::U64(x.bit_not(width)),",
+            "Value::U64(x) => Value::U64(x.clone()),",
+        ),
+        (
+            "public-not-native",
+            "public-not-disables-sign",
+            "eval_value_unary",
+            "Op::BitNot => {\n                let x = x.expand(width, signed);",
+            "Op::BitNot => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-not-native") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-not-unknown-becomes-z",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "bit_not",
+                "ret.payload &= ret.mask_xz ^ mask;",
+                "ret.payload &= mask;",
+            ),
+        });
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-binary-natural-signed-add",
+            "public-binary-natural-signed-add-disables-left-sign",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let x = x.expand(width, false);",
+        ),
+        (
+            "public-binary-natural-signed-add",
+            "public-binary-natural-signed-add-swaps-operation",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+        ),
+        (
+            "public-binary-natural-signed-subtract",
+            "public-binary-natural-signed-subtract-swaps-operation",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+        ),
+        (
+            "public-binary-natural-signed-subtract",
+            "public-binary-natural-signed-subtract-drops-result-sign",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, false, true))",
+        ),
+        (
+            "public-binary-widened-unsigned-add",
+            "public-binary-widened-unsigned-add-swaps-operation",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+        ),
+        (
+            "public-binary-widened-unsigned-add",
+            "public-binary-widened-unsigned-add-upper-padding-leak",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+            "{ let mut result = x.add_sub(y, width, signed, false); if !signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-binary-widened-unsigned-subtract",
+            "public-binary-widened-unsigned-subtract-swaps-operation",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+        ),
+        (
+            "public-binary-widened-unsigned-subtract",
+            "public-binary-widened-unsigned-subtract-upper-padding-leak",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "{ let mut result = x.add_sub(y, width, signed, true); if !signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-binary-widened-signed-add",
+            "public-binary-widened-signed-add-disables-left-sign",
+            "Op::Add => {\n                let x = x.expand(width, signed);",
+            "Op::Add => {\n                let x = x.expand(width, false);",
+        ),
+        (
+            "public-binary-widened-signed-add",
+            "public-binary-widened-signed-add-upper-padding-leak",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+            "{ let mut result = x.add_sub(y, width, signed, false); if signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-binary-widened-signed-subtract",
+            "public-binary-widened-signed-subtract-swaps-operation",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+        ),
+        (
+            "public-binary-widened-signed-subtract",
+            "public-binary-widened-signed-subtract-upper-padding-leak",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "{ let mut result = x.add_sub(y, width, signed, true); if signed && width > 3 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-binary-word64",
+            "public-word64-adds-as-subtract",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+        ),
+        (
+            "public-binary-word64",
+            "public-word64-subtracts-as-add",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, signed, false))",
+        ),
+        (
+            "public-binary-word64",
+            "public-word64-drops-signed-subtract-metadata",
+            "Value::U64(x.add_sub(y, width, signed, true))",
+            "Value::U64(x.add_sub(y, width, false, true))",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-arithmetic-unary-native")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-native-unary-negate-drops-upper-payload",
+                "Value::U64(x) => Value::U64(x.negate(width)),",
+                "Value::U64(x) => { let mut result = x.negate(width); result.payload &= u32::MAX as u64; Value::U64(result) },",
+            ),
+            (
+                "public-native-unary-plus-drops-upper-payload",
+                "Op::Add => {\n                let x = x.expand(width, signed);\n                x.into_owned()\n            }",
+                "Op::Add => { let mut result = x.expand(width, signed).into_owned(); if let Value::U64(x) = &mut result { x.payload &= u32::MAX as u64; } result }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-unsigned-native")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-shift-logical-left-as-right",
+                "x.shift_left(y, width, false)",
+                "x.shift_right(y, width, signed, false)",
+            ),
+            (
+                "public-shift-logical-right-as-left",
+                "x.shift_right(y, width, signed, false)",
+                "x.shift_left(y, width, false)",
+            ),
+            (
+                "public-shift-arithmetic-left-as-right",
+                "x.shift_left(y, width, true)",
+                "x.shift_right(y, width, signed, true)",
+            ),
+            (
+                "public-shift-arithmetic-right-as-left",
+                "x.shift_right(y, width, signed, true)",
+                "x.shift_left(y, width, true)",
+            ),
+            (
+                "public-shift-left-upper-padding-leak",
+                "let ret = Value::U64(x.shift_left(y, width, false));",
+                "let mut result = x.shift_left(y, width, false); if width < 64 { result.payload |= 1u64 << 63; } let ret = Value::U64(result);",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-shift-amount-ignores-unknown",
+                "Self::U64(x) if x.is_xz() => None,",
+                "Self::U64(x) if x.is_xz() && x.payload == 0 => None,",
+            ),
+            (
+                "public-shift-amount-reinterprets-signed",
+                "Self::U64(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+                "Self::U64(x) => Some((x.payload as i64).to_usize().unwrap_or(0)),",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: mutate_method(&source, "to_usize_saturating", old, new),
+            });
+        }
+    }
+    for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-shift-continuation-width-1",
+            "public-small-shift-arithmetic-right-as-logical",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.shift_right(y, width, signed, true)",
+            "x.shift_right(y, width, signed, false)",
+        ),
+        (
+            "public-small-shift-continuation-width-2",
+            "public-small-shift-Z-fill-as-X",
+            CORE,
+            "shift_right",
+            "if payload_msb { ext_mask } else { 0 }",
+            "if payload_msb && !mask_xz_msb { ext_mask } else { 0 }",
+        ),
+        (
+            "public-small-shift-continuation-width-3",
+            "public-small-shift-drops-XZ-fill",
+            CORE,
+            "shift_right",
+            "ret.mask_xz |= ext_mask_xz;",
+            "ret.mask_xz |= 0;",
+        ),
+        (
+            "public-small-shift-continuation-width-4",
+            "public-small-shift-arithmetic-left-clears-sign",
+            CORE,
+            "shift_left",
+            "if !arithmetic {\n            ret.signed = false;\n        }",
+            "ret.signed = false;",
+        ),
+        (
+            "public-small-shift-continuation-width-4",
+            "public-small-shift-ignores-Z-amount",
+            CORE,
+            "to_usize_saturating",
+            "Self::U64(x) if x.is_xz() => None,",
+            "Self::U64(x) if x.is_xz() && x.payload == 0 => None,",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-shift-boundary-width-31",
+            "public-word-shift-reads-previous-sign-bit",
+            "shift_right",
+            "let payload_msb = ((self.payload >> (self.width - 1)) & 1) == 1;",
+            "let payload_msb = ((self.payload >> self.width.saturating_sub(2)) & 1) == 1;",
+        ),
+        (
+            "public-shift-boundary-width-32",
+            "public-word-shift-XZ-fill-loses-bit-31",
+            "shift_right",
+            "ret.mask_xz |= ext_mask_xz;",
+            "ret.mask_xz |= ext_mask_xz & 0x7fff_ffff;",
+        ),
+        (
+            "public-shift-boundary-width-63",
+            "public-word-shift-left-clamps-at-32",
+            "shift_left",
+            "let s = amount.min(64) as u32;",
+            "let s = amount.min(32) as u32;",
+        ),
+        (
+            "public-shift-boundary-width-64",
+            "public-word-shift-word64-mask-loses-high-bit",
+            "gen_mask",
+            "u64::MAX",
+            "u64::MAX >> 1",
+        ),
+        (
+            "public-shift-boundary-width-64",
+            "public-word-shift-signed-amount-as-negative",
+            "to_usize_saturating",
+            "Self::U64(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+            "Self::U64(x) => Some(if x.signed { (x.payload as i64).to_usize().unwrap_or(0) } else { x.payload.to_usize().unwrap_or(usize::MAX) }),",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(CORE)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-8")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-left-shifts-before-sizing",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Op::LogicShiftL => {\n                let x = x.expand(width, signed);",
+                "Op::LogicShiftL => {\n                let x = x.expand(x.width(), signed);",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-64")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-right-disables-sign",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Op::ArithShiftR => {\n                let x = x.expand(width, signed);",
+                "Op::ArithShiftR => {\n                let x = x.expand(width, false);",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-8")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-drops-X-padding",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "expand",
+                "if msb_xz {\n                    mask_xz |= mask;",
+                "if msb_xz && msb {\n                    mask_xz |= mask;",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-overflow-as-none",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+                "Self::BigUint(x) => x.payload.to_usize(),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-ignores-upper-XZ",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.mask_xz.iter_u64_digits().next().unwrap_or(0) != 0 => None,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-rejects-wide-storage",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+                "Self::BigUint(_) => None,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-small")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-uses-strict-decoding",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize();"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-truncates-high-word",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = if y.mask_xz_u128() != 0 { None } else { Some(y.payload_u128() as usize) };"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-upper-x")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-ignores-XZ",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = Some(usize::try_from(y.payload_u128()).unwrap_or(usize::MAX));"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-upper-z")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-Z-as-large-known",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.is_xz() => Some(usize::MAX),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word32-big-amount-small")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word32-big-amount-caller-uses-strict-decoding",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize();"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word32-big-amount-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word32-big-amount-caller-truncates-high-word",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = if y.mask_xz_u128() != 0 { None } else { Some(y.payload_u128() as usize) };"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word32-big-amount-upper-x")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word32-big-amount-caller-ignores-XZ",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = Some(usize::try_from(y.payload_u128()).unwrap_or(usize::MAX));"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word32-big-amount-upper-z")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word32-big-amount-Z-as-large-known",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.is_xz() => Some(usize::MAX),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word32-big-amount-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word32-big-amount-forces-word64-result",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(width, false).into_owned()",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(64, false).into_owned()",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-1-small")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-1-caller-uses-strict-decoding",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize();"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-2-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-2-caller-truncates-high-word",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = if y.mask_xz_u128() != 0 { None } else { Some(y.payload_u128() as usize) };"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-31-upper-x")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-31-caller-ignores-XZ",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = Some(usize::try_from(y.payload_u128()).unwrap_or(usize::MAX));"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-63-upper-z")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-63-Z-as-large-known",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.is_xz() => Some(usize::MAX),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-31-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-31-forces-word64-result",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(width, false).into_owned()",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(64, false).into_owned()",
+            ),
+        });
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-small-divide-width-1-unsigned",
+            "public-small-divide-zero-divisor-as-zero",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "Value::U64(if y.payload == 0 && y.mask_xz == 0 { ValueU64::new(0, width, signed) } else { x.divide_remainder(y, width, signed, false) })",
+        ),
+        (
+            "public-small-divide-width-2-signed",
+            "public-small-divide-upper-padding-leak",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "{ let mut result = x.divide_remainder(y, width, signed, false); result.payload |= 1u64 << 63; Value::U64(result) }",
+        ),
+        (
+            "public-small-divide-width-3-unsigned",
+            "public-small-divide-as-remainder",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+        ),
+        (
+            "public-small-divide-width-4-signed",
+            "public-small-divide-skips-left-sign-extension",
+            "Op::Div => {\n                let x = x.expand(width, signed);",
+            "Op::Div => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-small-remainder-width-1-unsigned",
+            "public-small-remainder-zero-divisor-as-zero",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "{ let mut result = x.divide_remainder(y, width, signed, true); if y.payload == 0 && y.mask_xz == 0 { result.mask_xz = 0; } Value::U64(result) }",
+        ),
+        (
+            "public-small-remainder-width-2-signed",
+            "public-small-remainder-upper-padding-leak",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "{ let mut result = x.divide_remainder(y, width, signed, true); result.payload |= 1u64 << 63; Value::U64(result) }",
+        ),
+        (
+            "public-small-remainder-width-3-unsigned",
+            "public-small-remainder-as-quotient",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+        ),
+        (
+            "public-small-remainder-width-4-signed",
+            "public-small-remainder-skips-left-sign-extension",
+            "Op::Rem => {\n                let x = x.expand(width, signed);",
+            "Op::Rem => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-small-multiply") {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-small-multiply-as-add",
+                "Value::U64(x.multiply(y, width, signed))",
+                "Value::U64(x.add_sub(y, width, signed, false))",
+            ),
+            (
+                "public-small-multiply-padding-leak",
+                "Value::U64(x.multiply(y, width, signed))",
+                "{ let mut result = x.multiply(y, width, signed); result.payload |= 1u64 << 63; Value::U64(result) }",
+            ),
+            (
+                "public-small-multiply-skips-left-sign-extension",
+                "Op::Mul => {\n                let x = x.expand(width, signed);",
+                "Op::Mul => {\n                let x = x.expand(width, false);",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-wide-zero-extension-loses-payload",
+                "let mut payload = Box::new(BigUint::from(x.payload));",
+                "let mut payload = Box::new(BigUint::from(0u64));",
+            ),
+            (
+                "public-wide-zero-extension-loses-xz",
+                "let mut mask_xz = Box::new(BigUint::from(x.mask_xz));",
+                "let mut mask_xz = Box::new(BigUint::from(0u64));",
+            ),
+            (
+                "public-wide-zero-extension-retains-sign",
+                "let signed = if use_sign { x.signed } else { false };",
+                "let signed = x.signed;",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        let old = "                    ValueBigUint {\n                        payload,\n                        mask_xz,\n                        width: width as u32,\n                        signed,\n                    }\n                }\n                Self::BigUint(x) => {";
+        let new = "                    ValueBigUint {\n                        payload,\n                        mask_xz,\n                        width: 64,\n                        signed,\n                    }\n                }\n                Self::BigUint(x) => {";
+        mutations.push(Mutation {
+            name: "public-wide-zero-extension-reports-native-width",
+            contract,
+            path: CORE,
+            source: replace_once(&source, old, new),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-zero-extension-loses-high-payload",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let mut payload = Box::new(BigUint::from(x.payload));",
+                "let mut payload = Box::new(BigUint::from(x.payload & !(1u64 << 63)));",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-zero-extension-loses-high-mask_xz",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let mut mask_xz = Box::new(BigUint::from(x.mask_xz));",
+                "let mut mask_xz = Box::new(BigUint::from(x.mask_xz & !(1u64 << 63)));",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-fill-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-zero-fill-extension-clears-sign",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let signed = if use_sign { x.signed } else { false };",
+                "let signed = false;",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-fill-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-zero-fill-extension-empty-digits-as-one",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "        0 => 0,\n        1 => digits[0] as u128,",
+                "        0 => 1,\n        1 => digits[0] as u128,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-big-getters-128") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-getters-drops-high-word",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "_ => (digits[0] as u128) | ((digits[1] as u128) << 64),",
+                "_ => digits[0] as u128,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-big-getters-128") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-getters-xz-reads-payload",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "Self::BigUint(x) => biguint_to_u128(&x.mask_xz),",
+                "Self::BigUint(x) => biguint_to_u128(&x.payload),",
             ),
         });
     }
@@ -2821,7 +5116,10 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             });
         }
     }
-    if let Some(&contract) = selected.iter().find(|c| c.name == "public-selection-small") {
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-selection-native")
+    {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         let old = "Self::U64(x) => Self::U64(x.select(beg, end)),";
         for (name, new) in [
@@ -2837,6 +5135,14 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "public-selection-clips-missing-width",
                 "Self::U64(x) => { let mut ret = x.select(beg, end); if ret.width > x.width { ret.trunc(x.width as usize); } Self::U64(ret) },",
             ),
+            (
+                "public-selection-drops-upper-source",
+                "Self::U64(x) => { let mut x = x.clone(); x.payload &= u32::MAX as u64; Self::U64(x.select(beg, end)) },",
+            ),
+            (
+                "public-selection-missing-bits-are-zero",
+                "Self::U64(x) => { let mut ret = x.select(beg, end); if end >= x.width as usize { ret.mask_xz = 0; } Self::U64(ret) },",
+            ),
         ] {
             mutations.push(Mutation {
                 name,
@@ -2846,7 +5152,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             });
         }
     }
-    if let Some(&contract) = selected.iter().find(|c| c.name == "public-resize-four") {
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-resize-native") {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         for (name, old, new) in [
             (
@@ -2870,6 +5176,25 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path: CORE,
                 source: replace_once(&source, old, new),
+            });
+        }
+        for (name, old, new) in [
+            (
+                "public-resize-constructor-drops-upper-payload",
+                "payload: payload as u64,",
+                "payload: payload as u32 as u64,",
+            ),
+            (
+                "public-resize-constructor-drops-upper-xz",
+                "mask_xz: mask_xz as u64,",
+                "mask_xz: mask_xz as u32 as u64,",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
+                source: mutate_method(&source, "from_u128", old, new),
             });
         }
         mutations.push(Mutation {

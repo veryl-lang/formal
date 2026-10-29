@@ -38,3 +38,21 @@ mod coordinates;
 
 #[cfg(kani)]
 mod extension;
+
+#[cfg(kani)]
+mod public_comparison;
+
+#[cfg(kani)]
+mod public_gates;
+
+#[cfg(kani)]
+mod public_shift;
+
+#[cfg(kani)]
+mod public_wide_resize;
+
+#[cfg(kani)]
+mod public_big_getters;
+
+#[cfg(kani)]
+mod public_big_amount;

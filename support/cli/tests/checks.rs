@@ -114,6 +114,86 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         let selected = options.select("analyzer", &analyzer::CONTRACTS).unwrap();
         for contract in &selected {
             assert!(contracts.insert(contract.name), "overlapping proof shard");
+            assert_eq!(
+                analyzer::uses_explicit_covers(contract),
+                shard.suite == "nonlinear"
+                    || matches!(
+                        contract.group,
+                        "public-wide-resize"
+                            | "public-getters"
+                            | "public-native-sequences"
+                            | "public-comparison-sequences"
+                    )
+            );
+            if matches!(
+                contract.group,
+                "public-wide-resize" | "public-getters" | "public-native-sequences"
+            ) {
+                assert_eq!(shard.suite, "storage");
+                let witness = match contract.name {
+                    "public-native-zero-extension-wide" => {
+                        "public native wide zero extension interior widths are reachable"
+                    }
+                    "public-native-zero-fill-extension-wide" => {
+                        "public native zero fill extension signed interior Z is reachable"
+                    }
+                    "public-big-getters-128" => {
+                        "public BigUint getters high Z and padding are reachable"
+                    }
+                    "public-big-amount-decoding-128" => {
+                        "public BigUint upper Z amount is reachable"
+                    }
+                    name if name.starts_with("public-word64-big-amount-")
+                        || name.starts_with("public-word32-big-amount-")
+                        || name.starts_with("public-shift-big-amount-width-") =>
+                    {
+                        "public wide amount trace unsigned Z source is reachable"
+                    }
+                    name if name.starts_with("public-shift-widening-4-to-") => {
+                        "public shift widening signed Z fill is reachable"
+                    }
+                    name if name.starts_with("public-small-shift-continuation-width-")
+                        || name.starts_with("public-shift-boundary-width-") =>
+                    {
+                        "public shift continuation signed Z fill is reachable"
+                    }
+                    _ => panic!("explicit public contracts need a scope witness policy"),
+                };
+                assert!(contract.covers.contains(&witness));
+            }
+            if contract.group == "public-comparison-sequences" {
+                assert_eq!(shard.suite, "logic");
+                let sizing_witness =
+                    if contract.name == "public-small-wildcard-equality-continuation" {
+                        "public comparison sign extension is reachable"
+                    } else {
+                        "public comparison partition sizing is reachable"
+                    };
+                assert!(contract.covers.contains(&sizing_witness));
+                if contract.name.ends_with("-unsigned-continuation") {
+                    for witness in [
+                        "public comparison unsigned sources are reachable",
+                        "public comparison signed RHS only is reachable",
+                        "public comparison signed LHS only is reachable",
+                    ] {
+                        assert!(contract.covers.contains(&witness));
+                    }
+                } else if contract.name.ends_with("-signed-continuation") {
+                    assert!(
+                        contract
+                            .covers
+                            .contains(&"public comparison signed sources are reachable")
+                    );
+                }
+            }
+            if contract.group == "public-nonlinear" {
+                assert!(!contract.covers.is_empty());
+                assert!(
+                    contract
+                        .covers
+                        .contains(&"nonlinear remainder numeric case is reachable")
+                );
+            }
         }
         for mutant in analyzer::mutations(repo, &selected) {
             let key = (mutant.contract.name, mutant.name, mutant.path);
@@ -121,7 +201,21 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert_eq!(expected.get(&key), Some(&mutant.source));
         }
     }
-    assert_eq!(proof_shards, 3);
+    // Both partitions are required before the direct checks can omit either context.
+    for family in [
+        "public-inequality-native",
+        "public-small-wildcard-inequality",
+        "public-small-less",
+    ] {
+        for context in ["unsigned", "signed"] {
+            let name = format!("{family}-{context}-continuation");
+            assert!(
+                contracts.contains(name.as_str()),
+                "missing comparison partition: {name}"
+            );
+        }
+    }
+    assert_eq!(proof_shards, 4);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -372,7 +466,17 @@ fn execution_stops_on_failure_and_still_checks_source_integrity() {
         ..Default::default()
     };
     let p = plan("cache-contracts", "single", Mode::All).unwrap();
-    assert!(verify(Path::new("repo"), &candidate, &p, &mut exec, &mut commands).is_err());
+    assert!(
+        verify(
+            Path::new("repo"),
+            &candidate,
+            None,
+            &p,
+            &mut exec,
+            &mut commands
+        )
+        .is_err()
+    );
     assert_eq!(exec.calls.len(), 2);
     assert_eq!(commands.calls, 4);
 }
@@ -395,7 +499,17 @@ fn dirty_sources_fail_before_execution_or_after_success() {
         }
         let mut commands = Integrity { replies, calls: 0 };
         let mut exec = Recording::default();
-        assert!(verify(Path::new("repo"), &candidate, &p, &mut exec, &mut commands).is_err());
+        assert!(
+            verify(
+                Path::new("repo"),
+                &candidate,
+                None,
+                &p,
+                &mut exec,
+                &mut commands
+            )
+            .is_err()
+        );
         assert_eq!(exec.calls.is_empty(), before);
     }
 }
@@ -491,7 +605,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 18);
+    assert_eq!(all.len(), 19);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -514,7 +628,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 4);
+    assert_eq!(rows("value").len(), 5);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

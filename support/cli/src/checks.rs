@@ -1,4 +1,4 @@
-use crate::{Commands, Environment, Result, error, nightly, required};
+use crate::{Commands, Environment, Result, error, locks, nightly, required};
 use std::{
     collections::BTreeMap,
     fs::{self, OpenOptions},
@@ -134,16 +134,52 @@ pub const SHARDS: &[Shard] = &[
         "storage",
         &[
             "selection",
-            "public-selection-small",
+            "public-selection-native",
             "partial-assignment",
             "public-assignment-native",
             "truncation",
-            "public-resize-one",
-            "public-resize-two",
-            "public-resize-three",
-            "public-resize-four",
+            "public-resize-native",
+            "public-native-zero-extension-wide",
+            "public-native-zero-fill-extension-wide",
+            "public-big-getters-128",
+            "public-big-amount-decoding-128",
+            "public-word64-big-amount-small",
+            "public-word64-big-amount-high",
+            "public-word64-big-amount-upper-x",
+            "public-word64-big-amount-upper-z",
+            "public-word32-big-amount-small",
+            "public-word32-big-amount-high",
+            "public-word32-big-amount-upper-x",
+            "public-word32-big-amount-upper-z",
+            "public-shift-big-amount-width-1-small",
+            "public-shift-big-amount-width-1-high",
+            "public-shift-big-amount-width-1-upper-x",
+            "public-shift-big-amount-width-1-upper-z",
+            "public-shift-big-amount-width-2-small",
+            "public-shift-big-amount-width-2-high",
+            "public-shift-big-amount-width-2-upper-x",
+            "public-shift-big-amount-width-2-upper-z",
+            "public-shift-big-amount-width-31-small",
+            "public-shift-big-amount-width-31-high",
+            "public-shift-big-amount-width-31-upper-x",
+            "public-shift-big-amount-width-31-upper-z",
+            "public-shift-big-amount-width-63-small",
+            "public-shift-big-amount-width-63-high",
+            "public-shift-big-amount-width-63-upper-x",
+            "public-shift-big-amount-width-63-upper-z",
             "extension",
             "logical-left-shift",
+            "public-shift-unsigned-native",
+            "public-small-shift-continuation-width-1",
+            "public-small-shift-continuation-width-2",
+            "public-small-shift-continuation-width-3",
+            "public-small-shift-continuation-width-4",
+            "public-shift-boundary-width-31",
+            "public-shift-boundary-width-32",
+            "public-shift-boundary-width-63",
+            "public-shift-boundary-width-64",
+            "public-shift-widening-4-to-8",
+            "public-shift-widening-4-to-64",
             "logical-right-shift",
             "arithmetic-left-shift",
             "arithmetic-right-shift",
@@ -158,9 +194,30 @@ pub const SHARDS: &[Shard] = &[
         ],
     ),
     Shard::value(
+        "nonlinear",
+        &[
+            "public-small-remainder-width-1-unsigned",
+            "public-small-remainder-width-1-signed",
+            "public-small-remainder-width-2-unsigned",
+            "public-small-remainder-width-2-signed",
+            "public-small-remainder-width-3-unsigned",
+            "public-small-remainder-width-3-signed",
+            "public-small-remainder-width-4-unsigned",
+            "public-small-remainder-width-4-signed",
+        ],
+    ),
+    Shard::value(
         "logic",
         &[
             "equality",
+            "public-equality-native",
+            "public-small-less-unsigned-continuation",
+            "public-small-less-signed-continuation",
+            "public-inequality-native-unsigned-continuation",
+            "public-inequality-native-signed-continuation",
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-small-wildcard-inequality-signed-continuation",
+            "public-small-wildcard-equality-continuation",
             "inequality",
             "wildcard-equality",
             "wildcard-inequality",
@@ -169,17 +226,14 @@ pub const SHARDS: &[Shard] = &[
             "greater-than",
             "greater-equal",
             "bitwise",
+            "public-bitwise-native",
             "bit-not",
+            "public-not-native",
             "logical",
             "reductions",
             "condition-truth",
             "conditional",
-            "public-conditional",
-            "public-conditional-small-12",
-            "public-conditional-small-21",
-            "public-conditional-small-22",
-            "public-conditional-widened",
-            "public-conditional-word",
+            "public-conditional-native",
         ],
     ),
     Shard::value(
@@ -192,7 +246,27 @@ pub const SHARDS: &[Shard] = &[
             "public-arithmetic-add",
             "public-arithmetic-subtract",
             "public-arithmetic-initial-pair",
-            "public-arithmetic-unary-initial-pair",
+            "public-binary-natural-signed-add",
+            "public-binary-natural-signed-subtract",
+            "public-binary-widened-unsigned-add",
+            "public-binary-widened-unsigned-subtract",
+            "public-binary-widened-signed-add",
+            "public-binary-widened-signed-subtract",
+            "public-binary-word64",
+            "public-small-multiply",
+            "public-small-divide-width-1-unsigned",
+            "public-small-divide-width-1-signed",
+            "public-small-divide-width-2-unsigned",
+            "public-small-divide-width-2-signed",
+            "public-small-divide-width-3-unsigned",
+            "public-small-divide-width-3-signed",
+            "public-small-divide-width-4-unsigned",
+            "public-small-divide-width-4-signed",
+            "public-arithmetic-unary-native",
+            "public-arithmetic-unsigned-growth-plus",
+            "public-arithmetic-unsigned-growth-negate",
+            "public-arithmetic-signed-growth-plus",
+            "public-arithmetic-signed-growth-negate",
             "public-arithmetic",
             "public-arithmetic-plus",
             "public-arithmetic-negate",
@@ -588,17 +662,28 @@ pub fn execute(root: &Path, steps: &[Invocation], executor: &mut impl Executor) 
 pub fn verify(
     root: &Path,
     candidate: &str,
+    lock_digest: Option<&str>,
     plan: &Plan,
     executor: &mut impl Executor,
     commands: &mut impl Commands,
 ) -> Result<()> {
     nightly::verify_clean(root, candidate, commands)?;
+    if let Some(digest) = lock_digest {
+        locks::verify(root, candidate, digest, commands)?;
+    }
     let result = execute(root, &plan.steps, executor);
     let clean = nightly::verify_clean(root, candidate, commands);
     if let Err(error) = &clean {
         eprintln!("Veryl integrity check failed: {error}");
     }
-    result.and(clean)
+    let unchanged = match lock_digest {
+        Some(digest) => locks::verify(root, candidate, digest, commands),
+        None => Ok(()),
+    };
+    if let Err(error) = &unchanged {
+        eprintln!("Candidate lock integrity check failed: {error}");
+    }
+    result.and(clean).and(unchanged)
 }
 
 pub fn setup(
