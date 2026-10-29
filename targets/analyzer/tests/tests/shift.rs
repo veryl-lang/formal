@@ -1,6 +1,7 @@
 //! Equal-width native traces are proved for widths 1..=4 and 31/32/63/64 with
 //! arbitrary four-state 64-bit amounts and every source/amount sign combination.
-//! Keep context widening, BigUint sources/amounts and independent model anchors.
+//! Native context widening 4->8/64 is also proved. Keep BigUint source/amount
+//! or context paths and independent model anchors.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -16,7 +17,7 @@ const SHIFTS: [(Op, Shift); 4] = [
 
 #[test]
 fn shift_context_widens_before_shifting() {
-    for (source_width, width) in [(4, 8), (4, 64), (4, 65), (64, 65), (65, 128)] {
+    for (source_width, width) in [(4, 65), (64, 65), (65, 128)] {
         let mask = u128::MAX >> (128 - source_width);
         let sign = 1u128 << (source_width - 1);
         for source in [(1, 0), (mask, 0), (sign, sign), (1, sign)] {

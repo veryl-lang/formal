@@ -153,6 +153,8 @@ pub const SHARDS: &[Shard] = &[
             "public-shift-boundary-width-32",
             "public-shift-boundary-width-63",
             "public-shift-boundary-width-64",
+            "public-shift-widening-4-to-8",
+            "public-shift-widening-4-to-64",
             "logical-right-shift",
             "arithmetic-left-shift",
             "arithmetic-right-shift",

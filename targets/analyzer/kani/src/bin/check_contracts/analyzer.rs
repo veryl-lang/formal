@@ -57,7 +57,16 @@ const SHIFT_CONTINUATION_COVERS: &[&str] = &[
     "public shift continuation upper Z amount is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 99] = [
+const SHIFT_WIDENING_COVERS: &[&str] = &[
+    "public shift widening signed one before left shift is reachable",
+    "public shift widening signed X before logical right is reachable",
+    "public shift widening signed Z fill is reachable",
+    "public shift widening unsigned arithmetic left is reachable",
+    "public shift widening upper Z amount is reachable",
+    "public shift widening overshift padding is reachable",
+];
+
+pub static CONTRACTS: [Contract; 101] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -399,6 +408,20 @@ pub static CONTRACTS: [Contract; 99] = [
         harness: "public_shift_boundary_width_64_matches_reference_semantics",
         message: "public shift semantics mismatch",
         covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-widening-4-to-8",
+        harness: "public_shift_widening_4_to_8_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_WIDENING_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-widening-4-to-64",
+        harness: "public_shift_widening_4_to_64_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_WIDENING_COVERS,
     },
     Contract {
         group: "full-nonlinear",
@@ -3916,6 +3939,60 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 source: mutate_method(&source, method, old, new),
             });
         }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-8")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-left-shifts-before-sizing",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Op::LogicShiftL => {\n                let x = x.expand(width, signed);",
+                "Op::LogicShiftL => {\n                let x = x.expand(x.width(), signed);",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-64")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-right-disables-sign",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "Op::ArithShiftR => {\n                let x = x.expand(width, signed);",
+                "Op::ArithShiftR => {\n                let x = x.expand(width, false);",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-widening-4-to-8")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-widening-drops-X-padding",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "expand",
+                "if msb_xz {\n                    mask_xz |= mask;",
+                "if msb_xz && msb {\n                    mask_xz |= mask;",
+            ),
+        });
     }
     for (contract_name, name, old, new) in [
         (

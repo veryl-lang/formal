@@ -137,6 +137,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     "public-big-getters-128" => {
                         "public BigUint getters high Z and padding are reachable"
                     }
+                    name if name.starts_with("public-shift-widening-4-to-") => {
+                        "public shift widening signed Z fill is reachable"
+                    }
                     name if name.starts_with("public-small-shift-continuation-width-")
                         || name.starts_with("public-shift-boundary-width-") =>
                     {

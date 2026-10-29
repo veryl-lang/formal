@@ -4,12 +4,13 @@
 //! execute on one cache in test order. At fixed widths 1..=4 and 31/32/63/64,
 //! all later source and amount sign groups have proofs on that same cache.
 //! Result width stays native
-//! source width. Context widening and BigUint amount/source paths remain separate.
+//! source width. Context widening 4->8/64 has separate fresh-cache proofs;
+//! BigUint amount/source paths remain executable comparisons.
 //! IEEE 1800 11.4.10 is modeled independently by shifted_logic_bit.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value, ValueU64};
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
-use veryl_formal_semantics::shift::{Shift, shifted_logic_bit};
+use veryl_formal_semantics::shift::{Shift, shifted_logic_bit, shifted_resized_logic_bit};
 
 // BigUint conversion/cloning/masks, heap allocation, and mask-cache access are
 // forbidden in these small native proofs. Each replacement panics, proving it unreachable
@@ -484,4 +485,165 @@ fn public_shift_boundary_width_63_matches_reference_semantics() {
 #[kani::use_stub_set(small_native_shift)]
 fn public_shift_boundary_width_64_matches_reference_semantics() {
     native_shift_continuation::<64>();
+}
+
+// Select one operator with the fresh cache used by the direct context test.
+// Widths 4->8/64 are constants; both signs and arbitrary four-state native
+// amount planes are admitted. Known amounts use the direct test's constructor.
+// The independent model composes sizing before selecting the shifted bit.
+fn public_native_shift_widening<const SOURCE: usize, const WIDTH: usize>() {
+    let source_mask = u64::MAX >> (64 - SOURCE);
+    let source = (
+        u128::from(kani::any::<u64>() & source_mask),
+        u128::from(kani::any::<u64>() & source_mask),
+    );
+    let signed: bool = kani::any();
+    let amount_signed: bool = kani::any();
+    let amount = (
+        u128::from(kani::any::<u64>()),
+        u128::from(kani::any::<u64>()),
+    );
+    let source_value = Value::U64(native_input(SOURCE, source, signed));
+    let amount_value = if amount.1 == 0 {
+        Value::new(amount.0 as u64, 64, amount_signed)
+    } else {
+        Value::from_u128(amount.0, amount.1, 64, amount_signed)
+    };
+    assert_input(&amount_value, 64, amount, amount_signed);
+    let Value::U64(amount_native) = amount_value else {
+        panic!("public shift semantics mismatch");
+    };
+    let amount_value = Value::U64(amount_native);
+    let decoded = if amount.1 == 0 {
+        Some(usize::try_from(amount.0).unwrap_or(usize::MAX))
+    } else {
+        None
+    };
+    let selected = usize::from(kani::any::<u8>() & 3);
+    let position = usize::from(kani::any::<u8>() & 63);
+    let mut cache = MaskCache::default();
+    let (output, kind) = match selected {
+        0 => (
+            Op::LogicShiftL.eval_value_binary(
+                &source_value,
+                &amount_value,
+                WIDTH,
+                signed,
+                &mut cache,
+            ),
+            Shift::LogicalLeft,
+        ),
+        1 => (
+            Op::LogicShiftR.eval_value_binary(
+                &source_value,
+                &amount_value,
+                WIDTH,
+                signed,
+                &mut cache,
+            ),
+            Shift::LogicalRight,
+        ),
+        2 => (
+            Op::ArithShiftL.eval_value_binary(
+                &source_value,
+                &amount_value,
+                WIDTH,
+                signed,
+                &mut cache,
+            ),
+            Shift::ArithmeticLeft,
+        ),
+        _ => (
+            Op::ArithShiftR.eval_value_binary(
+                &source_value,
+                &amount_value,
+                WIDTH,
+                signed,
+                &mut cache,
+            ),
+            Shift::ArithmeticRight,
+        ),
+    };
+    let Value::U64(native) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    let output = Value::U64(native);
+    let expected =
+        shifted_resized_logic_bit(source, SOURCE, WIDTH, decoded, kind, signed, position);
+    let arithmetic = matches!(kind, Shift::ArithmeticLeft | Shift::ArithmeticRight);
+    let payload = output.payload_u128();
+    let xz = output.mask_xz_u128();
+    assert!(
+        output.width() == WIDTH
+            && output.signed() == (decoded.is_some() && arithmetic && signed)
+            && payload >> 64 == 0
+            && xz >> 64 == 0
+            && read_logic(payload, xz, position) == expected,
+        "public shift semantics mismatch"
+    );
+    assert_input(&source_value, SOURCE, source, signed);
+    assert_input(&amount_value, 64, amount, amount_signed);
+    kani::cover!(
+        selected == 0
+            && signed
+            && source == (1u128 << (SOURCE - 1), 0)
+            && amount == (1, 0)
+            && position == WIDTH - 1,
+        "public shift widening signed one before left shift is reachable"
+    );
+    kani::cover!(
+        selected == 1
+            && signed
+            && source == (0, 1u128 << (SOURCE - 1))
+            && amount == (1, 0)
+            && position == WIDTH - 2,
+        "public shift widening signed X before logical right is reachable"
+    );
+    kani::cover!(
+        selected == 3
+            && signed
+            && source == (1u128 << (SOURCE - 1), 1u128 << (SOURCE - 1))
+            && amount == (WIDTH as u128, 0)
+            && position == 0,
+        "public shift widening signed Z fill is reachable"
+    );
+    kani::cover!(
+        selected == 2
+            && !signed
+            && source == (1, 0)
+            && amount == (0, 0)
+            && amount_signed
+            && position == 0,
+        "public shift widening unsigned arithmetic left is reachable"
+    );
+    kani::cover!(
+        selected == 3
+            && signed
+            && source == (1, 0)
+            && amount == (1u128 << 63, 1u128 << 63)
+            && amount_signed
+            && position == 0,
+        "public shift widening upper Z amount is reachable"
+    );
+    kani::cover!(
+        selected == 0
+            && !signed
+            && source == (1, 0)
+            && amount == (usize::MAX as u128, 0)
+            && position == 63,
+        "public shift widening overshift padding is reachable"
+    );
+}
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_widening_4_to_64_matches_reference_semantics() {
+    public_native_shift_widening::<4, 64>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_widening_4_to_8_matches_reference_semantics() {
+    public_native_shift_widening::<4, 8>();
 }
