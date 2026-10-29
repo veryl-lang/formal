@@ -158,6 +158,19 @@ pub const SHARDS: &[Shard] = &[
         ],
     ),
     Shard::value(
+        "nonlinear",
+        &[
+            "public-small-remainder-width-1-unsigned",
+            "public-small-remainder-width-1-signed",
+            "public-small-remainder-width-2-unsigned",
+            "public-small-remainder-width-2-signed",
+            "public-small-remainder-width-3-unsigned",
+            "public-small-remainder-width-3-signed",
+            "public-small-remainder-width-4-unsigned",
+            "public-small-remainder-width-4-signed",
+        ],
+    ),
+    Shard::value(
         "logic",
         &[
             "equality",

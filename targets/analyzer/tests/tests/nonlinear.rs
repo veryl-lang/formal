@@ -1,7 +1,7 @@
-//! Kani proves the normalized widths 1..=3 Mul/Div prefix at natural/natural+1
+//! Kani proves the normalized widths 1..=3 Mul/Div/Rem prefix at natural/natural+1
 //! contexts, with independent input/caller signs. Keep every call and compare
-//! Rem/Pow and native/BigUint boundaries. Boundary Div has a different preceding
-//! wide Mul cache history and is deliberately retained.
+//! Pow and native/BigUint boundaries. Boundary Div/Rem calls have a different
+//! preceding wide Mul cache history and are deliberately retained.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -28,13 +28,17 @@ fn check(a: Operand, b: Operand, boundaries: bool) {
         for width in [min, if boundaries { 128 } else { min + 1 }] {
             for signed in [false, true] {
                 let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
-                // Execute the proved prefix to preserve the cache used by Rem/Pow.
+                // Execute the proved prefix to preserve the cache used by Pow.
                 let small = (1..=3).contains(&a.width)
                     && (1..=3).contains(&b.width)
                     && (a.planes.0 | a.planes.1) >> a.width == 0
                     && (b.planes.0 | b.planes.1) >> b.width == 0;
                 if small
-                    && ((!boundaries && matches!(kind, Nonlinear::Multiply | Nonlinear::Divide))
+                    && ((!boundaries
+                        && matches!(
+                            kind,
+                            Nonlinear::Multiply | Nonlinear::Divide | Nonlinear::Remainder
+                        ))
                         || (boundaries && width == min && matches!(kind, Nonlinear::Multiply)))
                 {
                     continue;

@@ -114,6 +114,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         let selected = options.select("analyzer", &analyzer::CONTRACTS).unwrap();
         for contract in &selected {
             assert!(contracts.insert(contract.name), "overlapping proof shard");
+            assert_eq!(
+                analyzer::uses_explicit_covers(contract),
+                shard.suite == "nonlinear"
+            );
+            if analyzer::uses_explicit_covers(contract) {
+                assert!(!contract.covers.is_empty());
+                assert!(
+                    contract
+                        .covers
+                        .contains(&"nonlinear remainder numeric case is reachable")
+                );
+            }
         }
         for mutant in analyzer::mutations(repo, &selected) {
             let key = (mutant.contract.name, mutant.name, mutant.path);
@@ -121,7 +133,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert_eq!(expected.get(&key), Some(&mutant.source));
         }
     }
-    assert_eq!(proof_shards, 3);
+    assert_eq!(proof_shards, 4);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -491,7 +503,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 18);
+    assert_eq!(all.len(), 19);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -514,7 +526,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 4);
+    assert_eq!(rows("value").len(), 5);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

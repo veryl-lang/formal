@@ -47,7 +47,123 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 82] = [
+pub static CONTRACTS: [Contract; 90] = [
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-1-unsigned",
+        harness: "public_small_remainder_width_1_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-1-signed",
+        harness: "public_small_remainder_width_1_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-2-unsigned",
+        harness: "public_small_remainder_width_2_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-2-signed",
+        harness: "public_small_remainder_width_2_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-3-unsigned",
+        harness: "public_small_remainder_width_3_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-3-signed",
+        harness: "public_small_remainder_width_3_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-4-unsigned",
+        harness: "public_small_remainder_width_4_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "public-nonlinear",
+        name: "public-small-remainder-width-4-signed",
+        harness: "public_small_remainder_width_4_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear remainder numeric case is reachable",
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
     Contract {
         group: "values",
         name: "public-small-divide-width-1-unsigned",
@@ -1609,6 +1725,19 @@ fn mutate_method(source: &str, name: &str, old: &str, new: &str) -> String {
     let mut mutated = source.to_owned();
     mutated.replace_range(range, &replacement);
     mutated
+}
+
+// Conditional cover statements for other width instantiations remain in
+// Kani's output. They are diagnostic only unless listed in Contract::covers.
+pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
+    "nonlinear fixed width natural call is reachable",
+    "nonlinear fixed width widened call is reachable",
+];
+
+// Named covers are mandatory for this profile; the shared runner validates them.
+// Only these new public proofs omit Kani's automatic per-assertion diagnostics.
+pub fn uses_explicit_covers(contract: &Contract) -> bool {
+    contract.group == "public-nonlinear"
 }
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
@@ -3632,6 +3761,43 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "public-small-divide-skips-left-sign-extension",
             "Op::Div => {\n                let x = x.expand(width, signed);",
             "Op::Div => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-small-remainder-width-1-unsigned",
+            "public-small-remainder-zero-divisor-as-zero",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "{ let mut result = x.divide_remainder(y, width, signed, true); if y.payload == 0 && y.mask_xz == 0 { result.mask_xz = 0; } Value::U64(result) }",
+        ),
+        (
+            "public-small-remainder-width-2-signed",
+            "public-small-remainder-upper-padding-leak",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "{ let mut result = x.divide_remainder(y, width, signed, true); result.payload |= 1u64 << 63; Value::U64(result) }",
+        ),
+        (
+            "public-small-remainder-width-3-unsigned",
+            "public-small-remainder-as-quotient",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+        ),
+        (
+            "public-small-remainder-width-4-signed",
+            "public-small-remainder-skips-left-sign-extension",
+            "Op::Rem => {\n                let x = x.expand(width, signed);",
+            "Op::Rem => {\n                let x = x.expand(width, false);",
         ),
     ] {
         if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {

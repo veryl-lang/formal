@@ -145,6 +145,15 @@ pub fn positive_result(success: bool, log: &str, contract: &Contract) -> bool {
 }
 
 pub fn mutation_result(success: bool, log: &str, contract: &Contract) -> bool {
+    mutation_result_with_auxiliary_covers(success, log, contract, &[])
+}
+
+fn mutation_result_with_auxiliary_covers(
+    success: bool,
+    log: &str,
+    contract: &Contract,
+    auxiliary_covers: &[&str],
+) -> bool {
     !success
         && log.contains("VERIFICATION:- FAILED")
         && check_has(log, contract.message, "FAILURE")
@@ -161,7 +170,7 @@ pub fn mutation_result(success: bool, log: &str, contract: &Contract) -> bool {
                 (Some(_), Some("SUCCESS" | "UNREACHABLE")) => true,
                 (Some(message), Some("FAILURE")) => message == contract.message,
                 (Some(message), Some("SATISFIED" | "UNSATISFIABLE")) => {
-                    contract.covers.contains(&message)
+                    contract.covers.contains(&message) || auxiliary_covers.contains(&message)
                 }
                 _ => false,
             }
@@ -172,6 +181,14 @@ pub fn mutation_result(success: bool, log: &str, contract: &Contract) -> bool {
 pub enum Backend<'a> {
     Kani {
         harness_timeout: &'a str,
+    },
+    /// Keep assertions and safety checks, using mandatory named covers for
+    /// witnesses instead of automatic per-assertion reachability diagnostics.
+    KaniWithExplicitCovers {
+        harness_timeout: &'a str,
+        /// Inapplicable cover diagnostics recognized during mutation runs.
+        /// These never satisfy or waive the contract's required witnesses.
+        auxiliary_covers: &'a [&'a str],
     },
     NativeTests {
         package: &'a str,
@@ -201,12 +218,15 @@ impl Backend<'_> {
     fn name(self) -> &'static str {
         match self {
             Self::Kani { .. } => "kani",
+            Self::KaniWithExplicitCovers { .. } => "kani-explicit-covers",
             Self::NativeTests { .. } => "native-tests",
         }
     }
     fn build_targets(self, repo: &Path, target: &Path, unique: &str) -> (PathBuf, PathBuf) {
         match self {
-            Self::Kani { .. } => (target.to_owned(), target.to_owned()),
+            Self::Kani { .. } | Self::KaniWithExplicitCovers { .. } => {
+                (target.to_owned(), target.to_owned())
+            }
             Self::NativeTests { .. } => (
                 repo.join("target"),
                 target
@@ -218,8 +238,11 @@ impl Backend<'_> {
     fn run(self, manifest: &Path, target: &Path, contract: &Contract, phase: Phase) -> Output {
         match self {
             Self::Kani { harness_timeout } => {
-                run_proof(manifest, target, contract, harness_timeout)
+                run_proof(manifest, target, contract, harness_timeout, false)
             }
+            Self::KaniWithExplicitCovers {
+                harness_timeout, ..
+            } => run_proof(manifest, target, contract, harness_timeout, true),
             Self::NativeTests {
                 package,
                 test_target,
@@ -230,13 +253,23 @@ impl Backend<'_> {
     }
     fn positive(self, success: bool, log: &str, contract: &Contract) -> bool {
         match self {
-            Self::Kani { .. } => positive_result(success, log, contract),
+            Self::Kani { .. } | Self::KaniWithExplicitCovers { .. } => {
+                positive_result(success, log, contract)
+            }
             Self::NativeTests { .. } => native_positive_result(success, log, contract),
         }
     }
     fn mutation(self, output: &Output, log: &str, contract: &Contract) -> bool {
         match self {
             Self::Kani { .. } => mutation_result(output.status.success(), log, contract),
+            Self::KaniWithExplicitCovers {
+                auxiliary_covers, ..
+            } => mutation_result_with_auxiliary_covers(
+                output.status.success(),
+                log,
+                contract,
+                auxiliary_covers,
+            ),
             Self::NativeTests { .. } => native_mutation_result(output.status.code(), log, contract),
         }
     }
@@ -287,8 +320,15 @@ fn output_text(output: &Output) -> String {
     )
 }
 
-fn run_proof(manifest: &Path, target: &Path, contract: &Contract, harness_timeout: &str) -> Output {
-    Command::new("cargo")
+fn proof_command(
+    manifest: &Path,
+    target: &Path,
+    contract: &Contract,
+    harness_timeout: &str,
+    explicit_covers: bool,
+) -> Command {
+    let mut command = Command::new("cargo");
+    command
         .args([
             "kani",
             "--lib",
@@ -301,7 +341,21 @@ fn run_proof(manifest: &Path, target: &Path, contract: &Contract, harness_timeou
             "--manifest-path",
         ])
         .arg(manifest)
-        .env("CARGO_TARGET_DIR", target)
+        .env("CARGO_TARGET_DIR", target);
+    if explicit_covers {
+        command.arg("--no-assertion-reach-checks");
+    }
+    command
+}
+
+fn run_proof(
+    manifest: &Path,
+    target: &Path,
+    contract: &Contract,
+    harness_timeout: &str,
+    explicit_covers: bool,
+) -> Output {
+    proof_command(manifest, target, contract, harness_timeout, explicit_covers)
         .output()
         .expect("failed to launch cargo kani")
 }
@@ -392,13 +446,22 @@ impl Runner<'_> {
             mode != Mode::Mutation || !mutations.is_empty(),
             "selected contracts have no mutations"
         );
+        if matches!(backend, Backend::KaniWithExplicitCovers { .. }) {
+            assert!(
+                contracts.iter().all(|c| !c.covers.is_empty()),
+                "explicit-cover backend requires named reachability witnesses for every contract"
+            );
+        }
         if matches!(backend, Backend::NativeTests { .. }) {
             assert!(
                 contracts.iter().all(|c| c.covers.is_empty()),
                 "native tests cannot satisfy Kani covers"
             );
         }
-        if matches!(backend, Backend::Kani { .. }) {
+        if matches!(
+            backend,
+            Backend::Kani { .. } | Backend::KaniWithExplicitCovers { .. }
+        ) {
             let version = Command::new("cargo")
                 .args(["kani", "--version"])
                 .output()
@@ -506,7 +569,7 @@ impl Runner<'_> {
                 );
                 positives += 1;
                 match backend {
-                    Backend::Kani { .. } => println!(
+                    Backend::Kani { .. } | Backend::KaniWithExplicitCovers { .. } => println!(
                         "PASS {} and {} reachability checks ({:.2}s wall, including build)",
                         contract.name,
                         contract.covers.len(),
@@ -599,7 +662,8 @@ impl Runner<'_> {
                     "PASS rejected {} with a {} ({:.2}s wall)",
                     mutant.name,
                     match backend {
-                        Backend::Kani { .. } => "semantic counterexample",
+                        Backend::Kani { .. } | Backend::KaniWithExplicitCovers { .. } =>
+                            "semantic counterexample",
                         Backend::NativeTests { .. } => "reference comparison failure",
                     },
                     start.elapsed().as_secs_f64()
@@ -620,6 +684,50 @@ impl Runner<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_cover_profile_only_changes_reachability_diagnostics() {
+        let manifest = Path::new("proof/Cargo.toml");
+        let target = Path::new("proof/target");
+        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false);
+        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true);
+        assert_eq!(legacy.get_program(), explicit.get_program());
+        assert!(legacy.get_envs().eq(explicit.get_envs()));
+        let legacy_args: Vec<_> = legacy.get_args().collect();
+        let explicit_args: Vec<_> = explicit
+            .get_args()
+            .filter(|arg| *arg != "--no-assertion-reach-checks")
+            .collect();
+        assert_eq!(legacy_args, explicit_args);
+        assert_eq!(
+            explicit
+                .get_args()
+                .filter(|arg| *arg == "--no-assertion-reach-checks")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "explicit-cover backend requires named reachability witnesses")]
+    fn explicit_cover_profile_rejects_missing_witnesses_before_running_tools() {
+        Runner {
+            target: "test",
+            repo: Path::new("."),
+            manifest: Path::new("nonexistent/Cargo.toml"),
+            files: &[],
+            directories: &[],
+        }
+        .run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "60s",
+                auxiliary_covers: &["auxiliary diagnostic"],
+            },
+            Mode::Positive,
+            &[&CONTRACTS[1]],
+            &[],
+        );
+    }
+
     static CONTRACTS: [Contract; 2] = [
         Contract {
             name: "one",
@@ -750,6 +858,49 @@ mod tests {
         assert!(!mutation_result(false, log, &CONTRACTS[1]));
         assert!(!mutation_result(false, "compile error", &CONTRACTS[0]));
         assert!(!mutation_result(false, "CBMC timed out", &CONTRACTS[0]));
+    }
+    #[test]
+    fn auxiliary_covers_never_replace_the_semantic_failure_or_safety_checks() {
+        let backend = Backend::KaniWithExplicitCovers {
+            harness_timeout: "60s",
+            auxiliary_covers: &["auxiliary diagnostic"],
+        };
+        let only_auxiliary = "Check 1:\n - Status: SATISFIED\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- SUCCESSFUL";
+        assert!(!backend.positive(true, only_auxiliary, &CONTRACTS[0]));
+        let semantic = "Check 1:\n - Status: FAILURE\n - Description: \"one mismatch\"\n";
+        let auxiliary =
+            "Check 2:\n - Status: UNSATISFIABLE\n - Description: \"auxiliary diagnostic\"\n";
+        let log = format!("{semantic}{auxiliary}VERIFICATION:- FAILED");
+        assert!(!mutation_result(false, &log, &CONTRACTS[0]));
+        assert!(mutation_result_with_auxiliary_covers(
+            false,
+            &log,
+            &CONTRACTS[0],
+            &["auxiliary diagnostic"]
+        ));
+        assert!(!mutation_result_with_auxiliary_covers(
+            false,
+            &log,
+            &CONTRACTS[0],
+            &["other diagnostic"]
+        ));
+        assert!(!mutation_result_with_auxiliary_covers(
+            false,
+            auxiliary,
+            &CONTRACTS[0],
+            &["auxiliary diagnostic"]
+        ));
+        for status in ["FAILURE", "UNKNOWN", "UNDETERMINED"] {
+            let log = format!(
+                "{semantic}Check 2:\n - Status: {status}\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- FAILED"
+            );
+            assert!(!mutation_result_with_auxiliary_covers(
+                false,
+                &log,
+                &CONTRACTS[0],
+                &["auxiliary diagnostic"]
+            ));
+        }
     }
     #[test]
     fn negative_rejects_mixed_safety_and_incomplete_checks() {

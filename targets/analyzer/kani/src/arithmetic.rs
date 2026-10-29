@@ -8,7 +8,7 @@
 //! All eight small binary/unary calls at natural/natural+2 width have shared-cache
 //! proofs. The natural unary prefix covers every native width; the binary prefix
 //! also covers fixed word64 sources. Public Mul/Div cache prefixes admit source
-//! widths 1..=3 at natural/natural+1 contexts; Div partitions result widths 1..=4
+//! widths 1..=3 at natural/natural+1 contexts; Div/Rem partition result widths 1..=4
 //! and caller sign. Wider contexts and traversal remain executable.
 //! X/Z unary plus checks the Table 11-6 identity interpretation documented in
 //! veryl_formal_semantics::arithmetic; it does not resolve the conflicting general X/Z sentence.
@@ -1457,7 +1457,7 @@ fn nonlinear_input() -> (ValueU64, Operand) {
 }
 
 // Partition the nonlinear cache trace by result width (1..=4) and caller sign.
-// Currently only STAGE=1 (Div) is instantiated. The union admits source widths 1..=3,
+// STAGE=1/2 proves Div/Rem. The union admits source widths 1..=3,
 // every four-state value and independent source/caller signs. Each proof executes
 // the exact prefix through the observed call; exponent width stays self-determined.
 // IEEE 1800 11.4.3/11.4.3.1 and 11.6.1/11.8.2 are modeled independently by planes.
@@ -1526,6 +1526,8 @@ fn public_small_nonlinear_width<const STAGE: u8, const WIDTH: usize, const SIGNE
         panic!("public arithmetic semantics mismatch");
     };
     let output = Value::U64(native);
+    let payload = output.payload_u128();
+    let xz = output.mask_xz_u128();
     assert!(
         output.width() == WIDTH
             && output.signed()
@@ -1537,11 +1539,37 @@ fn public_small_nonlinear_width<const STAGE: u8, const WIDTH: usize, const SIGNE
         "public arithmetic semantics mismatch"
     );
     assert!(
-        output.payload_u128() == expected.0 && output.mask_xz_u128() == expected.1,
+        payload == expected.0 && xz == expected.1,
         "public arithmetic semantics mismatch"
     );
     assert_public_input(&a, ar);
     assert_public_input(&b, br);
+    if STAGE == 2 {
+        // Signed contexts use -1 % (+/-2), unsigned contexts use 3 % 2.
+        // Width 1 instead uses +/-1 % +/-1, whose remainder must be zero.
+        // Only the cover predicate fixes these fields; proof inputs stay arbitrary.
+        let lhs_width = if SIGNED || WIDTH == 1 { 1 } else { 2 };
+        let rhs_width = if WIDTH == 1 {
+            1
+        } else if WIDTH == 4 {
+            3
+        } else {
+            2
+        };
+        let lhs_payload = if SIGNED || WIDTH == 1 { 1 } else { 3 };
+        let divisor = if WIDTH == 1 { 1 } else { 2 };
+        kani::cover!(
+            ar.width == lhs_width
+                && br.width == rhs_width
+                && ar.signed == SIGNED
+                && !br.signed
+                && ar.planes == (lhs_payload, 0)
+                && br.planes == (divisor, 0)
+                && xz == 0
+                && (WIDTH == 1 || payload != 0),
+            "nonlinear remainder numeric case is reachable"
+        );
+    }
     if WIDTH <= 3 {
         kani::cover!(
             natural == WIDTH,
@@ -1626,4 +1654,60 @@ fn public_small_divide_width_4_unsigned_matches_reference_semantics() {
 #[kani::use_stub_set(small_native_arithmetic)]
 fn public_small_divide_width_4_signed_matches_reference_semantics() {
     public_small_nonlinear_width::<1, 4, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_1_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 1, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_1_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 1, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_2_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 2, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_2_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 2, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_3_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 3, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_3_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 3, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_4_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 4, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_remainder_width_4_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<2, 4, true>();
 }

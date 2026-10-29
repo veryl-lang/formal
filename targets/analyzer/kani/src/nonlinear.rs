@@ -2,7 +2,7 @@
 //! 1..=8 and exponent widths 1..=3. Full-native identity/exception proofs restrict
 //! operand classes: multiplication RHS 0/1, division RHS 0/1 or signed all-ones, and
 //! power unknown/negative/zero exponents. Public dispatch here is one bit;
-//! arithmetic.rs also proves normalized small Mul/Div cache prefixes. These do not
+//! arithmetic.rs also proves normalized small Mul/Div/Rem cache prefixes. These do not
 //! establish arbitrary-input native division or arbitrary-width BigUint correctness.
 
 use veryl_analyzer::ir::Op;
