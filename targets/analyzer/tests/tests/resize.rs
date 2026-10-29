@@ -1,5 +1,5 @@
 //! Public native resize domains are proved in targets/analyzer/kani/src/resize.rs.
-//! Scalar/word64 zero extension to 65/128 is proved in public_wide_resize.rs.
+//! All native zero extension to widths 65..=128 is proved in public_wide_resize.rs.
 //! Retain other native/BigUint boundaries and independent reference truth tables.
 
 use veryl_analyzer::value::Value;
@@ -12,8 +12,8 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
         let mut truncated = input.clone();
         truncated.trunc(width);
         let source_mask = u128::MAX >> (128 - source_width);
-        let proved_zero_extension = matches!(source_width, 1 | 64)
-            && matches!(width, 65 | 128)
+        let proved_zero_extension = (1..=64).contains(&source_width)
+            && (65..=128).contains(&width)
             && (payload | mask_xz) & !source_mask == 0;
         let truncated_width = width.min(source_width);
         if !proved_zero_extension {

@@ -47,7 +47,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 92] = [
+pub static CONTRACTS: [Contract; 89] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -293,61 +293,20 @@ pub static CONTRACTS: [Contract; 92] = [
         ],
     },
     Contract {
-        group: "values",
-        name: "public-scalar-zero-extension-65",
-        harness: "public_scalar_zero_extension_65_matches_reference_semantics",
+        group: "public-wide-resize",
+        name: "public-native-zero-extension-wide",
+        harness: "public_native_zero_extension_wide_matches_reference_semantics",
         message: "public wide resize semantics mismatch",
         covers: &[
-            "public wide zero extension source zero is reachable",
-            "public wide zero extension source one is reachable",
-            "public wide zero extension source width 1 is reachable",
-            "public wide zero extension signed source is reachable",
-            "public wide zero extension unsigned source is reachable",
-            "public wide zero extension source X is reachable",
-            "public wide zero extension source Z is reachable",
-        ],
-    },
-    Contract {
-        group: "values",
-        name: "public-scalar-zero-extension-128",
-        harness: "public_scalar_zero_extension_128_matches_reference_semantics",
-        message: "public wide resize semantics mismatch",
-        covers: &[
-            "public wide zero extension source zero is reachable",
-            "public wide zero extension source one is reachable",
-            "public wide zero extension source width 1 is reachable",
-            "public wide zero extension signed source is reachable",
-            "public wide zero extension unsigned source is reachable",
-            "public wide zero extension source X is reachable",
-            "public wide zero extension source Z is reachable",
-        ],
-    },
-    Contract {
-        group: "values",
-        name: "public-word64-zero-extension-65",
-        harness: "public_word64_zero_extension_65_matches_reference_semantics",
-        message: "public wide resize semantics mismatch",
-        covers: &[
-            "public word64 zero extension zero is reachable",
-            "public word64 zero extension high one is reachable",
-            "public word64 zero extension high X is reachable",
-            "public word64 zero extension high Z is reachable",
-            "public word64 zero extension signed source is reachable",
-            "public word64 zero extension unsigned source is reachable",
-        ],
-    },
-    Contract {
-        group: "values",
-        name: "public-word64-zero-extension-128",
-        harness: "public_word64_zero_extension_128_matches_reference_semantics",
-        message: "public wide resize semantics mismatch",
-        covers: &[
-            "public word64 zero extension zero is reachable",
-            "public word64 zero extension high one is reachable",
-            "public word64 zero extension high X is reachable",
-            "public word64 zero extension high Z is reachable",
-            "public word64 zero extension signed source is reachable",
-            "public word64 zero extension unsigned source is reachable",
+            "public native wide zero extension width 1 zero is reachable",
+            "public native wide zero extension width 1 one is reachable",
+            "public native wide zero extension width 1 X is reachable",
+            "public native wide zero extension width 1 Z is reachable",
+            "public native wide zero extension width 64 zero is reachable",
+            "public native wide zero extension width 64 one is reachable",
+            "public native wide zero extension width 64 X is reachable",
+            "public native wide zero extension width 64 Z is reachable",
+            "public native wide zero extension interior widths are reachable",
         ],
     },
     Contract {
@@ -1765,7 +1724,7 @@ pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
 // Named covers are mandatory for this profile; the shared runner validates them.
 // Only these new public proofs omit Kani's automatic per-assertion diagnostics.
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
-    contract.group == "public-nonlinear"
+    matches!(contract.group, "public-nonlinear" | "public-wide-resize")
 }
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
@@ -3869,7 +3828,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     if let Some(&contract) = selected
         .iter()
-        .find(|c| c.name == "public-scalar-zero-extension-65")
+        .find(|c| c.name == "public-native-zero-extension-wide")
     {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         for (name, old, new) in [
@@ -3899,7 +3858,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     if let Some(&contract) = selected
         .iter()
-        .find(|c| c.name == "public-scalar-zero-extension-128")
+        .find(|c| c.name == "public-native-zero-extension-wide")
     {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         let old = "                    ValueBigUint {\n                        payload,\n                        mask_xz,\n                        width: width as u32,\n                        signed,\n                    }\n                }\n                Self::BigUint(x) => {";
@@ -3913,7 +3872,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     if let Some(&contract) = selected
         .iter()
-        .find(|c| c.name == "public-word64-zero-extension-65")
+        .find(|c| c.name == "public-native-zero-extension-wide")
     {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         mutations.push(Mutation {
@@ -3929,7 +3888,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     if let Some(&contract) = selected
         .iter()
-        .find(|c| c.name == "public-word64-zero-extension-128")
+        .find(|c| c.name == "public-native-zero-extension-wide")
     {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         mutations.push(Mutation {

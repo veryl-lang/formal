@@ -1,18 +1,24 @@
-//! Public native-to-BigUint zero extension: source width 1 or 64, every four-state
-//! value/sign, result width 65 or 128, and use_sign=false. Widths are partitioned
-//! into separate harnesses to bound the cost of real heap conversions.
-//! Execute clone/truncation first, then zero extension as in the direct
-//! resize test. BigUint conversion, heap allocation and getters execute unchanged.
-//! Panicking guards forbid only unreachable non-native source paths.
-//! IEEE 1800 11.6.1/11.8.2 zero extension leaves normalized bit planes unchanged.
+//! Public native-to-BigUint zero extension: normalized four-state sources of
+//! every width 1..=64, independent target widths 65..=128, either source sign,
+//! and use_sign=false. The only assumption normalizes both input bit planes.
+//! Execute clone/truncation first, then extension; numeric BigUint conversion,
+//! heap allocation, bit lengths and getters execute unchanged.
+//! IEEE 1800 11.6.1/11.8.2 zero extension is identity on normalized bit planes.
+//! Unwind 2 suffices for reachable conversion/getter loops; unwinding assertions
+//! remain enabled. Mandatory cover cubes span endpoint widths, all four states,
+//! both signs/target endpoints, and an interior source/target pair.
 use veryl_analyzer::value::Value;
 
+// With nonzero native sources and use_sign=false, sentinel/sign-fill masks
+// cannot execute. A call fails the proof rather than supplying a mask oracle.
+fn reject_sign_mask(_: usize) -> num_bigint::BigUint {
+    panic!("public wide resize semantics mismatch");
+}
 fn reject_native_source(_: u128) -> num_bigint::BigUint {
     panic!("public wide resize semantics mismatch");
 }
-// Outputs are moved from owned Cow values; cloning/converting a Veryl BigUint
-// wrapper would require an inadmissible BigUint source. Numeric BigUint clones,
-// allocation, masks and arithmetic remain real and reachable.
+// Moving the owned result needs no Veryl BigUint wrapper clone/conversion.
+// These guards reject non-native source paths; numeric BigUint operations stay real.
 fn reject_source_clone(
     _: &veryl_analyzer::value::ValueBigUint,
 ) -> veryl_analyzer::value::ValueBigUint {
@@ -34,14 +40,15 @@ fn assert_input(input: &Value, source: usize, planes: (u128, u128), signed: bool
     );
 }
 // Zero extension is numeric identity for the two normalized bit planes.
-// BigUint allocation/conversion execute unchanged; sign filling remains a direct check.
-fn public_wide_zero_extension<const SOURCE: usize, const TARGET: usize>() {
-    let source = SOURCE;
+// Sign filling and BigUint sources remain direct comparisons.
+fn public_wide_zero_extension(target: usize) {
+    let source = usize::from(kani::any::<u8>() & 63) + 1;
     let mask = u64::MAX >> (64 - source);
     let planes = (
-        u128::from(kani::any::<u64>() & mask),
-        u128::from(kani::any::<u64>() & mask),
+        u128::from(kani::any::<u64>()),
+        u128::from(kani::any::<u64>()),
     );
+    kani::assume((planes.0 | planes.1) & !u128::from(mask) == 0);
     let signed: bool = kani::any();
     let input = Value::from_u128(planes.0, planes.1, source, signed);
     assert_input(&input, source, planes, signed);
@@ -50,124 +57,76 @@ fn public_wide_zero_extension<const SOURCE: usize, const TARGET: usize>() {
     };
     let input = Value::U64(native);
     let mut truncated = input.clone();
-    truncated.trunc(TARGET);
+    truncated.trunc(target);
+    let Value::U64(truncated_native) = truncated else {
+        panic!("public wide resize semantics mismatch");
+    };
+    let truncated = Value::U64(truncated_native);
     assert_input(&truncated, source, planes, signed);
-    let output = input.expand(TARGET, false).into_owned();
+    let output = input.expand(target, false).into_owned();
     let Value::BigUint(big) = output else {
         panic!("public wide resize semantics mismatch");
     };
     assert!(
-        big.payload.bits() <= TARGET as u64 && big.mask_xz.bits() <= TARGET as u64,
+        big.payload.bits() <= target as u64 && big.mask_xz.bits() <= target as u64,
         "public wide resize semantics mismatch"
     );
     let output = Value::BigUint(big);
     assert!(
-        output.width() == TARGET
+        output.width() == target
             && !output.signed()
             && output.payload_u128() == planes.0
             && output.mask_xz_u128() == planes.1,
         "public wide resize semantics mismatch"
     );
     assert_input(&input, source, planes, signed);
-    if SOURCE == 1 {
-        kani::cover!(
-            planes.0 == 0 && planes.1 == 0,
-            "public wide zero extension source zero is reachable"
-        );
-        kani::cover!(
-            planes.0 == 1 && planes.1 == 0,
-            "public wide zero extension source one is reachable"
-        );
-        kani::cover!(
-            source == 1,
-            "public wide zero extension source width 1 is reachable"
-        );
-        kani::cover!(
-            signed,
-            "public wide zero extension signed source is reachable"
-        );
-        kani::cover!(
-            !signed,
-            "public wide zero extension unsigned source is reachable"
-        );
-        kani::cover!(
-            planes.1 & !planes.0 != 0,
-            "public wide zero extension source X is reachable"
-        );
-        kani::cover!(
-            planes.1 & planes.0 != 0,
-            "public wide zero extension source Z is reachable"
-        );
-    } else {
-        kani::cover!(
-            planes == (0, 0),
-            "public word64 zero extension zero is reachable"
-        );
-        kani::cover!(
-            planes == (1u128 << 63, 0),
-            "public word64 zero extension high one is reachable"
-        );
-        kani::cover!(
-            planes == (0, 1u128 << 63),
-            "public word64 zero extension high X is reachable"
-        );
-        kani::cover!(
-            planes == (1u128 << 63, 1u128 << 63),
-            "public word64 zero extension high Z is reachable"
-        );
-        kani::cover!(
-            signed,
-            "public word64 zero extension signed source is reachable"
-        );
-        kani::cover!(
-            !signed,
-            "public word64 zero extension unsigned source is reachable"
-        );
-    }
-}
-#[kani::proof]
-#[kani::unwind(6)]
-#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
-#[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
-#[kani::stub(
-    veryl_analyzer::value::ValueBigUint::to_value_u64,
-    reject_source_to_native
-)]
-fn public_scalar_zero_extension_65_matches_reference_semantics() {
-    public_wide_zero_extension::<1, 65>();
-}
-#[kani::proof]
-#[kani::unwind(6)]
-#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
-#[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
-#[kani::stub(
-    veryl_analyzer::value::ValueBigUint::to_value_u64,
-    reject_source_to_native
-)]
-fn public_scalar_zero_extension_128_matches_reference_semantics() {
-    public_wide_zero_extension::<1, 128>();
-}
+    kani::cover!(
+        source == 1 && planes == (0, 0) && signed == false && target == 65,
+        "public native wide zero extension width 1 zero is reachable"
+    );
+    kani::cover!(
+        source == 1 && planes == (1u128 << 0, 0) && signed == true && target == 128,
+        "public native wide zero extension width 1 one is reachable"
+    );
+    kani::cover!(
+        source == 1 && planes == (0, 1u128 << 0) && signed == true && target == 65,
+        "public native wide zero extension width 1 X is reachable"
+    );
+    kani::cover!(
+        source == 1 && planes == (1u128 << 0, 1u128 << 0) && signed == false && target == 128,
+        "public native wide zero extension width 1 Z is reachable"
+    );
+    kani::cover!(
+        source == 64 && planes == (0, 0) && signed == true && target == 128,
+        "public native wide zero extension width 64 zero is reachable"
+    );
+    kani::cover!(
+        source == 64 && planes == (1u128 << 63, 0) && signed == false && target == 65,
+        "public native wide zero extension width 64 one is reachable"
+    );
+    kani::cover!(
+        source == 64 && planes == (0, 1u128 << 63) && signed == false && target == 128,
+        "public native wide zero extension width 64 X is reachable"
+    );
+    kani::cover!(
+        source == 64 && planes == (1u128 << 63, 1u128 << 63) && signed == true && target == 65,
+        "public native wide zero extension width 64 Z is reachable"
+    );
 
-#[kani::proof]
-#[kani::unwind(6)]
-#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
-#[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
-#[kani::stub(
-    veryl_analyzer::value::ValueBigUint::to_value_u64,
-    reject_source_to_native
-)]
-fn public_word64_zero_extension_65_matches_reference_semantics() {
-    public_wide_zero_extension::<64, 65>();
+    kani::cover!(
+        source == 32 && target == 127 && planes == (1u128 << 31, 1u128 << 31) && !signed,
+        "public native wide zero extension interior widths are reachable"
+    );
 }
-
 #[kani::proof]
-#[kani::unwind(6)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, reject_sign_mask)]
+#[kani::unwind(2)]
 #[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
 #[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
 #[kani::stub(
     veryl_analyzer::value::ValueBigUint::to_value_u64,
     reject_source_to_native
 )]
-fn public_word64_zero_extension_128_matches_reference_semantics() {
-    public_wide_zero_extension::<64, 128>();
+fn public_native_zero_extension_wide_matches_reference_semantics() {
+    public_wide_zero_extension(usize::from(kani::any::<u8>() & 63) + 65);
 }

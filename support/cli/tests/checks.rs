@@ -116,9 +116,17 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert!(contracts.insert(contract.name), "overlapping proof shard");
             assert_eq!(
                 analyzer::uses_explicit_covers(contract),
-                shard.suite == "nonlinear"
+                shard.suite == "nonlinear" || contract.group == "public-wide-resize"
             );
-            if analyzer::uses_explicit_covers(contract) {
+            if contract.group == "public-wide-resize" {
+                assert_eq!(shard.suite, "storage");
+                assert!(
+                    contract.covers.contains(
+                        &"public native wide zero extension interior widths are reachable"
+                    )
+                );
+            }
+            if contract.group == "public-nonlinear" {
                 assert!(!contract.covers.is_empty());
                 assert!(
                     contract
