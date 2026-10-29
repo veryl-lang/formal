@@ -5,8 +5,10 @@
 //! all later source and amount sign groups have proofs on that same cache.
 //! Result width stays native
 //! source width. Context widening 4->8/64 has separate fresh-cache proofs;
-//! Four shared 128-bit amount fixtures also have word64 caller proofs. Their
-//! production constructors are checked separately by finite native comparisons.
+//! Four shared 128-bit amount fixtures also have word32/word64 caller proofs.
+//! Both source planes are arbitrary at each width. Source and context signs are
+//! paired as in the direct trace, executing all sixteen calls on one cache.
+//! Production amount constructors are checked separately by finite comparisons.
 //! Other BigUint amount/source paths remain executable comparisons.
 //! IEEE 1800 11.4.10 is modeled independently by shifted_logic_bit.
 use veryl_analyzer::ir::Op;
@@ -753,11 +755,12 @@ fn big_amount_shift_group<const SIGNED: bool, const AMOUNT_SIGNED: bool>(
     assert_input(source_value, width, source, SIGNED);
 }
 
-fn big_amount_native_trace<const PAYLOAD: u128, const XZ: u128>() {
-    let width = 64;
+fn big_amount_native_trace<const WIDTH: usize, const PAYLOAD: u128, const XZ: u128>() {
+    let width = WIDTH;
+    let mask = u64::MAX >> (64 - width);
     let source = (
-        u128::from(kani::any::<u64>()),
-        u128::from(kani::any::<u64>()),
+        u128::from(kani::any::<u64>() & mask),
+        u128::from(kani::any::<u64>() & mask),
     );
     let amount = (PAYLOAD, XZ);
     let decoded = if XZ != 0 {
@@ -832,15 +835,18 @@ fn big_amount_native_trace<const PAYLOAD: u128, const XZ: u128>() {
         "public wide amount trace signed operand is reachable"
     );
     kani::cover!(
-        phase == 2 && selected == 3 && source == (1u128 << 63, 0) && position == 63,
+        phase == 2 && selected == 3 && source == (1u128 << (width - 1), 0) && position == width - 1,
         "public wide amount trace negative source is reachable"
     );
     kani::cover!(
-        phase == 3 && selected == 3 && source == (0, 1u128 << 63) && position == 0,
+        phase == 3 && selected == 3 && source == (0, 1u128 << (width - 1)) && position == 0,
         "public wide amount trace signed X source is reachable"
     );
     kani::cover!(
-        phase == 0 && selected == 1 && source == (1u128 << 63, 1u128 << 63) && position == 63,
+        phase == 0
+            && selected == 1
+            && source == (1u128 << (width - 1), 1u128 << (width - 1))
+            && position == 63,
         "public wide amount trace unsigned Z source is reachable"
     );
     kani::cover!(
@@ -853,26 +859,54 @@ fn big_amount_native_trace<const PAYLOAD: u128, const XZ: u128>() {
 #[kani::unwind(2)]
 #[kani::use_stub_set(native_source_big_amount)]
 fn public_word64_shift_small_amount_matches_reference() {
-    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+    big_amount_native_trace::<64, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
 }
 
 #[kani::proof]
 #[kani::unwind(3)]
 #[kani::use_stub_set(native_source_big_amount)]
 fn public_word64_shift_high_amount_matches_reference() {
-    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+    big_amount_native_trace::<64, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
 }
 
 #[kani::proof]
 #[kani::unwind(3)]
 #[kani::use_stub_set(native_source_big_amount)]
 fn public_word64_shift_upper_x_amount_matches_reference() {
-    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+    big_amount_native_trace::<64, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
 }
 
 #[kani::proof]
 #[kani::unwind(3)]
 #[kani::use_stub_set(native_source_big_amount)]
 fn public_word64_shift_upper_z_amount_matches_reference() {
-    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+    big_amount_native_trace::<64, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word32_shift_small_amount_matches_reference() {
+    big_amount_native_trace::<32, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word32_shift_high_amount_matches_reference() {
+    big_amount_native_trace::<32, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word32_shift_upper_x_amount_matches_reference() {
+    big_amount_native_trace::<32, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word32_shift_upper_z_amount_matches_reference() {
+    big_amount_native_trace::<32, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
 }

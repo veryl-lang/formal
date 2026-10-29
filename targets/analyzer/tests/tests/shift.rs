@@ -1,7 +1,7 @@
 //! Equal-width native traces are proved for widths 1..=4 and 31/32/63/64 with
 //! arbitrary four-state 64-bit amounts and every source/amount sign combination.
 //! Native context widening 4->8/64 is also proved. Keep BigUint source/amount
-//! or context paths and independent model anchors. Word64 wide-amount caller
+//! or context paths and independent model anchors. Word32/word64 wide-amount caller
 //! proofs use shared fixtures; their real constructors remain checked below.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
@@ -126,9 +126,9 @@ fn shift_native_biguint_boundaries() {
                     check_shift(source, width, (amount as u128, 0), 64);
                 }
             }
-            // These complete word64 traces are proved using canonical numerical
+            // These complete word32/word64 traces are proved using canonical numerical
             // inputs. The finite producer check below validates the actual constructor.
-            if width != 64 {
+            if !matches!(width, 32 | 64) {
                 for amount in WIDE_SHIFT_AMOUNTS {
                     check_shift(source, width, amount, 128);
                 }

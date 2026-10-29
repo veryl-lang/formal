@@ -140,7 +140,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     "public-big-amount-decoding-128" => {
                         "public BigUint upper Z amount is reachable"
                     }
-                    name if name.starts_with("public-word64-big-amount-") => {
+                    name if name.starts_with("public-word64-big-amount-")
+                        || name.starts_with("public-word32-big-amount-") =>
+                    {
                         "public wide amount trace unsigned Z source is reachable"
                     }
                     name if name.starts_with("public-shift-widening-4-to-") => {
