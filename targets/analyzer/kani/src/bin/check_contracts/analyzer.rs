@@ -47,7 +47,17 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 91] = [
+const SMALL_SHIFT_CONTINUATION_COVERS: &[&str] = &[
+    "public small shift signed amount is reachable",
+    "public small shift signed one fill is reachable",
+    "public small shift signed X fill is reachable",
+    "public small shift signed Z fill is reachable",
+    "public small shift unknown amount is reachable",
+    "public small shift arithmetic left padding is reachable",
+    "public small shift upper Z amount is reachable",
+];
+
+pub static CONTRACTS: [Contract; 95] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -333,6 +343,34 @@ pub static CONTRACTS: [Contract; 91] = [
             "public BigUint getters high X is reachable",
             "public BigUint getters high Z and padding are reachable",
         ],
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-1",
+        harness: "public_small_shift_continuation_width_1_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-2",
+        harness: "public_small_shift_continuation_width_2_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-3",
+        harness: "public_small_shift_continuation_width_3_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-small-shift-continuation-width-4",
+        harness: "public_small_shift_continuation_width_4_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SMALL_SHIFT_CONTINUATION_COVERS,
     },
     Contract {
         group: "full-nonlinear",
@@ -1751,7 +1789,7 @@ pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
     matches!(
         contract.group,
-        "public-nonlinear" | "public-wide-resize" | "public-getters"
+        "public-nonlinear" | "public-wide-resize" | "public-getters" | "public-native-sequences"
     )
 }
 
@@ -3749,6 +3787,58 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path: CORE,
                 source: mutate_method(&source, "to_usize_saturating", old, new),
+            });
+        }
+    }
+    for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-shift-continuation-width-1",
+            "public-small-shift-arithmetic-right-as-logical",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.shift_right(y, width, signed, true)",
+            "x.shift_right(y, width, signed, false)",
+        ),
+        (
+            "public-small-shift-continuation-width-2",
+            "public-small-shift-Z-fill-as-X",
+            CORE,
+            "shift_right",
+            "if payload_msb { ext_mask } else { 0 }",
+            "if payload_msb && !mask_xz_msb { ext_mask } else { 0 }",
+        ),
+        (
+            "public-small-shift-continuation-width-3",
+            "public-small-shift-drops-XZ-fill",
+            CORE,
+            "shift_right",
+            "ret.mask_xz |= ext_mask_xz;",
+            "ret.mask_xz |= 0;",
+        ),
+        (
+            "public-small-shift-continuation-width-4",
+            "public-small-shift-arithmetic-left-clears-sign",
+            CORE,
+            "shift_left",
+            "if !arithmetic {\n            ret.signed = false;\n        }",
+            "ret.signed = false;",
+        ),
+        (
+            "public-small-shift-continuation-width-4",
+            "public-small-shift-ignores-Z-amount",
+            CORE,
+            "to_usize_saturating",
+            "Self::U64(x) if x.is_xz() => None,",
+            "Self::U64(x) if x.is_xz() && x.payload == 0 => None,",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
             });
         }
     }

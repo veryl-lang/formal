@@ -117,9 +117,15 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert_eq!(
                 analyzer::uses_explicit_covers(contract),
                 shard.suite == "nonlinear"
-                    || matches!(contract.group, "public-wide-resize" | "public-getters")
+                    || matches!(
+                        contract.group,
+                        "public-wide-resize" | "public-getters" | "public-native-sequences"
+                    )
             );
-            if matches!(contract.group, "public-wide-resize" | "public-getters") {
+            if matches!(
+                contract.group,
+                "public-wide-resize" | "public-getters" | "public-native-sequences"
+            ) {
                 assert_eq!(shard.suite, "storage");
                 let witness = match contract.name {
                     "public-native-zero-extension-wide" => {
@@ -130,6 +136,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     }
                     "public-big-getters-128" => {
                         "public BigUint getters high Z and padding are reachable"
+                    }
+                    name if name.starts_with("public-small-shift-continuation-width-") => {
+                        "public small shift signed Z fill is reachable"
                     }
                     _ => panic!("explicit public contracts need a scope witness policy"),
                 };

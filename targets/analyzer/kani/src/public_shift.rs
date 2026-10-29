@@ -1,12 +1,13 @@
 //! Public shift trace at all normalized four-state native source widths 1..=64.
-//! Sources and amounts are unsigned; amounts span arbitrary four-state 64-bit
-//! planes with unsigned magnitude decoding and saturation. The first four shifts
-//! execute on one cache in test order. Later sign groups remain direct checks.
+//! The initial group has unsigned sources and amounts, with arbitrary four-state
+//! 64-bit amount planes decoded as unsigned magnitudes with saturation. Four shifts
+//! execute on one cache in test order. At fixed widths 1..=4, all later source
+//! and amount sign groups have continuation proofs on that same cache.
 //! Result width stays native
 //! source width. Context widening and BigUint amount/source paths remain separate.
 //! IEEE 1800 11.4.10 is modeled independently by shifted_logic_bit.
 use veryl_analyzer::ir::Op;
-use veryl_analyzer::value::{MaskCache, Value};
+use veryl_analyzer::value::{MaskCache, Value, ValueU64};
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
 use veryl_formal_semantics::shift::{Shift, shifted_logic_bit};
 
@@ -239,4 +240,220 @@ fn public_shift_unsigned_initial_calls_match_reference_semantics() {
         position == 63,
         "public shift highest native observation is reachable"
     );
+}
+
+fn native_input(width: usize, planes: (u128, u128), signed: bool) -> ValueU64 {
+    let Value::U64(native) = input(width, planes, signed) else {
+        panic!("public shift semantics mismatch");
+    };
+    native
+}
+fn shift_group<const SIGNED: bool, const AMOUNT_SIGNED: bool>(
+    source_value: &Value,
+    source: (u128, u128),
+    width: usize,
+    amount: (u128, u128),
+    observe: bool,
+    selected: usize,
+    observed: &mut Option<ValueU64>,
+    cache: &mut MaskCache,
+) {
+    let amount_value = Value::U64(native_input(64, amount, AMOUNT_SIGNED));
+    let output =
+        Op::LogicShiftL.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 0 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::LogicShiftR.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 1 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::ArithShiftL.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 2 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::ArithShiftR.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 3 {
+        *observed = Some(output);
+    }
+    assert_input(&amount_value, 64, amount, AMOUNT_SIGNED);
+    assert_input(source_value, width, source, SIGNED);
+}
+
+// Three later sign groups follow the initial unsigned group. Every operator
+// executes in order; phase/operator selection observes each of the twelve later
+// results. Inputs and discarded results are reified as native values, failing
+// on unsupported variants rather than expanding unreachable BigUint drops.
+// Widths are separate constants for solver cost; their union is 1..=4. Amounts
+// admit all 64-bit four-state planes and are decoded as unsigned magnitudes.
+// Positions 0..63 plus explicit high getter checks cover all 128 result bits.
+fn small_shift_continuation<const WIDTH: usize>() {
+    let width = WIDTH;
+    let mask = u64::MAX >> (64 - width);
+    let source = (
+        u128::from(u64::from(kani::any::<u8>()) & mask),
+        u128::from(u64::from(kani::any::<u8>()) & mask),
+    );
+    let amount = (
+        u128::from(kani::any::<u64>()),
+        u128::from(kani::any::<u64>()),
+    );
+    let decoded = if amount.1 == 0 {
+        Some(usize::try_from(amount.0).unwrap_or(usize::MAX))
+    } else {
+        None
+    };
+    let position = usize::from(kani::any::<u8>() & 63);
+    let selected = usize::from(kani::any::<u8>() & 3);
+    let phase = usize::from(kani::any::<u8>() & 3).max(1);
+    let mut observed = None;
+    let mut cache = MaskCache::default();
+    let unsigned_source = Value::U64(native_input(width, source, false));
+    shift_group::<false, false>(
+        &unsigned_source,
+        source,
+        width,
+        amount,
+        false,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    shift_group::<false, true>(
+        &unsigned_source,
+        source,
+        width,
+        amount,
+        phase == 1,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    let signed_source = Value::U64(native_input(width, source, true));
+    shift_group::<true, false>(
+        &signed_source,
+        source,
+        width,
+        amount,
+        phase == 2,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    shift_group::<true, true>(
+        &signed_source,
+        source,
+        width,
+        amount,
+        phase == 3,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    let kind = match selected {
+        0 => Shift::LogicalLeft,
+        1 => Shift::LogicalRight,
+        2 => Shift::ArithmeticLeft,
+        _ => Shift::ArithmeticRight,
+    };
+    assert_result(
+        Value::U64(observed.expect("public shift semantics mismatch")),
+        source,
+        width,
+        phase >= 2,
+        decoded,
+        kind,
+        position,
+    );
+    kani::cover!(
+        phase == 1 && selected == 0 && source == (1, 0) && amount == (0, 0) && position == 0,
+        "public small shift signed amount is reachable"
+    );
+    kani::cover!(
+        phase == 2
+            && selected == 3
+            && source == (1u128 << (WIDTH - 1), 0)
+            && amount == (WIDTH as u128, 0)
+            && position == WIDTH - 1,
+        "public small shift signed one fill is reachable"
+    );
+    kani::cover!(
+        phase == 3
+            && selected == 3
+            && source == (0, 1u128 << (WIDTH - 1))
+            && amount == (usize::MAX as u128, 0)
+            && position == 0,
+        "public small shift signed X fill is reachable"
+    );
+    kani::cover!(
+        phase == 3
+            && selected == 3
+            && source == (1u128 << (WIDTH - 1), 1u128 << (WIDTH - 1))
+            && amount == (1, 0)
+            && position == WIDTH - 1,
+        "public small shift signed Z fill is reachable"
+    );
+    kani::cover!(
+        phase == 1
+            && selected == 1
+            && source == (u128::from(mask), 0)
+            && amount == (0, 1)
+            && position == 0,
+        "public small shift unknown amount is reachable"
+    );
+    kani::cover!(
+        phase == 2 && selected == 2 && source == (1, 0) && amount == (64, 0) && position == 63,
+        "public small shift arithmetic left padding is reachable"
+    );
+    kani::cover!(
+        phase == 3
+            && selected == 1
+            && source == (u128::from(mask), 0)
+            && amount == (1u128 << 63, 1u128 << 63)
+            && position == 0,
+        "public small shift upper Z amount is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_small_shift_continuation_width_1_matches_reference_semantics() {
+    small_shift_continuation::<1>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_small_shift_continuation_width_2_matches_reference_semantics() {
+    small_shift_continuation::<2>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_small_shift_continuation_width_3_matches_reference_semantics() {
+    small_shift_continuation::<3>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_small_shift_continuation_width_4_matches_reference_semantics() {
+    small_shift_continuation::<4>();
 }

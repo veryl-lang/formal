@@ -1,6 +1,7 @@
 //! The initial unsigned native four-call shift prefix, including amount decoding,
 //! is proved in targets/analyzer/kani/src/public_shift.rs. Execute every call;
-//! later source/amount signs and native/BigUint contexts remain comparisons.
+//! all sixteen calls at widths 1..=4 have continuation proofs. Later signs at
+//! larger widths and native/BigUint contexts remain comparisons.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -78,10 +79,11 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
                 let output = op.eval_value_binary(&input, &rhs, width, signed, &mut cache);
                 let covered = prefix_matches
                     && native
-                    && !signed
-                    && !amount_signed
+                    && calls < if width <= 4 { 16 } else { 4 }
+                    && signed == (calls / 8 == 1)
+                    && amount_signed == (calls / 4 % 2 == 1)
                     && SHIFTS
-                        .get(calls)
+                        .get(calls % 4)
                         .is_some_and(|&(expected, _)| op == expected);
                 prefix_matches = covered;
                 calls += 1;
@@ -110,26 +112,6 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
         assert_eq!((input.payload_u128(), input.mask_xz_u128()), source);
         assert_eq!(input.width(), width);
         assert_eq!(input.signed(), signed);
-    }
-}
-
-#[test]
-fn shift_exhaustive_four_state_small_widths() {
-    for width in 1..=4 {
-        let mask = (1u128 << width) - 1;
-        for state in 0..(1u128 << (2 * width)) {
-            for amount in 0..=width + 1 {
-                check_shift(
-                    (state & mask, state >> width),
-                    width,
-                    (amount as u128, 0),
-                    64,
-                );
-            }
-            for amount in [(0, 1), (1, 1), (u64::MAX as u128, 0)] {
-                check_shift((state & mask, state >> width), width, amount, 64);
-            }
-        }
     }
 }
 
