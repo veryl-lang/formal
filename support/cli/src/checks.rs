@@ -158,6 +158,7 @@ pub const SHARDS: &[Shard] = &[
         "logic",
         &[
             "equality",
+            "public-equality-native",
             "inequality",
             "wildcard-equality",
             "wildcard-inequality",
@@ -166,7 +167,9 @@ pub const SHARDS: &[Shard] = &[
             "greater-than",
             "greater-equal",
             "bitwise",
+            "public-bitwise-native",
             "bit-not",
+            "public-not-native",
             "logical",
             "reductions",
             "condition-truth",

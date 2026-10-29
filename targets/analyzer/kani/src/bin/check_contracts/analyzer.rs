@@ -47,7 +47,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 62] = [
+pub static CONTRACTS: [Contract; 65] = [
     Contract {
         group: "full-nonlinear",
         name: "full-multiply",
@@ -284,6 +284,29 @@ pub static CONTRACTS: [Contract; 62] = [
     },
     Contract {
         group: "values",
+        name: "public-equality-native",
+        harness: "public_equality_native_pair_matches_reference_semantics",
+        message: "public comparison semantics mismatch",
+        covers: &[
+            "public comparison LHS width 1 is reachable",
+            "public comparison LHS width 2 is reachable",
+            "public comparison LHS width 3 is reachable",
+            "public comparison RHS width 1 is reachable",
+            "public comparison RHS width 2 is reachable",
+            "public comparison RHS width 3 is reachable",
+            "public comparison LHS width 64 is reachable",
+            "public comparison RHS width 64 is reachable",
+            "public comparison wider LHS is reachable",
+            "public comparison wider RHS is reachable",
+            "public comparison signed mode is reachable",
+            "public comparison mixed signs are reachable",
+            "public comparison X result is reachable",
+            "public comparison true result is reachable",
+            "public comparison false result is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
         name: "inequality",
         harness: "native_inequality_matches_reference_semantics",
         message: "comparison semantics mismatch",
@@ -465,6 +488,45 @@ pub static CONTRACTS: [Contract; 62] = [
             "complement source one is reachable",
             "complement source X is reachable",
             "complement source Z is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-bitwise-native",
+        harness: "public_bitwise_native_sequence_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public bitwise LHS width 1 is reachable",
+            "public bitwise LHS width 64 is reachable",
+            "public bitwise RHS width 1 is reachable",
+            "public bitwise RHS width 64 is reachable",
+            "public bitwise wider LHS is reachable",
+            "public bitwise wider RHS is reachable",
+            "public bitwise unchanged context is reachable",
+            "public bitwise width 64 is reachable",
+            "public bitwise signed context is reachable",
+            "public bitwise mixed signs are reachable",
+            "public bitwise source X is reachable",
+            "public bitwise source Z is reachable",
+            "public bitwise u128 padding is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-not-native",
+        harness: "public_bit_not_native_sequence_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public NOT source width 1 is reachable",
+            "public NOT source width 64 is reachable",
+            "public NOT result width 64 is reachable",
+            "public NOT widened context is reachable",
+            "public NOT unchanged context is reachable",
+            "public NOT signed source is reachable",
+            "public NOT unsigned source is reachable",
+            "public NOT source X is reachable",
+            "public NOT source Z is reachable",
+            "public NOT u128 padding is reachable",
         ],
     },
     Contract {
@@ -2911,6 +2973,135 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             contract,
             path: CORE,
             source: mutate_method(&source, "expand", "mask_xz |= mask;", "mask_xz |= 0;"),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-equality-native") {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        for (name, old, new) in [
+            (
+                "public-equality-inverted",
+                "x.equal(y, false, false)",
+                "x.equal(y, false, true)",
+            ),
+            (
+                "public-equality-uses-wildcard",
+                "x.equal(y, false, false)",
+                "x.equal(y, true, false)",
+            ),
+            (
+                "public-equality-ignores-upper-payload",
+                "x.equal(y, false, false)",
+                "{ let mut x = x.clone(); let mut y = y.clone(); x.payload &= u32::MAX as u64; y.payload &= u32::MAX as u64; x.equal(&y, false, false) }",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
+            });
+        }
+        let old = "Value::U64(ret).expand(width, false).into_owned()\n            }\n            Op::Ne =>";
+        for (name, new) in [
+            (
+                "public-equality-skips-result-growth",
+                "Value::U64(ret)\n            }\n            Op::Ne =>",
+            ),
+            (
+                "public-equality-upper-padding-leak",
+                "{ let mut ret = ret; ret.payload |= 1u64 << 63; Value::U64(ret).expand(width, false).into_owned() }\n            }\n            Op::Ne =>",
+            ),
+        ] {
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-as-or",
+            "eval_value_binary",
+            "Value::U64(x.bit_and(y, width))",
+            "Value::U64(x.bit_or(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-or-as-and",
+            "eval_value_binary",
+            "Value::U64(x.bit_or(y, width))",
+            "Value::U64(x.bit_and(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-xor-as-xnor",
+            "eval_value_binary",
+            "Value::U64(x.bit_xor(y, width))",
+            "Value::U64(x.bit_xnor(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-xnor-as-xor",
+            "eval_value_binary",
+            "Value::U64(x.bit_xnor(y, width))",
+            "Value::U64(x.bit_xor(y, width))",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-disables-left-sign",
+            "eval_value_binary",
+            "let x = resize(x, width, signed);",
+            "let x = resize(x, width, false);",
+        ),
+        (
+            "public-bitwise-native",
+            "public-bitwise-and-upper-padding-leak",
+            "eval_value_binary",
+            "Value::U64(x.bit_and(y, width))",
+            "{ let mut result = x.bit_and(y, width); if width < 64 { result.payload |= 1u64 << 63; } Value::U64(result) }",
+        ),
+        (
+            "public-not-native",
+            "public-not-returns-input",
+            "eval_value_unary",
+            "Value::U64(x) => Value::U64(x.bit_not(width)),",
+            "Value::U64(x) => Value::U64(x.clone()),",
+        ),
+        (
+            "public-not-native",
+            "public-not-disables-sign",
+            "eval_value_unary",
+            "Op::BitNot => {\n                let x = x.expand(width, signed);",
+            "Op::BitNot => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-not-native") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-not-unknown-becomes-z",
+            contract,
+            path: CORE,
+            source: mutate_method(
+                &source,
+                "bit_not",
+                "ret.payload &= ret.mask_xz ^ mask;",
+                "ret.payload &= mask;",
+            ),
         });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {

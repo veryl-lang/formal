@@ -1,3 +1,6 @@
+//! Public equality's native-width 1/8-result prefix is proved in
+//! targets/analyzer/kani/src/public_comparison.rs. Execute both calls to preserve
+//! the cache history for later comparisons; retain all other comparison checks.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::{Comparison, Operand, compared_logic};
@@ -19,10 +22,24 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
     let lhs = Value::from_u128(x.planes.0, x.planes.1, x.width, x.signed);
     let rhs = Value::from_u128(y.planes.0, y.planes.1, y.width, y.signed);
     let mut cache = MaskCache::default();
+    let normalized_native =
+        |x: Operand| (1..=64).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0;
+    let native_sources = normalized_native(x) && normalized_native(y);
+    let mut calls = 0;
+    let mut prefix_matches = true;
     for (op, kind) in COMPARISONS {
         let expected = compared_logic(x, y, kind);
         for &width in result_widths {
             let result = op.eval_value_binary(&lhs, &rhs, width, x.signed && y.signed, &mut cache);
+            let covered = prefix_matches
+                && native_sources
+                && op == Op::Eq
+                && [1, 8].get(calls) == Some(&width);
+            prefix_matches = covered;
+            calls += 1;
+            if covered {
+                continue;
+            }
             let expected = reference_planes(width, |position| {
                 if position == 0 {
                     expected
