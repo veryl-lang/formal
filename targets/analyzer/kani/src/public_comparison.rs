@@ -1,6 +1,8 @@
 //! Public equality for all normalized four-state sources of widths 1..=64
 //! and independent signs. Results of widths 1 then 8 share one cache.
-//! Other comparison operations remain executable checks. Full u128 getters,
+//! Inequality continues that prefix at all native widths. Wildcard equality
+//! continues it for source widths 1..=3. Other comparisons stay direct.
+//! Full u128 getters,
 //! native storage, unsigned result metadata, constructors and source preservation
 //! are checked. IEEE 1800 11.4.4/11.4.5/11.4.6 are modeled independently in comparison.
 use veryl_analyzer::ir::Op;
@@ -73,12 +75,27 @@ fn assert_public_input(value: &Value, before: Operand) {
 }
 
 fn public_input() -> (ValueU64, Operand) {
-    let native_width = u32::from(kani::any::<u8>() & 63) + 1;
+    public_input_at_width::<false>(u32::from(kani::any::<u8>() & 63) + 1)
+}
+
+fn public_input_at_width<const SMALL: bool>(native_width: u32) -> (ValueU64, Operand) {
     let mask = u64::MAX >> (64 - native_width);
     let before = Operand {
         planes: (
-            u128::from(kani::any::<u64>() & mask),
-            u128::from(kani::any::<u64>() & mask),
+            u128::from(
+                if SMALL {
+                    u64::from(kani::any::<u8>())
+                } else {
+                    kani::any::<u64>()
+                } & mask,
+            ),
+            u128::from(
+                if SMALL {
+                    u64::from(kani::any::<u8>())
+                } else {
+                    kani::any::<u64>()
+                } & mask,
+            ),
         ),
         width: native_width as usize,
         signed: kani::any(),
@@ -170,5 +187,130 @@ fn public_equality_native_pair_matches_reference_semantics() {
     kani::cover!(
         expected == Logic4::Zero,
         "public comparison false result is reachable"
+    );
+}
+
+fn native_result(output: Value) -> ValueU64 {
+    let Value::U64(native) = output else {
+        panic!("public comparison semantics mismatch");
+    };
+    native
+}
+
+// MODE 1 observes Ne after Eq; mode 2 observes wildcard equality after Ne.
+// Keep every earlier pair. Keep both result widths in direct-test order on one cache.
+fn public_comparison_continuation<const MODE: u8>() -> (Operand, Operand) {
+    let (a, ar) = if MODE == 1 {
+        public_input()
+    } else {
+        public_input_at_width::<true>(u32::from(kani::any::<u8>() & 3).min(2) + 1)
+    };
+    let (b, br) = if MODE == 1 {
+        public_input()
+    } else {
+        public_input_at_width::<true>(u32::from(kani::any::<u8>() & 3).min(2) + 1)
+    };
+    let a = Value::U64(a);
+    let b = Value::U64(b);
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    let _ = native_result(Op::Eq.eval_value_binary(&a, &b, 1, signed, &mut cache));
+    let _ = native_result(Op::Eq.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    if MODE > 1 {
+        let _ = native_result(Op::Ne.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::Ne.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    let kind = match MODE {
+        1 => Comparison::NotEqual,
+        2 => Comparison::WildcardEqual,
+        _ => unreachable!(),
+    };
+    let expected = compared_logic(ar, br, kind);
+    let output = match MODE {
+        1 => Op::Ne.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        2 => Op::EqWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        _ => unreachable!(),
+    };
+    assert_result(output, 1, expected);
+    let output = match MODE {
+        1 => Op::Ne.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        2 => Op::EqWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        _ => unreachable!(),
+    };
+    assert_result(output, 8, expected);
+    assert_public_input(&a, ar);
+    assert_public_input(&b, br);
+    kani::cover!(ar.width == 1, "public comparison LHS width 1 is reachable");
+    kani::cover!(ar.width == 2, "public comparison LHS width 2 is reachable");
+    kani::cover!(ar.width == 3, "public comparison LHS width 3 is reachable");
+    kani::cover!(br.width == 1, "public comparison RHS width 1 is reachable");
+    kani::cover!(br.width == 2, "public comparison RHS width 2 is reachable");
+    kani::cover!(br.width == 3, "public comparison RHS width 3 is reachable");
+    kani::cover!(
+        ar.width > br.width,
+        "public comparison wider LHS is reachable"
+    );
+    kani::cover!(
+        ar.width < br.width,
+        "public comparison wider RHS is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "public comparison signed mode is reachable"
+    );
+    kani::cover!(
+        ar.signed != br.signed,
+        "public comparison mixed signs are reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    kani::cover!(
+        ar.width == 1 && br.width == 2 && signed && ar.planes == (1, 0) && br.planes == (3, 0),
+        "public comparison sign extension is reachable"
+    );
+    (ar, br)
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_inequality_native_continuation_matches_reference() {
+    let (ar, br) = public_comparison_continuation::<1>();
+    kani::cover!(
+        ar.width == 64,
+        "public comparison LHS width 64 is reachable"
+    );
+    kani::cover!(
+        br.width == 64,
+        "public comparison RHS width 64 is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_wildcard_equality_continuation_matches_reference() {
+    let (ar, br) = public_comparison_continuation::<2>();
+    cover_wildcard_inputs(ar, br);
+}
+
+fn cover_wildcard_inputs(ar: Operand, br: Operand) {
+    kani::cover!(
+        ar.width == 1 && br.width == 1 && ar.planes == (1, 0) && br.planes == (0, 1),
+        "public comparison RHS wildcard is reachable"
+    );
+    kani::cover!(
+        ar.width == 1 && br.width == 1 && ar.planes == (0, 1) && br.planes == (0, 0),
+        "public comparison LHS X is significant"
     );
 }

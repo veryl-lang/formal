@@ -119,7 +119,10 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 shard.suite == "nonlinear"
                     || matches!(
                         contract.group,
-                        "public-wide-resize" | "public-getters" | "public-native-sequences"
+                        "public-wide-resize"
+                            | "public-getters"
+                            | "public-native-sequences"
+                            | "public-comparison-sequences"
                     )
             );
             if matches!(
@@ -157,6 +160,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     _ => panic!("explicit public contracts need a scope witness policy"),
                 };
                 assert!(contract.covers.contains(&witness));
+            }
+            if contract.group == "public-comparison-sequences" {
+                assert_eq!(shard.suite, "logic");
+                assert!(
+                    contract
+                        .covers
+                        .contains(&"public comparison sign extension is reachable")
+                );
             }
             if contract.group == "public-nonlinear" {
                 assert!(!contract.covers.is_empty());

@@ -74,7 +74,45 @@ const WORD_BIG_AMOUNT_COVERS: &[&str] = &[
     "public wide amount trace arithmetic left is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 126] = [
+const PUBLIC_INEQUALITY_CONTINUATION_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison signed mode is reachable",
+    "public comparison mixed signs are reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison sign extension is reachable",
+    "public comparison LHS width 64 is reachable",
+    "public comparison RHS width 64 is reachable",
+];
+
+const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison signed mode is reachable",
+    "public comparison mixed signs are reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison sign extension is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
+];
+
+pub static CONTRACTS: [Contract; 128] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -611,6 +649,20 @@ pub static CONTRACTS: [Contract; 126] = [
         harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
         message: "public shift semantics mismatch",
         covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-inequality-native-continuation",
+        harness: "public_inequality_native_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_INEQUALITY_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equality-continuation",
+        harness: "public_small_wildcard_equality_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WILDCARD_CONTINUATION_COVERS,
     },
     Contract {
         group: "full-nonlinear",
@@ -2029,7 +2081,11 @@ pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
     matches!(
         contract.group,
-        "public-nonlinear" | "public-wide-resize" | "public-getters" | "public-native-sequences"
+        "public-nonlinear"
+            | "public-wide-resize"
+            | "public-getters"
+            | "public-native-sequences"
+            | "public-comparison-sequences"
     )
 }
 
@@ -3710,6 +3766,66 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             path: CORE,
             source: mutate_method(&source, "expand", "mask_xz |= mask;", "mask_xz |= 0;"),
         });
+    }
+    for (contract_name, name, path, method, old, new) in [
+        (
+            "public-inequality-native-continuation",
+            "public-inequality-continuation-not-negated",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, false, true)",
+            "x.equal(y, false, false)",
+        ),
+        (
+            "public-inequality-native-continuation",
+            "public-inequality-continuation-uses-wildcard",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, false, true)",
+            "x.equal(y, true, true)",
+        ),
+        (
+            "public-inequality-native-continuation",
+            "public-inequality-continuation-zero-sign-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::Ne => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed();",
+            "Op::Ne => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = false;",
+        ),
+        (
+            "public-small-wildcard-equality-continuation",
+            "public-wildcard-continuation-swaps-operands",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "y.equal(x, true, false)",
+        ),
+        (
+            "public-inequality-native-continuation",
+            "public-inequality-continuation-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "Self::new_bit_1x(mismatch, unknown)",
+            "Self { signed: true, ..Self::new_bit_1x(mismatch, unknown) }",
+        ),
+        (
+            "public-small-wildcard-equality-continuation",
+            "public-wildcard-continuation-ignores-wildcards",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "x.equal(y, false, false)",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-equality-native") {
         let path = "veryl/crates/analyzer/src/ir/op.rs";
