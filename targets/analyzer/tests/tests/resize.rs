@@ -26,30 +26,38 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
         for use_sign in [false, true] {
             let expanded = input.expand(width, use_sign);
             let expanded_width = width.max(source_width);
-            let expected = reference_planes(expanded_width, |position| {
-                extended_logic_bit(
-                    (payload, mask_xz),
-                    source_width,
-                    expanded_width,
-                    signed,
-                    use_sign,
-                    position,
-                )
-            });
-            assert_eq!(
-                (expanded.payload_u128(), expanded.mask_xz_u128()),
-                expected,
-                "extension: source={source_width}, target={width}, signed={signed}, use_sign={use_sign}"
-            );
-            assert_eq!(expanded.width(), expanded_width);
-            assert_eq!(
-                expanded.signed(),
-                signed && (width <= source_width || use_sign)
-            );
-            assert_eq!(
-                matches!(expanded.as_ref(), Value::U64(_)),
-                expanded_width <= 64
-            );
+            // The scalar zero-extension proofs include the preceding clone/truncation.
+            let proved_scalar = source_width == 1
+                && matches!(width, 65 | 128)
+                && payload < 2
+                && mask_xz < 2
+                && !use_sign;
+            if !proved_scalar {
+                let expected = reference_planes(expanded_width, |position| {
+                    extended_logic_bit(
+                        (payload, mask_xz),
+                        source_width,
+                        expanded_width,
+                        signed,
+                        use_sign,
+                        position,
+                    )
+                });
+                assert_eq!(
+                    (expanded.payload_u128(), expanded.mask_xz_u128()),
+                    expected,
+                    "extension: source={source_width}, target={width}, signed={signed}, use_sign={use_sign}"
+                );
+                assert_eq!(expanded.width(), expanded_width);
+                assert_eq!(
+                    expanded.signed(),
+                    signed && (width <= source_width || use_sign)
+                );
+                assert_eq!(
+                    matches!(expanded.as_ref(), Value::U64(_)),
+                    expanded_width <= 64
+                );
+            }
             assert_eq!(input.payload_u128(), payload);
             assert_eq!(input.mask_xz_u128(), mask_xz);
             assert_eq!(input.width(), source_width);

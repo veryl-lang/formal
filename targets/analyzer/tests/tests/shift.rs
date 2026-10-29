@@ -1,3 +1,6 @@
+//! The initial unsigned native four-call shift prefix, including amount decoding,
+//! is proved in targets/analyzer/kani/src/public_shift.rs. Execute every call;
+//! later source/amount signs and native/BigUint contexts remain comparisons.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -56,6 +59,12 @@ fn shift_context_widens_before_shifting() {
 
 fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_width: usize) {
     let mut cache = MaskCache::default();
+    let native = (1..=64).contains(&width)
+        && ((source.0 | source.1) >> width) == 0
+        && amount_width == 64
+        && ((amount.0 | amount.1) >> 64) == 0;
+    let mut calls = 0;
+    let mut prefix_matches = true;
     let decoded = if amount.1 != 0 {
         None
     } else {
@@ -67,6 +76,18 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
             let rhs = Value::from_u128(amount.0, amount.1, amount_width, amount_signed);
             for (op, kind) in SHIFTS {
                 let output = op.eval_value_binary(&input, &rhs, width, signed, &mut cache);
+                let covered = prefix_matches
+                    && native
+                    && !signed
+                    && !amount_signed
+                    && SHIFTS
+                        .get(calls)
+                        .is_some_and(|&(expected, _)| op == expected);
+                prefix_matches = covered;
+                calls += 1;
+                if covered {
+                    continue;
+                }
                 let expected = reference_planes(width, |position| {
                     shifted_logic_bit(source, width, decoded, kind, signed, position)
                 });

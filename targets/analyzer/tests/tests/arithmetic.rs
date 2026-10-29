@@ -1,10 +1,9 @@
-//! Fresh-cache small arithmetic is proved in `targets/analyzer/kani/src/arithmetic.rs`.
-//! Execute every call to preserve cache history. Kani covers the first binary
-//! Add/Sub pair and all eight unary calls (natural width, then width + 2)
-//! for normalized sources at widths 1..=3. The unary exhaustive run is subsumed.
-//! Boundary sequences still execute every call and compare results outside that scope.
-//! Wider/BigUint operations, sentinels, and reference anchors remain here.
-//! X/Z unary plus follows the Table 11-6 identity interpretation in veryl_formal_semantics::arithmetic.
+//! The complete small binary/unary arithmetic traces are proved in Kani at
+//! normalized widths 1..=3 and natural/natural+2 contexts. Natural unary calls
+//! also cover every native width, and four binary word64 calls have a proof.
+//! Execute every remaining boundary call to preserve cache history; retain
+//! wider/BigUint, sentinel and independent reference anchors.
+//! X/Z unary plus uses the documented Table 11-6 identity interpretation.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::arithmetic::{Arithmetic, arithmetic_bit, arithmetic_planes};
@@ -27,23 +26,37 @@ fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
     let y = Value::from_u128(b.planes.0, b.planes.1, b.width, b.signed);
     let mut cache = MaskCache::default();
     let mut calls = 0;
-    let mut initial_add_covered = false;
+    let mut prefix_matches = true;
+    let prefix = [
+        (Op::Add, false, 0),
+        (Op::Sub, false, 0),
+        (Op::Add, true, 0),
+        (Op::Sub, true, 0),
+        (Op::Add, false, 2),
+        (Op::Sub, false, 2),
+        (Op::Add, true, 2),
+        (Op::Sub, true, 2),
+    ];
+    let small = small_normalized(a) && small_normalized(b);
+    let word64 = a.width == 64
+        && b.width == 64
+        && ((a.planes.0 | a.planes.1 | b.planes.0 | b.planes.1) >> 64) == 0;
     for &width in widths {
         for signed in [false, true] {
             let ap = prepared(a, width, signed);
             let bp = prepared(b, width, signed);
             for (op, kind) in [(Op::Add, Arithmetic::Add), (Op::Sub, Arithmetic::Subtract)] {
                 let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
-                let initial_layout = small_normalized(a)
-                    && small_normalized(b)
-                    && width == a.width.max(b.width)
-                    && !signed;
-                let covered = initial_layout
-                    && ((calls == 0 && op == Op::Add)
-                        || (calls == 1 && initial_add_covered && op == Op::Sub));
-                if calls == 0 {
-                    initial_add_covered = covered;
-                }
+                let covered = prefix_matches
+                    && (small || (word64 && calls < 4))
+                    && prefix
+                        .get(calls)
+                        .is_some_and(|&(expected_op, expected_sign, extra)| {
+                            op == expected_op
+                                && signed == expected_sign
+                                && width == a.width.max(b.width) + extra
+                        });
+                prefix_matches = covered;
                 calls += 1;
                 if covered {
                     continue;
@@ -92,7 +105,10 @@ fn check_unary(a: Operand, widths: &[usize]) {
             for (op, kind) in [(Op::Add, Arithmetic::Plus), (Op::Sub, Arithmetic::Negate)] {
                 let result = op.eval_value_unary(&x, width, signed, &mut cache);
                 let covered = prefix_matches
-                    && small_normalized(a)
+                    && ((calls < 4
+                        && (1..=64).contains(&a.width)
+                        && ((a.planes.0 | a.planes.1) >> a.width) == 0)
+                        || small_normalized(a))
                     && prefix
                         .get(calls)
                         .is_some_and(|&(expected_op, expected_sign, extra)| {
@@ -116,33 +132,6 @@ fn check_unary(a: Operand, widths: &[usize]) {
     }
     assert_eq!((x.payload_u128(), x.mask_xz_u128()), a.planes);
     assert_eq!((x.width(), x.signed()), (a.width, a.signed));
-}
-
-#[test]
-fn arithmetic_binary_exhaustive_four_state_small_widths() {
-    for a_width in 1..=3 {
-        for a_state in 0..(1u128 << (a_width * 2)) {
-            for a_signed in [false, true] {
-                let a = Operand {
-                    planes: (a_state & ((1 << a_width) - 1), a_state >> a_width),
-                    width: a_width,
-                    signed: a_signed,
-                };
-                for b_width in 1..=3 {
-                    for b_state in 0..(1u128 << (b_width * 2)) {
-                        for b_signed in [false, true] {
-                            let b = Operand {
-                                planes: (b_state & ((1 << b_width) - 1), b_state >> b_width),
-                                width: b_width,
-                                signed: b_signed,
-                            };
-                            check_binary(a, b, &[a_width.max(b_width), a_width.max(b_width) + 2]);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[test]

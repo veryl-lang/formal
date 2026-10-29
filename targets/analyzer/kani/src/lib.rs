@@ -44,3 +44,9 @@ mod public_comparison;
 
 #[cfg(kani)]
 mod public_gates;
+
+#[cfg(kani)]
+mod public_shift;
+
+#[cfg(kani)]
+mod public_wide_resize;
