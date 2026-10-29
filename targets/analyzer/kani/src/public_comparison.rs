@@ -3,7 +3,7 @@
 //! Inequality continues that prefix at all native widths. Wildcard equality and
 //! inequality continue it for source widths 1..=3. Signed and unsigned expression
 //! contexts partition every source sign pair; widths and state domains are unchanged.
-//! Other comparisons stay direct.
+//! Less-than continues the small-width prefix; other ordering comparisons stay direct.
 //! Full u128 getters,
 //! native storage, unsigned result metadata, constructors and source preservation
 //! are checked. IEEE 1800 11.4.4/11.4.5/11.4.6 are modeled independently in comparison.
@@ -41,6 +41,15 @@ unsafe fn reject_comparison_allocation(_: std::alloc::Layout) -> *mut u8 {
 fn reject_comparison_biguint_equal(_: &num_bigint::BigUint, _: &num_bigint::BigUint) -> bool {
     panic!("unreachable BigUint comparison");
 }
+fn reject_comparison_biguint_order(
+    _: &num_bigint::BigUint,
+    _: &num_bigint::BigUint,
+) -> std::cmp::Ordering {
+    panic!("unreachable BigUint comparison");
+}
+fn reject_comparison_bigint(_: &veryl_analyzer::value::ValueBigUint) -> Option<num_bigint::BigInt> {
+    panic!("unreachable BigUint comparison");
+}
 kani::stub_set!(
     small_native_comparison,
     stub(
@@ -61,6 +70,11 @@ kani::stub_set!(
         reject_comparison_mask
     ),
     stub(num_bigint::BigUint::eq, reject_comparison_biguint_equal),
+    stub(num_bigint::BigUint::cmp, reject_comparison_biguint_order),
+    stub(
+        veryl_analyzer::value::ValueBigUint::to_bigint,
+        reject_comparison_bigint
+    ),
     stub(std::alloc::alloc, reject_comparison_allocation),
     stub(std::alloc::alloc_zeroed, reject_comparison_allocation),
 );
@@ -206,7 +220,7 @@ fn native_result(output: Value) -> ValueU64 {
     native
 }
 
-// Observe Ne, wildcard equality or wildcard inequality only after every earlier
+// Observe each selected comparison only after every earlier
 // pair, producing widths 1 then 8 in direct-test order on one cache.
 fn public_comparison_trace<const MODE: u8>(
     a: ValueU64,
@@ -228,10 +242,15 @@ fn public_comparison_trace<const MODE: u8>(
         let _ = native_result(Op::EqWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache));
         let _ = native_result(Op::EqWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache));
     }
+    if MODE > 3 {
+        let _ = native_result(Op::NeWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::NeWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
     let kind = match MODE {
         1 => Comparison::NotEqual,
         2 => Comparison::WildcardEqual,
         3 => Comparison::WildcardNotEqual,
+        4 => Comparison::Less,
         _ => unreachable!(),
     };
     let expected = compared_logic(ar, br, kind);
@@ -239,6 +258,7 @@ fn public_comparison_trace<const MODE: u8>(
         1 => Op::Ne.eval_value_binary(&a, &b, 1, signed, &mut cache),
         2 => Op::EqWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
         3 => Op::NeWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        4 => Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 1, expected);
@@ -246,6 +266,7 @@ fn public_comparison_trace<const MODE: u8>(
         1 => Op::Ne.eval_value_binary(&a, &b, 8, signed, &mut cache),
         2 => Op::EqWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
         3 => Op::NeWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        4 => Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 8, expected);
@@ -412,4 +433,22 @@ fn public_small_wildcard_inequality_signed_continuation_matches_reference() {
     cover_signed_signs(ar, br);
     cover_partition_sizing(ar, br);
     cover_wildcard_inputs(ar, br);
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_unsigned_continuation_matches_reference() {
+    let (ar, br) = public_comparison_partition::<4, false>();
+    cover_unsigned_signs(ar, br);
+    cover_partition_sizing(ar, br);
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_signed_continuation_matches_reference() {
+    let (ar, br) = public_comparison_partition::<4, true>();
+    cover_signed_signs(ar, br);
+    cover_partition_sizing(ar, br);
 }

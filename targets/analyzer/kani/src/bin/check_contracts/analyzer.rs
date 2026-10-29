@@ -132,6 +132,24 @@ const PUBLIC_SMALL_WILDCARD_INEQUALITY_UNSIGNED_COVERS: &[&str] = &[
     "public comparison LHS X is significant",
 ];
 
+const PUBLIC_SMALL_ORDERING_UNSIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
+];
+
 const PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS: &[&str] = &[
     "public comparison LHS width 1 is reachable",
     "public comparison LHS width 2 is reachable",
@@ -148,6 +166,22 @@ const PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS: &[&str] = &[
     "public comparison partition sizing is reachable",
     "public comparison RHS wildcard is reachable",
     "public comparison LHS X is significant",
+];
+
+const PUBLIC_SMALL_ORDERING_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
 ];
 
 const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
@@ -169,7 +203,7 @@ const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
     "public comparison LHS X is significant",
 ];
 
-pub static CONTRACTS: [Contract; 131] = [
+pub static CONTRACTS: [Contract; 133] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -706,6 +740,20 @@ pub static CONTRACTS: [Contract; 131] = [
         harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
         message: "public shift semantics mismatch",
         covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-less-unsigned-continuation",
+        harness: "public_small_less_unsigned_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_ORDERING_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-less-signed-continuation",
+        harness: "public_small_less_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_ORDERING_SIGNED_COVERS,
     },
     Contract {
         group: "public-comparison-sequences",
@@ -3846,6 +3894,54 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         });
     }
     for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-direction",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, signed, true, false)",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-inclusive",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, signed, false, true)",
+        ),
+        (
+            "public-small-less-signed-continuation",
+            "public-less-signed-unsigned-order",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, false)",
+            "x.compare(y, false, false, false)",
+        ),
+        (
+            "public-small-less-signed-continuation",
+            "public-less-signed-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::Less => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, signed);",
+            "Op::Less => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, false);",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self::new_bit_x1(false, relation)",
+        ),
+        (
+            "public-small-less-unsigned-continuation",
+            "public-less-unsigned-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self { signed: true, ..Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation) }",
+        ),
         (
             "public-inequality-native-unsigned-continuation",
             "public-inequality-continuation-not-negated",

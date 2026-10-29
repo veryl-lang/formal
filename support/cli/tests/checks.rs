@@ -205,6 +205,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     for family in [
         "public-inequality-native",
         "public-small-wildcard-inequality",
+        "public-small-less",
     ] {
         for context in ["unsigned", "signed"] {
             let name = format!("{family}-{context}-continuation");
