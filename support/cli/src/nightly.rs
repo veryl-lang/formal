@@ -1,4 +1,4 @@
-use crate::{Commands, Environment, Result, checks, error, required};
+use crate::{Commands, Environment, Result, checks, error, locks, required};
 use serde_json::Value;
 use std::{
     fs::{self, OpenOptions},
@@ -166,6 +166,8 @@ pub fn issue_body(
     formal_sha: &str,
     failed: &[&str],
     url: &str,
+    lock_digest: &str,
+    artifact: &str,
 ) -> String {
     format!(
         "{ISSUE_BEGIN}\nCandidate Veryl revision: `{candidate}`\n\n\
@@ -176,8 +178,11 @@ pub fn issue_body(
         Replay from a clone with the same verification revision:\n\n\
         ```sh\ngit checkout --detach {formal_sha}\ngit submodule update --init --recursive\n\
         git -C veryl fetch origin {candidate}\ngit -C veryl checkout --detach {candidate}\n\
+        gh run download {} --name {artifact} --dir support/ci-inputs\n\
+        cargo run --locked --manifest-path support/cli/Cargo.toml -- apply-locks {candidate} {lock_digest}\n\
         # Run the failed jobs' commands from .github/workflows/verify.yml.\n```\n{ISSUE_END}\n",
-        failed.join(", ")
+        failed.join(", "),
+        url.rsplit('/').next().unwrap_or(url),
     )
 }
 
@@ -231,7 +236,15 @@ pub fn finalize(root: &Path, env: &Environment, commands: &mut impl Commands) ->
             .as_array()
             .ok_or_else(|| error("invalid issue list"))?;
         let existing = issues.iter().find(|item| item["title"] == ISSUE_TITLE);
-        let generated = issue_body(candidate, pinned, formal_sha, &failed, &url);
+        let generated = issue_body(
+            candidate,
+            pinned,
+            formal_sha,
+            &failed,
+            &url,
+            revision(required(env, "FORMAL_LOCK_DIGEST")?)?,
+            required(env, "FORMAL_LOCK_ARTIFACT")?,
+        );
         let body = match existing {
             Some(item) => merge_issue_body(
                 item["body"]
@@ -307,11 +320,21 @@ pub fn finalize(root: &Path, env: &Environment, commands: &mut impl Commands) ->
             "finalizer checkout differs from the verified formal revision",
         ));
     }
+    commands.run(root, "git", &["diff", "--cached", "--exit-code"])?;
     checkout(root, candidate, commands)?;
-    commands.run(root, "git", &["add", "veryl"])?;
-    if commands.run(root, "git", &["diff", "--cached", "--name-only"])? != "veryl" {
+    let digest = required(env, "FORMAL_LOCK_DIGEST")?;
+    locks::apply(root, candidate, digest, commands)?;
+    let mut paths = vec!["add", "veryl"];
+    paths.extend(locks::FILES);
+    commands.run(root, "git", &paths)?;
+    let changed = commands.run(root, "git", &["diff", "--cached", "--name-only"])?;
+    if !changed.lines().any(|path| path == "veryl")
+        || changed
+            .lines()
+            .any(|path| path != "veryl" && !locks::FILES.contains(&path))
+    {
         return Err(error(
-            "the update must contain exactly the verified submodule pointer",
+            "the update may contain only the verified submodule pointer and lock files",
         ));
     }
     commands.run(root, "git", &["config", "user.name", "github-actions[bot]"])?;

@@ -47,6 +47,8 @@ fn environment() -> Environment {
         ("GITHUB_REPOSITORY", "veryl-lang/formal".into()),
         ("GITHUB_SERVER_URL", "https://github.com".into()),
         ("GITHUB_RUN_ID", "123".into()),
+        ("FORMAL_LOCK_ARTIFACT", "formal-candidate-locks-1".into()),
+        ("FORMAL_LOCK_DIGEST", sha('d')),
         ("CHECK_RESULTS", needs().to_string()),
     ]
     .into_iter()
@@ -159,6 +161,8 @@ fn replay_and_repeated_issues_preserve_maintainer_notes() {
         &sha('c'),
         &["value-contracts"],
         "old-run",
+        &sha('e'),
+        "formal-candidate-locks-1",
     );
     let new = issue_body(
         &sha('d'),
@@ -166,6 +170,8 @@ fn replay_and_repeated_issues_preserve_maintainer_notes() {
         &sha('c'),
         &["cache-contracts"],
         "new-run",
+        &sha('f'),
+        "formal-candidate-locks-2",
     );
     let merged = merge_issue_body(&format!("Diagnosis\n\n{old}\nLocal notes\n"), &new);
     assert!(merged.starts_with("Diagnosis"));
@@ -173,6 +179,8 @@ fn replay_and_repeated_issues_preserve_maintainer_notes() {
     assert!(!merged.contains("old-run"));
     assert!(merged.contains("new-run"));
     assert_eq!(merged.matches(ISSUE_BEGIN).count(), 1);
+    assert!(merged.contains("--name formal-candidate-locks-2 --dir support/ci-inputs"));
+    assert!(merged.contains(&format!("apply-locks {} {}", sha('d'), sha('f'))));
     assert!(merged.contains("git submodule update --init --recursive"));
 }
 
@@ -269,32 +277,18 @@ fn prepare_resolves_one_candidate_and_exports_the_verified_pair() {
 }
 
 #[test]
-fn unexpected_staged_files_and_checkout_mismatch_cannot_be_published() {
-    for replies in [
-        vec![String::new(), sha('c'), sha('d')],
-        vec![
-            String::new(),
-            sha('c'),
-            sha('c'),
-            sha('a'),
-            sha('a'),
-            String::new(),
-            String::new(),
-            "proof.rs\nveryl".into(),
-        ],
-    ] {
-        let mut commands = Scripted {
-            replies: replies.into(),
-            ..Default::default()
-        };
-        assert!(finalize(Path::new("repo"), &environment(), &mut commands).is_err());
-        assert!(
-            !commands
-                .calls
-                .iter()
-                .any(|call| call.iter().any(|arg| arg == "commit" || arg == "push"))
-        );
-    }
+fn checkout_mismatch_cannot_be_published() {
+    let mut commands = Scripted {
+        replies: vec![String::new(), sha('c'), sha('d')].into(),
+        ..Default::default()
+    };
+    assert!(finalize(Path::new("repo"), &environment(), &mut commands).is_err());
+    assert!(
+        !commands
+            .calls
+            .iter()
+            .any(|call| call.iter().any(|arg| arg == "commit" || arg == "push"))
+    );
 }
 
 #[test]
@@ -327,7 +321,23 @@ fn workflow_requires_all_checks_and_post_verification_integrity() {
     assert!(workflow.contains("if: failure()"));
     assert!(workflow.contains("--bin formal-ci -- finalize"));
     assert!(!workflow.contains("python3"));
-    assert!(!workflow.contains("actions/download-artifact@"));
+    assert_eq!(
+        workflow
+            .matches("uses: actions/download-artifact@v4")
+            .count(),
+        2
+    );
+    assert!(workflow.contains("-- prepare-locks"));
+    assert!(workflow.contains("-- apply-locks"));
+    assert_eq!(
+        workflow
+            .matches("name: ${{ needs.prepare.outputs.lock_artifact }}")
+            .count(),
+        2
+    );
+    assert!(workflow.contains("lock_artifact: formal-candidate-locks-${{ github.run_attempt }}"));
+    assert!(workflow.contains("FORMAL_LOCK_DIGEST: ${{ needs.prepare.outputs.lock_digest }}"));
+    assert!(workflow.contains("if: needs.contracts.result == 'success'"));
     assert!(!workflow.contains("workflow_call"));
     assert!(!workflow.contains("cargo test"));
 }

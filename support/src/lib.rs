@@ -393,6 +393,24 @@ fn copy_tree(source: &Path, destination: &Path) {
 
 struct Scratch(PathBuf);
 
+// Kani 0.68 does not expose Cargo's --locked flag. Mutation snapshots must retain
+// the dependency graph copied from the verified candidate, even on tool failure.
+fn lock_files(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+    let mut files = std::collections::BTreeMap::new();
+    for entry in fs::read_dir(root).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if entry.file_type().unwrap().is_dir() {
+            if !["target", ".git", ".local"].contains(&entry.file_name().to_str().unwrap()) {
+                files.extend(lock_files(&path));
+            }
+        } else if entry.file_name() == "Cargo.lock" {
+            files.insert(path.clone(), fs::read(path).unwrap());
+        }
+    }
+    files
+}
+
 fn copy_fixtures(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
@@ -604,6 +622,7 @@ impl Runner<'_> {
                 .0
                 .join(relative_manifest.parent().unwrap())
                 .join("target/fixtures");
+            let locked = lock_files(&scratch.0);
             for mutant in mutations {
                 assert!(
                     Path::new(mutant.path)
@@ -636,7 +655,12 @@ impl Runner<'_> {
                 let mut log = output_text(&output);
                 fs::write(logs.join(format!("{}.log", mutant.name)), &log).unwrap();
                 fs::write(scratch.0.join(mutant.path), original).unwrap();
-                let accepted = backend.mutation(&output, &log, mutant.contract);
+                let unchanged = locked == lock_files(&scratch.0);
+                if !unchanged {
+                    log.push_str("\nDependency lock files changed in the mutation snapshot.\n");
+                    fs::write(logs.join(format!("{}.log", mutant.name)), &log).unwrap();
+                }
+                let accepted = unchanged && backend.mutation(&output, &log, mutant.contract);
                 if !accepted {
                     summary.status = Status::Failed;
                     summary.exit_code = format!("{:?}", output.status.code());
@@ -1143,6 +1167,86 @@ fn check() {
         assert_eq!(
             fs::read_to_string(package.join("src/lib.rs")).unwrap(),
             original
+        );
+    }
+    #[test]
+    fn a_semantic_counterexample_with_changed_snapshot_locks_is_not_accepted() {
+        let directory = Scratch(std::env::temp_dir().join(format!(
+            "veryl-lock-test-{}-{}", std::process::id(),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        )));
+        let package = directory.0.join("toy");
+        fs::create_dir_all(package.join("src")).unwrap();
+        fs::create_dir_all(package.join("tests")).unwrap();
+        fs::write(
+            package.join("Cargo.toml"),
+            "[package]\nname='lock-probe'\nversion='0.1.0'\nedition='2024'\n[workspace]\n",
+        )
+        .unwrap();
+        let lock = "version = 4\n[[package]]\nname = 'lock-probe'\nversion = '0.1.0'\n";
+        fs::write(package.join("Cargo.lock"), lock).unwrap();
+        fs::write(package.join("src/lib.rs"), "pub const VALUE: u8 = 0;").unwrap();
+        fs::write(
+            package.join("tests/probe.rs"),
+            r#"
+#[test]
+fn check() {
+    if lock_probe::VALUE != 0 {
+        std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.lock"), "changed").unwrap();
+    }
+    assert_eq!(lock_probe::VALUE, 0, "semantic mismatch");
+}
+"#,
+        )
+        .unwrap();
+        static CONTRACT: Contract = Contract {
+            name: "lock-check",
+            group: "locks",
+            harness: "check",
+            message: "semantic mismatch",
+            covers: &[],
+        };
+        let mutation = Mutation {
+            name: "changes-lock",
+            contract: &CONTRACT,
+            path: "toy/src/lib.rs",
+            source: "pub const VALUE: u8 = 1;".into(),
+        };
+        let result = std::panic::catch_unwind(|| {
+            Runner {
+                target: "lock-test",
+                repo: &directory.0,
+                manifest: &package.join("Cargo.toml"),
+                files: &[],
+                directories: &["toy"],
+            }
+            .run_with_backend(
+                Backend::NativeTests {
+                    package: "lock-probe",
+                    test_target: "probe",
+                },
+                Mode::All,
+                &[&CONTRACT],
+                &[mutation],
+            )
+        });
+        assert!(result.is_err());
+        let run = fs::read_dir(package.join("target/contract-logs"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let log = fs::read_to_string(run.join("changes-lock.log")).unwrap();
+        assert!(log.contains("semantic mismatch"));
+        assert!(log.contains("Dependency lock files changed in the mutation snapshot."));
+        let summary = Summary::parse(&fs::read_to_string(run.join("summary.txt")).unwrap());
+        assert_eq!(summary.status, Status::Failed);
+        assert_eq!(summary.positive_passes, Some(1));
+        assert_eq!(summary.mutation_passes, Some(0));
+        assert_eq!(
+            fs::read_to_string(package.join("Cargo.lock")).unwrap(),
+            lock
         );
     }
     #[test]

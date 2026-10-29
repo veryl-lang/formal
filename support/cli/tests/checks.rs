@@ -466,7 +466,17 @@ fn execution_stops_on_failure_and_still_checks_source_integrity() {
         ..Default::default()
     };
     let p = plan("cache-contracts", "single", Mode::All).unwrap();
-    assert!(verify(Path::new("repo"), &candidate, &p, &mut exec, &mut commands).is_err());
+    assert!(
+        verify(
+            Path::new("repo"),
+            &candidate,
+            None,
+            &p,
+            &mut exec,
+            &mut commands
+        )
+        .is_err()
+    );
     assert_eq!(exec.calls.len(), 2);
     assert_eq!(commands.calls, 4);
 }
@@ -489,7 +499,17 @@ fn dirty_sources_fail_before_execution_or_after_success() {
         }
         let mut commands = Integrity { replies, calls: 0 };
         let mut exec = Recording::default();
-        assert!(verify(Path::new("repo"), &candidate, &p, &mut exec, &mut commands).is_err());
+        assert!(
+            verify(
+                Path::new("repo"),
+                &candidate,
+                None,
+                &p,
+                &mut exec,
+                &mut commands
+            )
+            .is_err()
+        );
         assert_eq!(exec.calls.is_empty(), before);
     }
 }

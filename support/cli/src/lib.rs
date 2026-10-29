@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, error::Error, io, path::Path, process::Command};
 
 pub mod checks;
+pub mod locks;
 pub mod nightly;
 pub mod report;
 

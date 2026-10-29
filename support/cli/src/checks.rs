@@ -1,4 +1,4 @@
-use crate::{Commands, Environment, Result, error, nightly, required};
+use crate::{Commands, Environment, Result, error, locks, nightly, required};
 use std::{
     collections::BTreeMap,
     fs::{self, OpenOptions},
@@ -662,17 +662,28 @@ pub fn execute(root: &Path, steps: &[Invocation], executor: &mut impl Executor) 
 pub fn verify(
     root: &Path,
     candidate: &str,
+    lock_digest: Option<&str>,
     plan: &Plan,
     executor: &mut impl Executor,
     commands: &mut impl Commands,
 ) -> Result<()> {
     nightly::verify_clean(root, candidate, commands)?;
+    if let Some(digest) = lock_digest {
+        locks::verify(root, candidate, digest, commands)?;
+    }
     let result = execute(root, &plan.steps, executor);
     let clean = nightly::verify_clean(root, candidate, commands);
     if let Err(error) = &clean {
         eprintln!("Veryl integrity check failed: {error}");
     }
-    result.and(clean)
+    let unchanged = match lock_digest {
+        Some(digest) => locks::verify(root, candidate, digest, commands),
+        None => Ok(()),
+    };
+    if let Err(error) = &unchanged {
+        eprintln!("Candidate lock integrity check failed: {error}");
+    }
+    result.and(clean).and(unchanged)
 }
 
 pub fn setup(
