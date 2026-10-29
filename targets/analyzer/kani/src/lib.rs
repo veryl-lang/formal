@@ -53,3 +53,6 @@ mod public_wide_resize;
 
 #[cfg(kani)]
 mod public_big_getters;
+
+#[cfg(kani)]
+mod public_big_amount;

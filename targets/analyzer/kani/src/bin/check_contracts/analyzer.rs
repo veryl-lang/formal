@@ -66,7 +66,15 @@ const SHIFT_WIDENING_COVERS: &[&str] = &[
     "public shift widening overshift padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 101] = [
+const WORD64_BIG_AMOUNT_COVERS: &[&str] = &[
+    "public wide amount trace signed operand is reachable",
+    "public wide amount trace negative source is reachable",
+    "public wide amount trace signed X source is reachable",
+    "public wide amount trace unsigned Z source is reachable",
+    "public wide amount trace arithmetic left is reachable",
+];
+
+pub static CONTRACTS: [Contract; 106] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -422,6 +430,47 @@ pub static CONTRACTS: [Contract; 101] = [
         harness: "public_shift_widening_4_to_64_matches_reference_semantics",
         message: "public shift semantics mismatch",
         covers: SHIFT_WIDENING_COVERS,
+    },
+    Contract {
+        group: "public-getters",
+        name: "public-big-amount-decoding-128",
+        harness: "public_big_amount_decoding_matches_reference",
+        message: "public BigUint amount semantics mismatch",
+        covers: &[
+            "public BigUint amount zero is reachable",
+            "public BigUint amount usize maximum is reachable",
+            "public BigUint oversized amount is reachable",
+            "public BigUint upper X amount is reachable",
+            "public BigUint upper Z amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-small",
+        harness: "public_word64_shift_small_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD64_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-high",
+        harness: "public_word64_shift_high_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD64_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-upper-x",
+        harness: "public_word64_shift_upper_x_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD64_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-word64-big-amount-upper-z",
+        harness: "public_word64_shift_upper_z_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD64_BIG_AMOUNT_COVERS,
     },
     Contract {
         group: "full-nonlinear",
@@ -3991,6 +4040,117 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "expand",
                 "if msb_xz {\n                    mask_xz |= mask;",
                 "if msb_xz && msb {\n                    mask_xz |= mask;",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-overflow-as-none",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+                "Self::BigUint(x) => x.payload.to_usize(),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-ignores-upper-XZ",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.mask_xz.iter_u64_digits().next().unwrap_or(0) != 0 => None,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-amount-decoding-128")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-amount-rejects-wide-storage",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+                "Self::BigUint(_) => None,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-small")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-uses-strict-decoding",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize();"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-truncates-high-word",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = if y.mask_xz_u128() != 0 { None } else { Some(y.payload_u128() as usize) };"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-upper-x")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-caller-ignores-XZ",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = Some(usize::try_from(y.payload_u128()).unwrap_or(usize::MAX));"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-big-amount-upper-z")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-big-amount-Z-as-large-known",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.is_xz() => Some(usize::MAX),",
             ),
         });
     }

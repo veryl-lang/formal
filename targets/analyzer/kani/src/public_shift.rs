@@ -5,7 +5,9 @@
 //! all later source and amount sign groups have proofs on that same cache.
 //! Result width stays native
 //! source width. Context widening 4->8/64 has separate fresh-cache proofs;
-//! BigUint amount/source paths remain executable comparisons.
+//! Four shared 128-bit amount fixtures also have word64 caller proofs. Their
+//! production constructors are checked separately by finite native comparisons.
+//! Other BigUint amount/source paths remain executable comparisons.
 //! IEEE 1800 11.4.10 is modeled independently by shifted_logic_bit.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value, ValueU64};
@@ -646,4 +648,231 @@ fn public_shift_widening_4_to_64_matches_reference_semantics() {
 #[kani::use_stub_set(small_native_shift)]
 fn public_shift_widening_4_to_8_matches_reference_semantics() {
     public_native_shift_widening::<4, 8>();
+}
+
+#[path = "../../shift_amount_cases.rs"]
+mod shift_amount_cases;
+use shift_amount_cases::WIDE_SHIFT_AMOUNTS;
+
+// Caller proof inputs are canonical numerical BigUint values. The actual Veryl
+// constructor is covered by the native finite bitwise check of all shared cases
+// and both signs. No constructor stub is installed. BigUint count decoding,
+// input getters and allocation remain real; guards forbid BigUint source paths.
+kani::stub_set!(
+    native_source_big_amount,
+    stub(veryl_analyzer::value::MaskCache::get, reject_shift_cache),
+    stub(
+        <veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone,
+        reject_shift_clone
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::gen_mask,
+        reject_shift_mask
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::payload,
+        reject_shift_plane
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::mask_xz,
+        reject_shift_plane
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::to_value_u64,
+        reject_shift_to_native
+    ),
+);
+fn assert_big_amount(input: &Value, amount: (u128, u128), signed: bool) {
+    assert!(
+        matches!(input, Value::BigUint(_))
+            && input.width() == 128
+            && input.signed() == signed
+            && input.payload_u128() == amount.0
+            && input.mask_xz_u128() == amount.1,
+        "public shift semantics mismatch"
+    );
+}
+
+fn big_amount_shift_group<const SIGNED: bool, const AMOUNT_SIGNED: bool>(
+    source_value: &Value,
+    source: (u128, u128),
+    width: usize,
+    amount: (u128, u128),
+    observe: bool,
+    selected: usize,
+    observed: &mut Option<ValueU64>,
+    cache: &mut MaskCache,
+) {
+    let amount_value = Value::BigUint(veryl_analyzer::value::ValueBigUint {
+        payload: Box::new(num_bigint::BigUint::from(amount.0)),
+        mask_xz: Box::new(num_bigint::BigUint::from(amount.1)),
+        width: 128,
+        signed: AMOUNT_SIGNED,
+    });
+    let Value::BigUint(big) = amount_value else {
+        panic!("public shift semantics mismatch");
+    };
+    assert!(
+        big.payload.bits() <= 128 && big.mask_xz.bits() <= 128,
+        "public shift semantics mismatch"
+    );
+    let amount_value = Value::BigUint(big);
+    let output =
+        Op::LogicShiftL.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 0 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::LogicShiftR.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 1 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::ArithShiftL.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 2 {
+        *observed = Some(output);
+    }
+    let output =
+        Op::ArithShiftR.eval_value_binary(source_value, &amount_value, width, SIGNED, cache);
+    let Value::U64(output) = output else {
+        panic!("public shift semantics mismatch");
+    };
+    if observe && selected == 3 {
+        *observed = Some(output);
+    }
+    assert_big_amount(&amount_value, amount, AMOUNT_SIGNED);
+    assert_input(source_value, width, source, SIGNED);
+}
+
+fn big_amount_native_trace<const PAYLOAD: u128, const XZ: u128>() {
+    let width = 64;
+    let source = (
+        u128::from(kani::any::<u64>()),
+        u128::from(kani::any::<u64>()),
+    );
+    let amount = (PAYLOAD, XZ);
+    let decoded = if XZ != 0 {
+        None
+    } else {
+        Some(usize::try_from(PAYLOAD).unwrap_or(usize::MAX))
+    };
+    let phase = usize::from(kani::any::<u8>() & 3);
+    let selected = usize::from(kani::any::<u8>() & 3);
+    let position = usize::from(kani::any::<u8>() & 63);
+    let mut observed = None;
+    let mut cache = MaskCache::default();
+    let unsigned = Value::U64(native_input(width, source, false));
+    big_amount_shift_group::<false, false>(
+        &unsigned,
+        source,
+        width,
+        amount,
+        phase == 0,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    big_amount_shift_group::<false, true>(
+        &unsigned,
+        source,
+        width,
+        amount,
+        phase == 1,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    let signed = Value::U64(native_input(width, source, true));
+    big_amount_shift_group::<true, false>(
+        &signed,
+        source,
+        width,
+        amount,
+        phase == 2,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    big_amount_shift_group::<true, true>(
+        &signed,
+        source,
+        width,
+        amount,
+        phase == 3,
+        selected,
+        &mut observed,
+        &mut cache,
+    );
+    let kind = match selected {
+        0 => Shift::LogicalLeft,
+        1 => Shift::LogicalRight,
+        2 => Shift::ArithmeticLeft,
+        _ => Shift::ArithmeticRight,
+    };
+    assert_result(
+        Value::U64(observed.expect("public shift semantics mismatch")),
+        source,
+        width,
+        phase >= 2,
+        decoded,
+        kind,
+        position,
+    );
+    kani::cover!(
+        phase == 1 && selected == 0 && source == (1, 0) && position == 0,
+        "public wide amount trace signed operand is reachable"
+    );
+    kani::cover!(
+        phase == 2 && selected == 3 && source == (1u128 << 63, 0) && position == 63,
+        "public wide amount trace negative source is reachable"
+    );
+    kani::cover!(
+        phase == 3 && selected == 3 && source == (0, 1u128 << 63) && position == 0,
+        "public wide amount trace signed X source is reachable"
+    );
+    kani::cover!(
+        phase == 0 && selected == 1 && source == (1u128 << 63, 1u128 << 63) && position == 63,
+        "public wide amount trace unsigned Z source is reachable"
+    );
+    kani::cover!(
+        phase == 2 && selected == 2 && source == (1, 0) && position == 63,
+        "public wide amount trace arithmetic left is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word64_shift_small_amount_matches_reference() {
+    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word64_shift_high_amount_matches_reference() {
+    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word64_shift_upper_x_amount_matches_reference() {
+    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_word64_shift_upper_z_amount_matches_reference() {
+    big_amount_native_trace::<{ WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
 }
