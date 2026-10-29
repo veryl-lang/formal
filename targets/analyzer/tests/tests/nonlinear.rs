@@ -1,3 +1,7 @@
+//! Kani proves the normalized widths 1..=3 Mul/Div prefix at natural/natural+1
+//! contexts, with independent input/caller signs. Keep every call and compare
+//! Rem/Pow and native/BigUint boundaries. Boundary Div has a different preceding
+//! wide Mul cache history and is deliberately retained.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -23,6 +27,18 @@ fn check(a: Operand, b: Operand, boundaries: bool) {
         let min = if power { a.width } else { a.width.max(b.width) };
         for width in [min, if boundaries { 128 } else { min + 1 }] {
             for signed in [false, true] {
+                let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
+                // Execute the proved prefix to preserve the cache used by Rem/Pow.
+                let small = (1..=3).contains(&a.width)
+                    && (1..=3).contains(&b.width)
+                    && (a.planes.0 | a.planes.1) >> a.width == 0
+                    && (b.planes.0 | b.planes.1) >> b.width == 0;
+                if small
+                    && ((!boundaries && matches!(kind, Nonlinear::Multiply | Nonlinear::Divide))
+                        || (boundaries && width == min && matches!(kind, Nonlinear::Multiply)))
+                {
+                    continue;
+                }
                 let ap = widened(a, width, signed);
                 let bp = if power {
                     b.planes
@@ -51,19 +67,6 @@ fn check(a: Operand, b: Operand, boundaries: bool) {
                         ),
                         expected
                     );
-                }
-                let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
-                // Kani covers this exact four-call prefix; keep the calls for later cache history.
-                if matches!(kind, Nonlinear::Multiply)
-                    && (1..=3).contains(&a.width)
-                    && (1..=3).contains(&b.width)
-                    && a.planes.0 >> a.width == 0
-                    && a.planes.1 >> a.width == 0
-                    && b.planes.0 >> b.width == 0
-                    && b.planes.1 >> b.width == 0
-                    && (!boundaries || width == min)
-                {
-                    continue;
                 }
                 assert_eq!(
                     (result.payload_u128(), result.mask_xz_u128()),

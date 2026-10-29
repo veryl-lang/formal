@@ -7,7 +7,9 @@
 //! The one-bit public dispatcher also checks raw native result fields.
 //! All eight small binary/unary calls at natural/natural+2 width have shared-cache
 //! proofs. The natural unary prefix covers every native width; the binary prefix
-//! also covers fixed word64 sources. Wider contexts and traversal remain executable.
+//! also covers fixed word64 sources. Public Mul/Div cache prefixes admit source
+//! widths 1..=3 at natural/natural+1 contexts; Div partitions result widths 1..=4
+//! and caller sign. Wider contexts and traversal remain executable.
 //! X/Z unary plus checks the Table 11-6 identity interpretation documented in
 //! veryl_formal_semantics::arithmetic; it does not resolve the conflicting general X/Z sentence.
 
@@ -1425,4 +1427,203 @@ fn public_small_multiply_initial_calls_match_reference_semantics() {
             && ar.planes.0 & (1 << (ar.width - 1)) != 0,
         "public small product sign extension is reachable"
     );
+}
+
+// Width arithmetic and raw choices stay in u8. Masking with 7 is redundant for
+// widths 1..=3 and preserves every normalized four-state plane while making the
+// maximum bit bound explicit before the real public constructor is called.
+fn nonlinear_input() -> (ValueU64, Operand) {
+    let width = (kani::any::<u8>() & 3).min(2) + 1;
+    let mask = (1u8 << width) - 1;
+    let before = Operand {
+        planes: (
+            u128::from(kani::any::<u8>() & 7 & mask),
+            u128::from(kani::any::<u8>() & 7 & mask),
+        ),
+        width: usize::from(width),
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(
+        before.planes.0,
+        before.planes.1,
+        before.width,
+        before.signed,
+    );
+    assert_public_input(&value, before);
+    let Value::U64(native) = value else {
+        panic!("public arithmetic semantics mismatch");
+    };
+    (native, before)
+}
+
+// Partition the nonlinear cache trace by result width (1..=4) and caller sign.
+// Currently only STAGE=1 (Div) is instantiated. The union admits source widths 1..=3,
+// every four-state value and independent source/caller signs. Each proof executes
+// the exact prefix through the observed call; exponent width stays self-determined.
+// IEEE 1800 11.4.3/11.4.3.1 and 11.6.1/11.8.2 are modeled independently by planes.
+fn public_small_nonlinear_width<const STAGE: u8, const WIDTH: usize, const SIGNED: bool>() {
+    use veryl_formal_semantics::nonlinear::{Nonlinear, planes};
+    use veryl_formal_semantics::resize::{extended_logic_bit, reference_planes};
+    let (a, ar) = nonlinear_input();
+    let (b, br) = nonlinear_input();
+    let a = Value::U64(a);
+    let b = Value::U64(b);
+    let natural = if STAGE == 3 {
+        ar.width
+    } else {
+        ar.width.max(br.width)
+    };
+    kani::assume(natural == WIDTH || natural + 1 == WIDTH);
+    let signed = SIGNED;
+    let mut cache = MaskCache::default();
+    for stage in 0..STAGE {
+        let op = match stage {
+            0 => Op::Mul,
+            1 => Op::Div,
+            _ => Op::Rem,
+        };
+        let width = ar.width.max(br.width);
+        for extra in 0..=1 {
+            for sign in [false, true] {
+                let _ = op.eval_value_binary(&a, &b, width + extra, sign, &mut cache);
+            }
+        }
+    }
+    let (op, kind) = match STAGE {
+        1 => (Op::Div, Nonlinear::Divide),
+        2 => (Op::Rem, Nonlinear::Remainder),
+        _ => (Op::Pow, Nonlinear::Power),
+    };
+    if natural != WIDTH {
+        let _ = op.eval_value_binary(&a, &b, natural, false, &mut cache);
+        let _ = op.eval_value_binary(&a, &b, natural, true, &mut cache);
+    }
+    if signed {
+        let _ = op.eval_value_binary(&a, &b, WIDTH, false, &mut cache);
+    }
+    let output = op.eval_value_binary(&a, &b, WIDTH, signed, &mut cache);
+    let ap = reference_planes(WIDTH, |p| {
+        extended_logic_bit(ar.planes, ar.width, WIDTH, ar.signed, signed, p)
+    });
+    let bp = if STAGE == 3 {
+        br.planes
+    } else {
+        reference_planes(WIDTH, |p| {
+            extended_logic_bit(br.planes, br.width, WIDTH, br.signed, signed, p)
+        })
+    };
+    let base_signed = ar.signed && (WIDTH == ar.width || signed);
+    let expected = planes(
+        ap,
+        bp,
+        WIDTH,
+        if STAGE == 3 { base_signed } else { signed },
+        br.width,
+        br.signed,
+        kind,
+    );
+    let Value::U64(native) = output else {
+        panic!("public arithmetic semantics mismatch");
+    };
+    let output = Value::U64(native);
+    assert!(
+        output.width() == WIDTH
+            && output.signed()
+                == if STAGE == 3 {
+                    br.planes.1 == 0 && base_signed
+                } else {
+                    signed
+                },
+        "public arithmetic semantics mismatch"
+    );
+    assert!(
+        output.payload_u128() == expected.0 && output.mask_xz_u128() == expected.1,
+        "public arithmetic semantics mismatch"
+    );
+    assert_public_input(&a, ar);
+    assert_public_input(&b, br);
+    if WIDTH <= 3 {
+        kani::cover!(
+            natural == WIDTH,
+            "nonlinear fixed width natural call is reachable"
+        );
+    }
+    if WIDTH >= 2 {
+        kani::cover!(
+            natural + 1 == WIDTH,
+            "nonlinear fixed width widened call is reachable"
+        );
+    }
+    kani::cover!(
+        ar.planes.1 != 0 && br.planes.1 == 0,
+        "nonlinear fixed width unknown LHS is reachable"
+    );
+    kani::cover!(
+        br.planes.1 != 0 && ar.planes.1 == 0,
+        "nonlinear fixed width unknown RHS is reachable"
+    );
+    kani::cover!(
+        ar.planes.1 == 0 && br.planes == (0, 0),
+        "nonlinear fixed width zero RHS is reachable"
+    );
+    kani::cover!(
+        ar.signed != br.signed,
+        "nonlinear fixed width mixed signs are reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_1_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 1, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_1_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 1, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_2_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 2, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_2_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 2, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_3_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 3, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_3_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 3, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_4_unsigned_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 4, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_arithmetic)]
+fn public_small_divide_width_4_signed_matches_reference_semantics() {
+    public_small_nonlinear_width::<1, 4, true>();
 }

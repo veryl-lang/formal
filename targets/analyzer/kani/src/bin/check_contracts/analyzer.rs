@@ -47,7 +47,115 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 74] = [
+pub static CONTRACTS: [Contract; 82] = [
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-1-unsigned",
+        harness: "public_small_divide_width_1_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-1-signed",
+        harness: "public_small_divide_width_1_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-2-unsigned",
+        harness: "public_small_divide_width_2_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-2-signed",
+        harness: "public_small_divide_width_2_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-3-unsigned",
+        harness: "public_small_divide_width_3_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-3-signed",
+        harness: "public_small_divide_width_3_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width natural call is reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-4-unsigned",
+        harness: "public_small_divide_width_4_unsigned_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-divide-width-4-signed",
+        harness: "public_small_divide_width_4_signed_matches_reference_semantics",
+        message: "public arithmetic semantics mismatch",
+        covers: &[
+            "nonlinear fixed width unknown LHS is reachable",
+            "nonlinear fixed width unknown RHS is reachable",
+            "nonlinear fixed width zero RHS is reachable",
+            "nonlinear fixed width mixed signs are reachable",
+            "nonlinear fixed width widened call is reachable",
+        ],
+    },
     Contract {
         group: "values",
         name: "public-small-multiply",
@@ -3497,6 +3605,43 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path: CORE,
                 source: mutate_method(&source, "to_usize_saturating", old, new),
+            });
+        }
+    }
+    for (contract_name, name, old, new) in [
+        (
+            "public-small-divide-width-1-unsigned",
+            "public-small-divide-zero-divisor-as-zero",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "Value::U64(if y.payload == 0 && y.mask_xz == 0 { ValueU64::new(0, width, signed) } else { x.divide_remainder(y, width, signed, false) })",
+        ),
+        (
+            "public-small-divide-width-2-signed",
+            "public-small-divide-upper-padding-leak",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "{ let mut result = x.divide_remainder(y, width, signed, false); result.payload |= 1u64 << 63; Value::U64(result) }",
+        ),
+        (
+            "public-small-divide-width-3-unsigned",
+            "public-small-divide-as-remainder",
+            "Value::U64(x.divide_remainder(y, width, signed, false))",
+            "Value::U64(x.divide_remainder(y, width, signed, true))",
+        ),
+        (
+            "public-small-divide-width-4-signed",
+            "public-small-divide-skips-left-sign-extension",
+            "Op::Div => {\n                let x = x.expand(width, signed);",
+            "Op::Div => {\n                let x = x.expand(width, false);",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let path = "veryl/crates/analyzer/src/ir/op.rs";
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_binary", old, new),
             });
         }
     }
