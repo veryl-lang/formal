@@ -5,7 +5,8 @@
 //! all later source and amount sign groups have proofs on that same cache.
 //! Result width stays native
 //! source width. Context widening 4->8/64 has separate fresh-cache proofs;
-//! Four shared 128-bit amount fixtures also have word32/word64 caller proofs.
+//! Four shared 128-bit amount fixtures have caller proofs at widths
+//! 1/2/31/32/63/64.
 //! Both source planes are arbitrary at each width. Source and context signs are
 //! paired as in the direct trace, executing all sixteen calls on one cache.
 //! Production amount constructors are checked separately by finite comparisons.
@@ -909,4 +910,116 @@ fn public_word32_shift_upper_x_amount_matches_reference() {
 #[kani::use_stub_set(native_source_big_amount)]
 fn public_word32_shift_upper_z_amount_matches_reference() {
     big_amount_native_trace::<32, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_1_small_matches_reference() {
+    big_amount_native_trace::<1, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_1_high_matches_reference() {
+    big_amount_native_trace::<1, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_1_upper_x_matches_reference() {
+    big_amount_native_trace::<1, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_1_upper_z_matches_reference() {
+    big_amount_native_trace::<1, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_2_small_matches_reference() {
+    big_amount_native_trace::<2, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_2_high_matches_reference() {
+    big_amount_native_trace::<2, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_2_upper_x_matches_reference() {
+    big_amount_native_trace::<2, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_2_upper_z_matches_reference() {
+    big_amount_native_trace::<2, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_31_small_matches_reference() {
+    big_amount_native_trace::<31, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_31_high_matches_reference() {
+    big_amount_native_trace::<31, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_31_upper_x_matches_reference() {
+    big_amount_native_trace::<31, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_31_upper_z_matches_reference() {
+    big_amount_native_trace::<31, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_63_small_matches_reference() {
+    big_amount_native_trace::<63, { WIDE_SHIFT_AMOUNTS[0].0 }, { WIDE_SHIFT_AMOUNTS[0].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_63_high_matches_reference() {
+    big_amount_native_trace::<63, { WIDE_SHIFT_AMOUNTS[1].0 }, { WIDE_SHIFT_AMOUNTS[1].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_63_upper_x_matches_reference() {
+    big_amount_native_trace::<63, { WIDE_SHIFT_AMOUNTS[2].0 }, { WIDE_SHIFT_AMOUNTS[2].1 }>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_source_big_amount)]
+fn public_shift_big_amount_width_63_upper_z_matches_reference() {
+    big_amount_native_trace::<63, { WIDE_SHIFT_AMOUNTS[3].0 }, { WIDE_SHIFT_AMOUNTS[3].1 }>();
 }

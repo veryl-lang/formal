@@ -74,7 +74,7 @@ const WORD_BIG_AMOUNT_COVERS: &[&str] = &[
     "public wide amount trace arithmetic left is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 110] = [
+pub static CONTRACTS: [Contract; 126] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -497,6 +497,118 @@ pub static CONTRACTS: [Contract; 110] = [
         group: "public-native-sequences",
         name: "public-word32-big-amount-upper-z",
         harness: "public_word32_shift_upper_z_amount_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-small",
+        harness: "public_shift_big_amount_width_1_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-high",
+        harness: "public_shift_big_amount_width_1_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-upper-x",
+        harness: "public_shift_big_amount_width_1_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-1-upper-z",
+        harness: "public_shift_big_amount_width_1_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-small",
+        harness: "public_shift_big_amount_width_2_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-high",
+        harness: "public_shift_big_amount_width_2_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-upper-x",
+        harness: "public_shift_big_amount_width_2_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-2-upper-z",
+        harness: "public_shift_big_amount_width_2_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-small",
+        harness: "public_shift_big_amount_width_31_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-high",
+        harness: "public_shift_big_amount_width_31_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-upper-x",
+        harness: "public_shift_big_amount_width_31_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-31-upper-z",
+        harness: "public_shift_big_amount_width_31_upper_z_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-small",
+        harness: "public_shift_big_amount_width_63_small_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-high",
+        harness: "public_shift_big_amount_width_63_high_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-upper-x",
+        harness: "public_shift_big_amount_width_63_upper_x_matches_reference",
+        message: "public shift semantics mismatch",
+        covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-big-amount-width-63-upper-z",
+        harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
         message: "public shift semantics mismatch",
         covers: WORD_BIG_AMOUNT_COVERS,
     },
@@ -4247,6 +4359,81 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         let source = fs::read_to_string(repo.join(path)).unwrap();
         mutations.push(Mutation {
             name: "public-word32-big-amount-forces-word64-result",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "eval_value_binary",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(width, false).into_owned()",
+                "let ret = Value::U64(x.shift_right(y, width, signed, false));\n                        ret.expand(64, false).into_owned()",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-1-small")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-1-caller-uses-strict-decoding",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize();"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-2-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-2-caller-truncates-high-word",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::LogicShiftR => {\n                let x = x.expand(width, signed);\n                let y = if y.mask_xz_u128() != 0 { None } else { Some(y.payload_u128() as usize) };"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-31-upper-x")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-31-caller-ignores-XZ",
+            contract,
+            path,
+            source: mutate_method(&source, "eval_value_binary", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = y.to_usize_saturating();", "Op::ArithShiftL => {\n                let x = x.expand(width, signed);\n                let y = Some(usize::try_from(y.payload_u128()).unwrap_or(usize::MAX));"),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-63-upper-z")
+    {
+        let path = "veryl/crates/analyzer/src/value.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-63-Z-as-large-known",
+            contract,
+            path,
+            source: mutate_method(
+                &source,
+                "to_usize_saturating",
+                "Self::BigUint(x) if x.is_xz() => None,",
+                "Self::BigUint(x) if x.is_xz() => Some(usize::MAX),",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-shift-big-amount-width-31-high")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        mutations.push(Mutation {
+            name: "public-shift-big-amount-width-31-forces-word64-result",
             contract,
             path,
             source: mutate_method(

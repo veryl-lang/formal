@@ -1,8 +1,8 @@
 //! Equal-width native traces are proved for widths 1..=4 and 31/32/63/64 with
 //! arbitrary four-state 64-bit amounts and every source/amount sign combination.
 //! Native context widening 4->8/64 is also proved. Keep BigUint source/amount
-//! or context paths and independent model anchors. Word32/word64 wide-amount caller
-//! proofs use shared fixtures; their real constructors remain checked below.
+//! or context paths and independent model anchors. Wide-amount caller proofs at
+//! widths 1/2/31/32/63/64 use shared fixtures; their real constructors stay checked.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -102,8 +102,8 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
 }
 
 #[test]
-fn shift_native_biguint_boundaries() {
-    for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
+fn shift_biguint_source_boundaries() {
+    for width in [65, 127, 128] {
         let mask = u128::MAX >> (128 - width);
         let sign = 1u128 << (width - 1);
         for source in [
@@ -119,19 +119,11 @@ fn shift_native_biguint_boundaries() {
                 0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
             ),
         ] {
-            // Each check_shift call starts a fresh cache. The complete native
-            // traces are proved, so omitting these calls cannot alter a later trace.
-            if !matches!(width, 1..=4 | 31 | 32 | 63 | 64) {
-                for amount in [0, 1, width - 1, width, width + 1, 63, 64, 65, usize::MAX] {
-                    check_shift(source, width, (amount as u128, 0), 64);
-                }
+            for amount in [0, 1, width - 1, width, width + 1, 63, 64, 65, usize::MAX] {
+                check_shift(source, width, (amount as u128, 0), 64);
             }
-            // These complete word32/word64 traces are proved using canonical numerical
-            // inputs. The finite producer check below validates the actual constructor.
-            if !matches!(width, 32 | 64) {
-                for amount in WIDE_SHIFT_AMOUNTS {
-                    check_shift(source, width, amount, 128);
-                }
+            for amount in WIDE_SHIFT_AMOUNTS {
+                check_shift(source, width, amount, 128);
             }
         }
     }
