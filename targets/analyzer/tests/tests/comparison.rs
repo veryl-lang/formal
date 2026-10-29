@@ -1,5 +1,5 @@
 //! Equality and inequality prefixes at native source widths, followed by wildcard
-//! equality pairs for widths 1..=3, are proved in public_comparison.rs.
+//! equality/inequality pairs for widths 1..=3, are proved in public_comparison.rs.
 //! Keep every production call on the shared cache before later observations;
 //! retain all other comparison checks and independent reference anchors.
 use veryl_analyzer::ir::Op;
@@ -19,13 +19,15 @@ const COMPARISONS: [(Op, Comparison); 8] = [
     (Op::GreaterEq, Comparison::GreaterEqual),
 ];
 
-const NATIVE_COMPARISON_PREFIX: [(Op, usize); 6] = [
+const NATIVE_COMPARISON_PREFIX: [(Op, usize); 8] = [
     (Op::Eq, 1),
     (Op::Eq, 8),
     (Op::Ne, 1),
     (Op::Ne, 8),
     (Op::EqWildcard, 1),
     (Op::EqWildcard, 8),
+    (Op::NeWildcard, 1),
+    (Op::NeWildcard, 8),
 ];
 
 fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
@@ -35,7 +37,7 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
     let normalized_native =
         |x: Operand| (1..=64).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0;
     let native_sources = normalized_native(x) && normalized_native(y);
-    let prefix_len = if x.width <= 3 && y.width <= 3 { 6 } else { 4 };
+    let prefix_len = if x.width <= 3 && y.width <= 3 { 8 } else { 4 };
     let proved_prefix = &NATIVE_COMPARISON_PREFIX[..prefix_len];
     let mut calls = 0;
     let mut prefix_matches = true;

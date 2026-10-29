@@ -74,7 +74,7 @@ const WORD_BIG_AMOUNT_COVERS: &[&str] = &[
     "public wide amount trace arithmetic left is reachable",
 ];
 
-const PUBLIC_INEQUALITY_CONTINUATION_COVERS: &[&str] = &[
+const PUBLIC_INEQUALITY_NATIVE_UNSIGNED_COVERS: &[&str] = &[
     "public comparison LHS width 1 is reachable",
     "public comparison LHS width 2 is reachable",
     "public comparison LHS width 3 is reachable",
@@ -83,14 +83,71 @@ const PUBLIC_INEQUALITY_CONTINUATION_COVERS: &[&str] = &[
     "public comparison RHS width 3 is reachable",
     "public comparison wider LHS is reachable",
     "public comparison wider RHS is reachable",
-    "public comparison signed mode is reachable",
-    "public comparison mixed signs are reachable",
     "public comparison X result is reachable",
     "public comparison true result is reachable",
     "public comparison false result is reachable",
-    "public comparison sign extension is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
     "public comparison LHS width 64 is reachable",
     "public comparison RHS width 64 is reachable",
+];
+
+const PUBLIC_INEQUALITY_NATIVE_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison LHS width 64 is reachable",
+    "public comparison RHS width 64 is reachable",
+];
+
+const PUBLIC_SMALL_WILDCARD_INEQUALITY_UNSIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
+];
+
+const PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS: &[&str] = &[
+    "public comparison LHS width 1 is reachable",
+    "public comparison LHS width 2 is reachable",
+    "public comparison LHS width 3 is reachable",
+    "public comparison RHS width 1 is reachable",
+    "public comparison RHS width 2 is reachable",
+    "public comparison RHS width 3 is reachable",
+    "public comparison wider LHS is reachable",
+    "public comparison wider RHS is reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison partition sizing is reachable",
+    "public comparison RHS wildcard is reachable",
+    "public comparison LHS X is significant",
 ];
 
 const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
@@ -112,7 +169,7 @@ const PUBLIC_WILDCARD_CONTINUATION_COVERS: &[&str] = &[
     "public comparison LHS X is significant",
 ];
 
-pub static CONTRACTS: [Contract; 128] = [
+pub static CONTRACTS: [Contract; 131] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -652,10 +709,31 @@ pub static CONTRACTS: [Contract; 128] = [
     },
     Contract {
         group: "public-comparison-sequences",
-        name: "public-inequality-native-continuation",
-        harness: "public_inequality_native_continuation_matches_reference",
+        name: "public-inequality-native-unsigned-continuation",
+        harness: "public_inequality_native_unsigned_continuation_matches_reference",
         message: "public comparison semantics mismatch",
-        covers: PUBLIC_INEQUALITY_CONTINUATION_COVERS,
+        covers: PUBLIC_INEQUALITY_NATIVE_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-inequality-native-signed-continuation",
+        harness: "public_inequality_native_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_INEQUALITY_NATIVE_SIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-inequality-unsigned-continuation",
+        harness: "public_small_wildcard_inequality_unsigned_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_WILDCARD_INEQUALITY_UNSIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-inequality-signed-continuation",
+        harness: "public_small_wildcard_inequality_signed_continuation_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS,
     },
     Contract {
         group: "public-comparison-sequences",
@@ -3769,7 +3847,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     }
     for (contract_name, name, path, method, old, new) in [
         (
-            "public-inequality-native-continuation",
+            "public-inequality-native-unsigned-continuation",
             "public-inequality-continuation-not-negated",
             "veryl/crates/analyzer/src/ir/op.rs",
             "eval_value_binary",
@@ -3777,7 +3855,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "x.equal(y, false, false)",
         ),
         (
-            "public-inequality-native-continuation",
+            "public-inequality-native-unsigned-continuation",
             "public-inequality-continuation-uses-wildcard",
             "veryl/crates/analyzer/src/ir/op.rs",
             "eval_value_binary",
@@ -3785,7 +3863,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "x.equal(y, true, true)",
         ),
         (
-            "public-inequality-native-continuation",
+            "public-inequality-native-signed-continuation",
             "public-inequality-continuation-zero-sign-extension",
             "veryl/crates/analyzer/src/ir/op.rs",
             "eval_value_binary",
@@ -3801,7 +3879,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "y.equal(x, true, false)",
         ),
         (
-            "public-inequality-native-continuation",
+            "public-inequality-native-unsigned-continuation",
             "public-inequality-continuation-signed-result",
             "veryl/crates/analyzer/src/value.rs",
             "equal",
@@ -3815,6 +3893,46 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "eval_value_binary",
             "x.equal(y, true, false)",
             "x.equal(y, false, false)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-not-negated",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "x.equal(y, true, false)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-swaps-operands",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "y.equal(x, true, true)",
+        ),
+        (
+            "public-small-wildcard-inequality-signed-continuation",
+            "public-wildcard-inequality-signed-ignores-wildcards",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, true)",
+            "x.equal(y, false, true)",
+        ),
+        (
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-wildcard-inequality-unsigned-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "Self::new_bit_1x(mismatch, unknown)",
+            "Self { signed: true, ..Self::new_bit_1x(mismatch, unknown) }",
+        ),
+        (
+            "public-small-wildcard-inequality-signed-continuation",
+            "public-wildcard-inequality-signed-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::NeWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed();",
+            "Op::NeWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = false;",
         ),
     ] {
         if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {

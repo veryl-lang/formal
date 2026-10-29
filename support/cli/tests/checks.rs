@@ -163,11 +163,28 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
             if contract.group == "public-comparison-sequences" {
                 assert_eq!(shard.suite, "logic");
-                assert!(
-                    contract
-                        .covers
-                        .contains(&"public comparison sign extension is reachable")
-                );
+                let sizing_witness =
+                    if contract.name == "public-small-wildcard-equality-continuation" {
+                        "public comparison sign extension is reachable"
+                    } else {
+                        "public comparison partition sizing is reachable"
+                    };
+                assert!(contract.covers.contains(&sizing_witness));
+                if contract.name.ends_with("-unsigned-continuation") {
+                    for witness in [
+                        "public comparison unsigned sources are reachable",
+                        "public comparison signed RHS only is reachable",
+                        "public comparison signed LHS only is reachable",
+                    ] {
+                        assert!(contract.covers.contains(&witness));
+                    }
+                } else if contract.name.ends_with("-signed-continuation") {
+                    assert!(
+                        contract
+                            .covers
+                            .contains(&"public comparison signed sources are reachable")
+                    );
+                }
             }
             if contract.group == "public-nonlinear" {
                 assert!(!contract.covers.is_empty());
@@ -182,6 +199,19 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             let key = (mutant.contract.name, mutant.name, mutant.path);
             assert!(mutations.insert(key), "overlapping mutation shard");
             assert_eq!(expected.get(&key), Some(&mutant.source));
+        }
+    }
+    // Both partitions are required before the direct checks can omit either context.
+    for family in [
+        "public-inequality-native",
+        "public-small-wildcard-inequality",
+    ] {
+        for context in ["unsigned", "signed"] {
+            let name = format!("{family}-{context}-continuation");
+            assert!(
+                contracts.contains(name.as_str()),
+                "missing comparison partition: {name}"
+            );
         }
     }
     assert_eq!(proof_shards, 4);

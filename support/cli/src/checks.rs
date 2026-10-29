@@ -211,7 +211,10 @@ pub const SHARDS: &[Shard] = &[
         &[
             "equality",
             "public-equality-native",
-            "public-inequality-native-continuation",
+            "public-inequality-native-unsigned-continuation",
+            "public-inequality-native-signed-continuation",
+            "public-small-wildcard-inequality-unsigned-continuation",
+            "public-small-wildcard-inequality-signed-continuation",
             "public-small-wildcard-equality-continuation",
             "inequality",
             "wildcard-equality",
