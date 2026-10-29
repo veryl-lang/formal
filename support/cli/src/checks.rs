@@ -141,6 +141,8 @@ pub const SHARDS: &[Shard] = &[
             "public-resize-native",
             "public-scalar-zero-extension-65",
             "public-scalar-zero-extension-128",
+            "public-word64-zero-extension-65",
+            "public-word64-zero-extension-128",
             "extension",
             "logical-left-shift",
             "public-shift-unsigned-native",

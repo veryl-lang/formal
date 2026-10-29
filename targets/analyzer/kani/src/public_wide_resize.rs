@@ -1,5 +1,6 @@
-//! Public scalar-to-BigUint zero extension: source width 1, every four-state
-//! value/sign, result width 65 or 128, and use_sign=false.
+//! Public native-to-BigUint zero extension: source width 1 or 64, every four-state
+//! value/sign, result width 65 or 128, and use_sign=false. Widths are partitioned
+//! into separate harnesses to bound the cost of real heap conversions.
 //! Execute clone/truncation first, then zero extension as in the direct
 //! resize test. BigUint conversion, heap allocation and getters execute unchanged.
 //! Panicking guards forbid only unreachable non-native source paths.
@@ -34,8 +35,8 @@ fn assert_input(input: &Value, source: usize, planes: (u128, u128), signed: bool
 }
 // Zero extension is numeric identity for the two normalized bit planes.
 // BigUint allocation/conversion execute unchanged; sign filling remains a direct check.
-fn public_wide_zero_extension<const TARGET: usize>() {
-    let source = 1usize;
+fn public_wide_zero_extension<const SOURCE: usize, const TARGET: usize>() {
+    let source = SOURCE;
     let mask = u64::MAX >> (64 - source);
     let planes = (
         u128::from(kani::any::<u64>() & mask),
@@ -68,34 +69,61 @@ fn public_wide_zero_extension<const TARGET: usize>() {
         "public wide resize semantics mismatch"
     );
     assert_input(&input, source, planes, signed);
-    kani::cover!(
-        planes.0 == 0 && planes.1 == 0,
-        "public wide zero extension source zero is reachable"
-    );
-    kani::cover!(
-        planes.0 == 1 && planes.1 == 0,
-        "public wide zero extension source one is reachable"
-    );
-    kani::cover!(
-        source == 1,
-        "public wide zero extension source width 1 is reachable"
-    );
-    kani::cover!(
-        signed,
-        "public wide zero extension signed source is reachable"
-    );
-    kani::cover!(
-        !signed,
-        "public wide zero extension unsigned source is reachable"
-    );
-    kani::cover!(
-        planes.1 & !planes.0 != 0,
-        "public wide zero extension source X is reachable"
-    );
-    kani::cover!(
-        planes.1 & planes.0 != 0,
-        "public wide zero extension source Z is reachable"
-    );
+    if SOURCE == 1 {
+        kani::cover!(
+            planes.0 == 0 && planes.1 == 0,
+            "public wide zero extension source zero is reachable"
+        );
+        kani::cover!(
+            planes.0 == 1 && planes.1 == 0,
+            "public wide zero extension source one is reachable"
+        );
+        kani::cover!(
+            source == 1,
+            "public wide zero extension source width 1 is reachable"
+        );
+        kani::cover!(
+            signed,
+            "public wide zero extension signed source is reachable"
+        );
+        kani::cover!(
+            !signed,
+            "public wide zero extension unsigned source is reachable"
+        );
+        kani::cover!(
+            planes.1 & !planes.0 != 0,
+            "public wide zero extension source X is reachable"
+        );
+        kani::cover!(
+            planes.1 & planes.0 != 0,
+            "public wide zero extension source Z is reachable"
+        );
+    } else {
+        kani::cover!(
+            planes == (0, 0),
+            "public word64 zero extension zero is reachable"
+        );
+        kani::cover!(
+            planes == (1u128 << 63, 0),
+            "public word64 zero extension high one is reachable"
+        );
+        kani::cover!(
+            planes == (0, 1u128 << 63),
+            "public word64 zero extension high X is reachable"
+        );
+        kani::cover!(
+            planes == (1u128 << 63, 1u128 << 63),
+            "public word64 zero extension high Z is reachable"
+        );
+        kani::cover!(
+            signed,
+            "public word64 zero extension signed source is reachable"
+        );
+        kani::cover!(
+            !signed,
+            "public word64 zero extension unsigned source is reachable"
+        );
+    }
 }
 #[kani::proof]
 #[kani::unwind(6)]
@@ -106,7 +134,7 @@ fn public_wide_zero_extension<const TARGET: usize>() {
     reject_source_to_native
 )]
 fn public_scalar_zero_extension_65_matches_reference_semantics() {
-    public_wide_zero_extension::<65>();
+    public_wide_zero_extension::<1, 65>();
 }
 #[kani::proof]
 #[kani::unwind(6)]
@@ -117,5 +145,29 @@ fn public_scalar_zero_extension_65_matches_reference_semantics() {
     reject_source_to_native
 )]
 fn public_scalar_zero_extension_128_matches_reference_semantics() {
-    public_wide_zero_extension::<128>();
+    public_wide_zero_extension::<1, 128>();
+}
+
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
+#[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
+#[kani::stub(
+    veryl_analyzer::value::ValueBigUint::to_value_u64,
+    reject_source_to_native
+)]
+fn public_word64_zero_extension_65_matches_reference_semantics() {
+    public_wide_zero_extension::<64, 65>();
+}
+
+#[kani::proof]
+#[kani::unwind(6)]
+#[kani::stub(veryl_analyzer::value::u128_to_biguint, reject_native_source)]
+#[kani::stub(<veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone, reject_source_clone)]
+#[kani::stub(
+    veryl_analyzer::value::ValueBigUint::to_value_u64,
+    reject_source_to_native
+)]
+fn public_word64_zero_extension_128_matches_reference_semantics() {
+    public_wide_zero_extension::<64, 128>();
 }

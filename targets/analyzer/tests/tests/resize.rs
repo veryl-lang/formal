@@ -1,5 +1,6 @@
 //! Public native resize domains are proved in targets/analyzer/kani/src/resize.rs.
-//! Retain native/BigUint boundaries and independent reference truth tables.
+//! Scalar/word64 zero extension to 65/128 is proved in public_wide_resize.rs.
+//! Retain other native/BigUint boundaries and independent reference truth tables.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
@@ -10,29 +11,30 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
         let input = Value::from_u128(payload, mask_xz, source_width, signed);
         let mut truncated = input.clone();
         truncated.trunc(width);
+        let source_mask = u128::MAX >> (128 - source_width);
+        let proved_zero_extension = matches!(source_width, 1 | 64)
+            && matches!(width, 65 | 128)
+            && (payload | mask_xz) & !source_mask == 0;
         let truncated_width = width.min(source_width);
-        let expected = reference_planes(truncated_width, |position| {
-            truncated_logic_bit((payload, mask_xz), truncated_width, position)
-        });
-        assert_eq!(
-            (truncated.payload_u128(), truncated.mask_xz_u128()),
-            expected,
-            "truncation: source={source_width}, target={width}, signed={signed}"
-        );
-        assert_eq!(truncated.width(), truncated_width);
-        assert_eq!(truncated.signed(), signed);
-        assert_eq!(matches!(truncated, Value::U64(_)), truncated_width <= 64);
+        if !proved_zero_extension {
+            let expected = reference_planes(truncated_width, |position| {
+                truncated_logic_bit((payload, mask_xz), truncated_width, position)
+            });
+            assert_eq!(
+                (truncated.payload_u128(), truncated.mask_xz_u128()),
+                expected,
+                "truncation: source={source_width}, target={width}, signed={signed}"
+            );
+            assert_eq!(truncated.width(), truncated_width);
+            assert_eq!(truncated.signed(), signed);
+            assert_eq!(matches!(truncated, Value::U64(_)), truncated_width <= 64);
+        }
 
         for use_sign in [false, true] {
             let expanded = input.expand(width, use_sign);
             let expanded_width = width.max(source_width);
-            // The scalar zero-extension proofs include the preceding clone/truncation.
-            let proved_scalar = source_width == 1
-                && matches!(width, 65 | 128)
-                && payload < 2
-                && mask_xz < 2
-                && !use_sign;
-            if !proved_scalar {
+            // Preserve the complete call trace, including the proved clone/truncation.
+            if !(proved_zero_extension && !use_sign) {
                 let expected = reference_planes(expanded_width, |position| {
                     extended_logic_bit(
                         (payload, mask_xz),

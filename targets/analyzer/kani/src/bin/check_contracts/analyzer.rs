@@ -47,7 +47,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 90] = [
+pub static CONTRACTS: [Contract; 92] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -320,6 +320,34 @@ pub static CONTRACTS: [Contract; 90] = [
             "public wide zero extension unsigned source is reachable",
             "public wide zero extension source X is reachable",
             "public wide zero extension source Z is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-word64-zero-extension-65",
+        harness: "public_word64_zero_extension_65_matches_reference_semantics",
+        message: "public wide resize semantics mismatch",
+        covers: &[
+            "public word64 zero extension zero is reachable",
+            "public word64 zero extension high one is reachable",
+            "public word64 zero extension high X is reachable",
+            "public word64 zero extension high Z is reachable",
+            "public word64 zero extension signed source is reachable",
+            "public word64 zero extension unsigned source is reachable",
+        ],
+    },
+    Contract {
+        group: "values",
+        name: "public-word64-zero-extension-128",
+        harness: "public_word64_zero_extension_128_matches_reference_semantics",
+        message: "public wide resize semantics mismatch",
+        covers: &[
+            "public word64 zero extension zero is reachable",
+            "public word64 zero extension high one is reachable",
+            "public word64 zero extension high X is reachable",
+            "public word64 zero extension high Z is reachable",
+            "public word64 zero extension signed source is reachable",
+            "public word64 zero extension unsigned source is reachable",
         ],
     },
     Contract {
@@ -3881,6 +3909,38 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             contract,
             path: CORE,
             source: replace_once(&source, old, new),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-zero-extension-65")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-zero-extension-loses-high-payload",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let mut payload = Box::new(BigUint::from(x.payload));",
+                "let mut payload = Box::new(BigUint::from(x.payload & !(1u64 << 63)));",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-word64-zero-extension-128")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-word64-zero-extension-loses-high-mask_xz",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let mut mask_xz = Box::new(BigUint::from(x.mask_xz));",
+                "let mut mask_xz = Box::new(BigUint::from(x.mask_xz & !(1u64 << 63)));",
+            ),
         });
     }
     if let Some(&contract) = selected.iter().find(|c| c.name == "public-arithmetic-add") {
