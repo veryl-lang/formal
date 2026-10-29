@@ -1,8 +1,8 @@
 //! Public shift trace at all normalized four-state native source widths 1..=64.
 //! The initial group has unsigned sources and amounts, with arbitrary four-state
 //! 64-bit amount planes decoded as unsigned magnitudes with saturation. Four shifts
-//! execute on one cache in test order. At fixed widths 1..=4, all later source
-//! and amount sign groups have continuation proofs on that same cache.
+//! execute on one cache in test order. At fixed widths 1..=4 and 31/32/63/64,
+//! all later source and amount sign groups have proofs on that same cache.
 //! Result width stays native
 //! source width. Context widening and BigUint amount/source paths remain separate.
 //! IEEE 1800 11.4.10 is modeled independently by shifted_logic_bit.
@@ -299,15 +299,15 @@ fn shift_group<const SIGNED: bool, const AMOUNT_SIGNED: bool>(
 // executes in order; phase/operator selection observes each of the twelve later
 // results. Inputs and discarded results are reified as native values, failing
 // on unsupported variants rather than expanding unreachable BigUint drops.
-// Widths are separate constants for solver cost; their union is 1..=4. Amounts
+// Widths are separate constants for solver cost: 1..=4 and 31/32/63/64. Amounts
 // admit all 64-bit four-state planes and are decoded as unsigned magnitudes.
 // Positions 0..63 plus explicit high getter checks cover all 128 result bits.
-fn small_shift_continuation<const WIDTH: usize>() {
+fn native_shift_continuation<const WIDTH: usize>() {
     let width = WIDTH;
     let mask = u64::MAX >> (64 - width);
     let source = (
-        u128::from(u64::from(kani::any::<u8>()) & mask),
-        u128::from(u64::from(kani::any::<u8>()) & mask),
+        u128::from(kani::any::<u64>() & mask),
+        u128::from(kani::any::<u64>() & mask),
     );
     let amount = (
         u128::from(kani::any::<u64>()),
@@ -382,7 +382,7 @@ fn small_shift_continuation<const WIDTH: usize>() {
     );
     kani::cover!(
         phase == 1 && selected == 0 && source == (1, 0) && amount == (0, 0) && position == 0,
-        "public small shift signed amount is reachable"
+        "public shift continuation signed amount is reachable"
     );
     kani::cover!(
         phase == 2
@@ -390,7 +390,7 @@ fn small_shift_continuation<const WIDTH: usize>() {
             && source == (1u128 << (WIDTH - 1), 0)
             && amount == (WIDTH as u128, 0)
             && position == WIDTH - 1,
-        "public small shift signed one fill is reachable"
+        "public shift continuation signed one fill is reachable"
     );
     kani::cover!(
         phase == 3
@@ -398,7 +398,7 @@ fn small_shift_continuation<const WIDTH: usize>() {
             && source == (0, 1u128 << (WIDTH - 1))
             && amount == (usize::MAX as u128, 0)
             && position == 0,
-        "public small shift signed X fill is reachable"
+        "public shift continuation signed X fill is reachable"
     );
     kani::cover!(
         phase == 3
@@ -406,7 +406,7 @@ fn small_shift_continuation<const WIDTH: usize>() {
             && source == (1u128 << (WIDTH - 1), 1u128 << (WIDTH - 1))
             && amount == (1, 0)
             && position == WIDTH - 1,
-        "public small shift signed Z fill is reachable"
+        "public shift continuation signed Z fill is reachable"
     );
     kani::cover!(
         phase == 1
@@ -414,11 +414,11 @@ fn small_shift_continuation<const WIDTH: usize>() {
             && source == (u128::from(mask), 0)
             && amount == (0, 1)
             && position == 0,
-        "public small shift unknown amount is reachable"
+        "public shift continuation unknown amount is reachable"
     );
     kani::cover!(
         phase == 2 && selected == 2 && source == (1, 0) && amount == (64, 0) && position == 63,
-        "public small shift arithmetic left padding is reachable"
+        "public shift continuation arithmetic left overshift is reachable"
     );
     kani::cover!(
         phase == 3
@@ -426,7 +426,7 @@ fn small_shift_continuation<const WIDTH: usize>() {
             && source == (u128::from(mask), 0)
             && amount == (1u128 << 63, 1u128 << 63)
             && position == 0,
-        "public small shift upper Z amount is reachable"
+        "public shift continuation upper Z amount is reachable"
     );
 }
 
@@ -434,26 +434,54 @@ fn small_shift_continuation<const WIDTH: usize>() {
 #[kani::unwind(1)]
 #[kani::use_stub_set(small_native_shift)]
 fn public_small_shift_continuation_width_1_matches_reference_semantics() {
-    small_shift_continuation::<1>();
+    native_shift_continuation::<1>();
 }
 
 #[kani::proof]
 #[kani::unwind(1)]
 #[kani::use_stub_set(small_native_shift)]
 fn public_small_shift_continuation_width_2_matches_reference_semantics() {
-    small_shift_continuation::<2>();
+    native_shift_continuation::<2>();
 }
 
 #[kani::proof]
 #[kani::unwind(1)]
 #[kani::use_stub_set(small_native_shift)]
 fn public_small_shift_continuation_width_3_matches_reference_semantics() {
-    small_shift_continuation::<3>();
+    native_shift_continuation::<3>();
 }
 
 #[kani::proof]
 #[kani::unwind(1)]
 #[kani::use_stub_set(small_native_shift)]
 fn public_small_shift_continuation_width_4_matches_reference_semantics() {
-    small_shift_continuation::<4>();
+    native_shift_continuation::<4>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_boundary_width_31_matches_reference_semantics() {
+    native_shift_continuation::<31>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_boundary_width_32_matches_reference_semantics() {
+    native_shift_continuation::<32>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_boundary_width_63_matches_reference_semantics() {
+    native_shift_continuation::<63>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_shift)]
+fn public_shift_boundary_width_64_matches_reference_semantics() {
+    native_shift_continuation::<64>();
 }

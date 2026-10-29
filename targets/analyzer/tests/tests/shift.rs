@@ -1,7 +1,6 @@
-//! The initial unsigned native four-call shift prefix, including amount decoding,
-//! is proved in targets/analyzer/kani/src/public_shift.rs. Execute every call;
-//! all sixteen calls at widths 1..=4 have continuation proofs. Later signs at
-//! larger widths and native/BigUint contexts remain comparisons.
+//! Equal-width native traces are proved for widths 1..=4 and 31/32/63/64 with
+//! arbitrary four-state 64-bit amounts and every source/amount sign combination.
+//! Keep context widening, BigUint sources/amounts and independent model anchors.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -60,12 +59,6 @@ fn shift_context_widens_before_shifting() {
 
 fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_width: usize) {
     let mut cache = MaskCache::default();
-    let native = (1..=64).contains(&width)
-        && ((source.0 | source.1) >> width) == 0
-        && amount_width == 64
-        && ((amount.0 | amount.1) >> 64) == 0;
-    let mut calls = 0;
-    let mut prefix_matches = true;
     let decoded = if amount.1 != 0 {
         None
     } else {
@@ -77,19 +70,6 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
             let rhs = Value::from_u128(amount.0, amount.1, amount_width, amount_signed);
             for (op, kind) in SHIFTS {
                 let output = op.eval_value_binary(&input, &rhs, width, signed, &mut cache);
-                let covered = prefix_matches
-                    && native
-                    && calls < if width <= 4 { 16 } else { 4 }
-                    && signed == (calls / 8 == 1)
-                    && amount_signed == (calls / 4 % 2 == 1)
-                    && SHIFTS
-                        .get(calls % 4)
-                        .is_some_and(|&(expected, _)| op == expected);
-                prefix_matches = covered;
-                calls += 1;
-                if covered {
-                    continue;
-                }
                 let expected = reference_planes(width, |position| {
                     shifted_logic_bit(source, width, decoded, kind, signed, position)
                 });
@@ -133,8 +113,12 @@ fn shift_native_biguint_boundaries() {
                 0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
             ),
         ] {
-            for amount in [0, 1, width - 1, width, width + 1, 63, 64, 65, usize::MAX] {
-                check_shift(source, width, (amount as u128, 0), 64);
+            // Each check_shift call starts a fresh cache. The complete native
+            // traces are proved, so omitting these calls cannot alter a later trace.
+            if !matches!(width, 1..=4 | 31 | 32 | 63 | 64) {
+                for amount in [0, 1, width - 1, width, width + 1, 63, 64, 65, usize::MAX] {
+                    check_shift(source, width, (amount as u128, 0), 64);
+                }
             }
             for amount in [
                 (1, 0),

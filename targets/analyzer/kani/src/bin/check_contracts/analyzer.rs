@@ -47,17 +47,17 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-const SMALL_SHIFT_CONTINUATION_COVERS: &[&str] = &[
-    "public small shift signed amount is reachable",
-    "public small shift signed one fill is reachable",
-    "public small shift signed X fill is reachable",
-    "public small shift signed Z fill is reachable",
-    "public small shift unknown amount is reachable",
-    "public small shift arithmetic left padding is reachable",
-    "public small shift upper Z amount is reachable",
+const SHIFT_CONTINUATION_COVERS: &[&str] = &[
+    "public shift continuation signed amount is reachable",
+    "public shift continuation signed one fill is reachable",
+    "public shift continuation signed X fill is reachable",
+    "public shift continuation signed Z fill is reachable",
+    "public shift continuation unknown amount is reachable",
+    "public shift continuation arithmetic left overshift is reachable",
+    "public shift continuation upper Z amount is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 95] = [
+pub static CONTRACTS: [Contract; 99] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -349,28 +349,56 @@ pub static CONTRACTS: [Contract; 95] = [
         name: "public-small-shift-continuation-width-1",
         harness: "public_small_shift_continuation_width_1_matches_reference_semantics",
         message: "public shift semantics mismatch",
-        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+        covers: SHIFT_CONTINUATION_COVERS,
     },
     Contract {
         group: "public-native-sequences",
         name: "public-small-shift-continuation-width-2",
         harness: "public_small_shift_continuation_width_2_matches_reference_semantics",
         message: "public shift semantics mismatch",
-        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+        covers: SHIFT_CONTINUATION_COVERS,
     },
     Contract {
         group: "public-native-sequences",
         name: "public-small-shift-continuation-width-3",
         harness: "public_small_shift_continuation_width_3_matches_reference_semantics",
         message: "public shift semantics mismatch",
-        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+        covers: SHIFT_CONTINUATION_COVERS,
     },
     Contract {
         group: "public-native-sequences",
         name: "public-small-shift-continuation-width-4",
         harness: "public_small_shift_continuation_width_4_matches_reference_semantics",
         message: "public shift semantics mismatch",
-        covers: SMALL_SHIFT_CONTINUATION_COVERS,
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-31",
+        harness: "public_shift_boundary_width_31_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-32",
+        harness: "public_shift_boundary_width_32_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-63",
+        harness: "public_shift_boundary_width_63_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
+    },
+    Contract {
+        group: "public-native-sequences",
+        name: "public-shift-boundary-width-64",
+        harness: "public_shift_boundary_width_64_matches_reference_semantics",
+        message: "public shift semantics mismatch",
+        covers: SHIFT_CONTINUATION_COVERS,
     },
     Contract {
         group: "full-nonlinear",
@@ -3838,6 +3866,53 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 name,
                 contract,
                 path,
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-shift-boundary-width-31",
+            "public-word-shift-reads-previous-sign-bit",
+            "shift_right",
+            "let payload_msb = ((self.payload >> (self.width - 1)) & 1) == 1;",
+            "let payload_msb = ((self.payload >> self.width.saturating_sub(2)) & 1) == 1;",
+        ),
+        (
+            "public-shift-boundary-width-32",
+            "public-word-shift-XZ-fill-loses-bit-31",
+            "shift_right",
+            "ret.mask_xz |= ext_mask_xz;",
+            "ret.mask_xz |= ext_mask_xz & 0x7fff_ffff;",
+        ),
+        (
+            "public-shift-boundary-width-63",
+            "public-word-shift-left-clamps-at-32",
+            "shift_left",
+            "let s = amount.min(64) as u32;",
+            "let s = amount.min(32) as u32;",
+        ),
+        (
+            "public-shift-boundary-width-64",
+            "public-word-shift-word64-mask-loses-high-bit",
+            "gen_mask",
+            "u64::MAX",
+            "u64::MAX >> 1",
+        ),
+        (
+            "public-shift-boundary-width-64",
+            "public-word-shift-signed-amount-as-negative",
+            "to_usize_saturating",
+            "Self::U64(x) => Some(x.payload.to_usize().unwrap_or(usize::MAX)),",
+            "Self::U64(x) => Some(if x.signed { (x.payload as i64).to_usize().unwrap_or(0) } else { x.payload.to_usize().unwrap_or(usize::MAX) }),",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source = fs::read_to_string(repo.join(CORE)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: CORE,
                 source: mutate_method(&source, method, old, new),
             });
         }
