@@ -47,7 +47,7 @@ const PUBLIC_ARITHMETIC_COVERS: [&str; 15] = [
     "public arithmetic u128 padding is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 89] = [
+pub static CONTRACTS: [Contract; 91] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -307,6 +307,31 @@ pub static CONTRACTS: [Contract; 89] = [
             "public native wide zero extension width 64 X is reachable",
             "public native wide zero extension width 64 Z is reachable",
             "public native wide zero extension interior widths are reachable",
+        ],
+    },
+    Contract {
+        group: "public-wide-resize",
+        name: "public-native-zero-fill-extension-wide",
+        harness: "public_native_zero_fill_extension_wide_matches_reference_semantics",
+        message: "public wide resize semantics mismatch",
+        covers: &[
+            "public native zero fill extension signed endpoint is reachable",
+            "public native zero fill extension unsigned high Z is reachable",
+            "public native zero fill extension signed lower X is reachable",
+            "public native zero fill extension signed interior Z is reachable",
+            "public native zero fill extension unsigned one is reachable",
+        ],
+    },
+    Contract {
+        group: "public-getters",
+        name: "public-big-getters-128",
+        harness: "public_big_getters_match_reference_bits",
+        message: "public BigUint getter semantics mismatch",
+        covers: &[
+            "public BigUint getters empty digits are reachable",
+            "public BigUint getters high one is reachable",
+            "public BigUint getters high X is reachable",
+            "public BigUint getters high Z and padding are reachable",
         ],
     },
     Contract {
@@ -1724,7 +1749,10 @@ pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
 // Named covers are mandatory for this profile; the shared runner validates them.
 // Only these new public proofs omit Kani's automatic per-assertion diagnostics.
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
-    matches!(contract.group, "public-nonlinear" | "public-wide-resize")
+    matches!(
+        contract.group,
+        "public-nonlinear" | "public-wide-resize" | "public-getters"
+    )
 }
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
@@ -3899,6 +3927,64 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 &source,
                 "let mut mask_xz = Box::new(BigUint::from(x.mask_xz));",
                 "let mut mask_xz = Box::new(BigUint::from(x.mask_xz & !(1u64 << 63)));",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-fill-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-zero-fill-extension-clears-sign",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let signed = if use_sign { x.signed } else { false };",
+                "let signed = false;",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-zero-fill-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-zero-fill-extension-empty-digits-as-one",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "        0 => 0,\n        1 => digits[0] as u128,",
+                "        0 => 1,\n        1 => digits[0] as u128,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-big-getters-128") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-getters-drops-high-word",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "_ => (digits[0] as u128) | ((digits[1] as u128) << 64),",
+                "_ => digits[0] as u128,",
+            ),
+        });
+    }
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-big-getters-128") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "public-big-getters-xz-reads-payload",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "Self::BigUint(x) => biguint_to_u128(&x.mask_xz),",
+                "Self::BigUint(x) => biguint_to_u128(&x.payload),",
             ),
         });
     }

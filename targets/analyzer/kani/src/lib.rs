@@ -50,3 +50,6 @@ mod public_shift;
 
 #[cfg(kani)]
 mod public_wide_resize;
+
+#[cfg(kani)]
+mod public_big_getters;

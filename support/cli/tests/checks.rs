@@ -116,15 +116,24 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert!(contracts.insert(contract.name), "overlapping proof shard");
             assert_eq!(
                 analyzer::uses_explicit_covers(contract),
-                shard.suite == "nonlinear" || contract.group == "public-wide-resize"
+                shard.suite == "nonlinear"
+                    || matches!(contract.group, "public-wide-resize" | "public-getters")
             );
-            if contract.group == "public-wide-resize" {
+            if matches!(contract.group, "public-wide-resize" | "public-getters") {
                 assert_eq!(shard.suite, "storage");
-                assert!(
-                    contract.covers.contains(
-                        &"public native wide zero extension interior widths are reachable"
-                    )
-                );
+                let witness = match contract.name {
+                    "public-native-zero-extension-wide" => {
+                        "public native wide zero extension interior widths are reachable"
+                    }
+                    "public-native-zero-fill-extension-wide" => {
+                        "public native zero fill extension signed interior Z is reachable"
+                    }
+                    "public-big-getters-128" => {
+                        "public BigUint getters high Z and padding are reachable"
+                    }
+                    _ => panic!("explicit public contracts need a scope witness policy"),
+                };
+                assert!(contract.covers.contains(&witness));
             }
             if contract.group == "public-nonlinear" {
                 assert!(!contract.covers.is_empty());

@@ -140,6 +140,8 @@ pub const SHARDS: &[Shard] = &[
             "truncation",
             "public-resize-native",
             "public-native-zero-extension-wide",
+            "public-native-zero-fill-extension-wide",
+            "public-big-getters-128",
             "extension",
             "logical-left-shift",
             "public-shift-unsigned-native",

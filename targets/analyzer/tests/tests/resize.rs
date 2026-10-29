@@ -1,5 +1,6 @@
 //! Public native resize domains are proved in targets/analyzer/kani/src/resize.rs.
-//! All native zero extension to widths 65..=128 is proved in public_wide_resize.rs.
+//! Native zero extension and use_sign=true zero-fill cases to widths 65..=128
+//! are proved in public_wide_resize.rs. Signed MSB=1/X/Z and BigUint inputs stay direct.
 //! Retain other native/BigUint boundaries and independent reference truth tables.
 
 use veryl_analyzer::value::Value;
@@ -34,7 +35,9 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
             let expanded = input.expand(width, use_sign);
             let expanded_width = width.max(source_width);
             // Preserve the complete call trace, including the proved clone/truncation.
-            if !(proved_zero_extension && !use_sign) {
+            let zero_sign_bit = (payload | mask_xz) & (1u128 << (source_width - 1)) == 0;
+            let proved = proved_zero_extension && (!use_sign || !signed || zero_sign_bit);
+            if !proved {
                 let expected = reference_planes(expanded_width, |position| {
                     extended_logic_bit(
                         (payload, mask_xz),
