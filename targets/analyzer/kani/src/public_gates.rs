@@ -1,6 +1,8 @@
 //! Public bitwise operations over all normalized four-state native sources.
 //! Binary sources have independent widths/signs in 1..=64; the caller sign is
 //! their conjunction, matching the executable trace at the common source width.
+//! A second four-call sequence admits every following context from natural through
+//! 64, with the first sequence executed on the same cache before observation.
 //! Unary NOT checks both caller signs at natural
 //! and widened width. Every prefix call executes on the same cache; all outputs,
 //! full u128 getter positions, metadata and source preservation are checked.
@@ -245,4 +247,184 @@ fn public_bit_not_native_sequence_matches_reference_semantics() {
         "public NOT source Z is reachable"
     );
     kani::cover!(position == 127, "public NOT u128 padding is reachable");
+}
+
+// Fixed width witness for mutation checks; the four full native-width proofs
+// remain required. Keeping this counterexample small avoids spending the mutation
+// budget solving unrelated symbolic width and getter branches.
+fn mutation_input() -> (Value, Operand) {
+    let before = Operand {
+        planes: (
+            u128::from(kani::any::<u8>() & 3),
+            u128::from(kani::any::<u8>() & 3),
+        ),
+        width: 2,
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(
+        before.planes.0,
+        before.planes.1,
+        before.width,
+        before.signed,
+    );
+    assert_input(&value, before);
+    (value, before)
+}
+
+// Each proof observes one continuation while retaining its complete call history.
+fn public_bitwise_widened_continuation<const MODE: u8, const FIXED: bool>() {
+    let (a, ar) = if FIXED { mutation_input() } else { input() };
+    let (b, br) = if FIXED { mutation_input() } else { input() };
+    let natural = ar.width.max(br.width);
+    let width = if FIXED {
+        4
+    } else {
+        natural.max(usize::from(kani::any::<u8>() & 63) + 1)
+    };
+    let signed = ar.signed && br.signed;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    if MODE > 1 {
+        let _ = Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache);
+    }
+    if MODE > 2 {
+        let _ = Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache);
+    }
+    if MODE > 3 {
+        let _ = Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache);
+    }
+    let (output, kind) = match MODE {
+        1 => (
+            Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache),
+            BitOp::And,
+        ),
+        2 => (
+            Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache),
+            BitOp::Or,
+        ),
+        3 => (
+            Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache),
+            BitOp::Xor,
+        ),
+        4 => (
+            Op::BitXnor.eval_value_binary(&a, &b, width, signed, &mut cache),
+            BitOp::Xnor,
+        ),
+        _ => unreachable!(),
+    };
+    assert_binary(output, ar, br, width, position, kind);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    if FIXED {
+        kani::cover!(
+            signed,
+            "public widened bitwise witness signed context is reachable"
+        );
+        kani::cover!(
+            !signed,
+            "public widened bitwise witness unsigned context is reachable"
+        );
+        kani::cover!(
+            ar.planes.1 != 0,
+            "public widened bitwise witness unknown input is reachable"
+        );
+        kani::cover!(
+            position == 127,
+            "public widened bitwise witness padding is reachable"
+        );
+        return;
+    }
+    kani::cover!(
+        ar.width == 1,
+        "public widened bitwise LHS width 1 is reachable"
+    );
+    kani::cover!(
+        ar.width == 64,
+        "public widened bitwise LHS width 64 is reachable"
+    );
+    kani::cover!(
+        br.width == 1,
+        "public widened bitwise RHS width 1 is reachable"
+    );
+    kani::cover!(
+        br.width == 64,
+        "public widened bitwise RHS width 64 is reachable"
+    );
+    kani::cover!(
+        ar.width > br.width,
+        "public widened bitwise wider LHS is reachable"
+    );
+    kani::cover!(
+        ar.width < br.width,
+        "public widened bitwise wider RHS is reachable"
+    );
+    kani::cover!(
+        width == natural,
+        "public widened bitwise unchanged context is reachable"
+    );
+    kani::cover!(
+        width > natural,
+        "public widened bitwise growth is reachable"
+    );
+    kani::cover!(width == 64, "public widened bitwise width 64 is reachable");
+    kani::cover!(
+        signed && width > natural && (ar.planes.0 & ar.planes.1) >> (ar.width - 1) == 1,
+        "public widened bitwise signed Z extension is reachable"
+    );
+    kani::cover!(signed, "public widened bitwise signed context is reachable");
+    kani::cover!(
+        ar.signed != br.signed,
+        "public widened bitwise mixed signs are reachable"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0,
+        "public widened bitwise source X is reachable"
+    );
+    kani::cover!(
+        br.planes.1 & br.planes.0 != 0,
+        "public widened bitwise source Z is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "public widened bitwise u128 padding is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_bitwise_widened_and_matches_reference_semantics() {
+    public_bitwise_widened_continuation::<1, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_bitwise_widened_or_matches_reference_semantics() {
+    public_bitwise_widened_continuation::<2, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_bitwise_widened_xor_matches_reference_semantics() {
+    public_bitwise_widened_continuation::<3, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_bitwise_widened_xnor_matches_reference_semantics() {
+    public_bitwise_widened_continuation::<4, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_bitwise_widened_xnor_witness_matches_reference_semantics() {
+    public_bitwise_widened_continuation::<4, true>();
 }

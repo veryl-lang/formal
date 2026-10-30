@@ -252,6 +252,20 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
         }
     }
+    // All four continuations are needed to omit the second native bitwise pass.
+    for op in ["and", "or", "xor", "xnor"] {
+        let name = format!("public-bitwise-widened-{op}");
+        assert!(contracts.contains(name.as_str()));
+        let contract = all.iter().find(|c| c.name == name).unwrap();
+        for witness in [
+            "public widened bitwise growth is reachable",
+            "public widened bitwise signed Z extension is reachable",
+            "public widened bitwise width 64 is reachable",
+            "public widened bitwise u128 padding is reachable",
+        ] {
+            assert!(contract.covers.contains(&witness));
+        }
+    }
     assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());

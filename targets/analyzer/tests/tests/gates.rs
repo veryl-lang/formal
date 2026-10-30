@@ -1,5 +1,6 @@
-//! Public native bitwise/NOT prefixes are proved in targets/analyzer/kani/src/public_gates.rs.
-//! Execute every call to preserve history for widened, logical and reduction results.
+//! Public native bitwise/NOT prefixes and a following native-width bitwise
+//! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
+//! call to preserve history for logical, reduction and BigUint results.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -43,9 +44,14 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
             let covered = prefix_matches
                 && normalized_native(x)
                 && normalized_native(y)
-                && width == x.width.max(y.width)
+                && calls < 8
+                && if calls < 4 {
+                    width == x.width.max(y.width)
+                } else {
+                    (x.width.max(y.width)..=64).contains(&width)
+                }
                 && BINARY
-                    .get(calls)
+                    .get(calls % 4)
                     .is_some_and(|&(expected, _)| op == expected);
             prefix_matches = covered;
             calls += 1;
