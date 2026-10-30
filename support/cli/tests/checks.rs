@@ -214,6 +214,16 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public wide reduction NAND widened X and Z is reachable",
                         "public wide reduction NAND widened zero dominates X and Z is reachable",
                     ],
+                    "reduction-or-reference" => &[
+                        "reduction OR reference width 64 is reachable",
+                        "reduction OR reference X is reachable",
+                    ],
+                    "public-reduction-or-native-continuation" => &[
+                        "public native reduction OR width 1 zero unchanged is reachable",
+                        "public native reduction OR width 64 signed high one is reachable",
+                        "public native reduction OR widened X and Z is reachable",
+                        "public native reduction OR widened one dominates X and Z is reachable",
+                    ],
                     "reduction-and-reference" => &[
                         "reduction AND reference width 64 is reachable",
                         "reduction AND reference X is reachable",

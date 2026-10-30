@@ -2,7 +2,7 @@
 //! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
 //! call to preserve history for logical, reduction and BigUint results. The
 //! native two-pass bitwise prefix also proves the following logical AND widths 1 and 8.
-//! The native NOT trace proves reduction AND then NAND at widths 1, 8, 65, 128.
+//! The native NOT trace proves AND then NAND at widths 1, 8, 65, 128, then OR 1, 8.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -25,7 +25,7 @@ const REDUCTIONS: [(Op, Reduction); 6] = [
     (Op::BitXnor, Reduction::Xnor),
 ];
 
-const REDUCTION_PREFIX: [(Op, usize); 8] = [
+const REDUCTION_PREFIX: [(Op, usize); 10] = [
     (Op::BitAnd, 1),
     (Op::BitAnd, 8),
     (Op::BitAnd, 65),
@@ -34,6 +34,8 @@ const REDUCTION_PREFIX: [(Op, usize); 8] = [
     (Op::BitNand, 8),
     (Op::BitNand, 65),
     (Op::BitNand, 128),
+    (Op::BitOr, 1),
+    (Op::BitOr, 8),
 ];
 
 fn planes(value: &Value) -> (u128, u128) {

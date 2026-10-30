@@ -688,6 +688,152 @@ fn public_reduction_nand_width128_matches_reference_semantics() {
     public_reduction_nand_wide_continuation::<128>();
 }
 
+// Balanced scalar OR folding avoids increasing the global unwind bound for
+// real BigUint loops. Out-of-width leaves use OR's identity, Zero.
+fn scalar_or_four(states: [Logic4; 4]) -> Logic4 {
+    gates::binary(
+        gates::binary(states[0], states[1], BitOp::Or),
+        gates::binary(states[2], states[3], BitOp::Or),
+        BitOp::Or,
+    )
+}
+
+fn source_or_four(source: Operand, offset: usize) -> Logic4 {
+    let bit = |position| {
+        if position < source.width {
+            read_logic(source.planes.0, source.planes.1, position)
+        } else {
+            Logic4::Zero
+        }
+    };
+    scalar_or_four([
+        bit(offset),
+        bit(offset + 1),
+        bit(offset + 2),
+        bit(offset + 3),
+    ])
+}
+
+fn source_or_sixteen(source: Operand, offset: usize) -> Logic4 {
+    scalar_or_four([
+        source_or_four(source, offset),
+        source_or_four(source, offset + 4),
+        source_or_four(source, offset + 8),
+        source_or_four(source, offset + 12),
+    ])
+}
+
+fn native_reduction_or_tree(source: Operand) -> Logic4 {
+    scalar_or_four([
+        source_or_sixteen(source, 0),
+        source_or_sixteen(source, 16),
+        source_or_sixteen(source, 32),
+        source_or_sixteen(source, 48),
+    ])
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+fn native_reduction_or_tree_matches_scalar_fold() {
+    let source = Operand {
+        planes: (kani::any(), kani::any()),
+        width: usize::from(kani::any::<u8>() & 63) + 1,
+        signed: kani::any(),
+    };
+    let expected = gates::reduced_logic(source.planes, source.width, gates::Reduction::Or);
+    assert!(
+        native_reduction_or_tree(source) == expected,
+        "reduction OR reference mismatch"
+    );
+    kani::cover!(
+        source.width == 1,
+        "reduction OR reference width 1 is reachable"
+    );
+    kani::cover!(
+        source.width == 64,
+        "reduction OR reference width 64 is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "reduction OR reference zero is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "reduction OR reference one is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "reduction OR reference X is reachable"
+    );
+}
+
+// IEEE 1800 11.4.9/11.8.2: scalar OR folding with known one dominating X/Z.
+// Sources span all normalized four-state native widths 1..=64 and either sign.
+// Execute four native NOT calls, then AND and NAND at widths 1, 8, 65, 128 on
+// one cache before observing OR widths 1 then 8. BigUint prefix construction and
+// allocation remain real. Native observations must never enter its getter.
+// reduction-or-reference separately proves the balanced scalar model.
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_reduction_or_native_continuation_matches_reference_semantics() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let expected = native_reduction_or_tree(before);
+    let output = Op::BitOr.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitOr.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && width == 1
+            && expected == Logic4::Zero,
+        "public native reduction OR width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (1u128 << 63, 0)
+            && width == 64
+            && expected == Logic4::One,
+        "public native reduction OR width 64 signed high one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (2, 0xffff_ffff)
+            && width == 64
+            && expected == Logic4::X,
+        "public native reduction OR widened X and Z is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && width == 64
+            && expected == Logic4::One,
+        "public native reduction OR widened one dominates X and Z is reachable"
+    );
+}
+
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar
