@@ -1,5 +1,5 @@
 //! Normalized native branches, resolved width/sign, and arbitrary four-state conditions;
-//! Public dispatch covers condition widths 1..=2, branch widths 1..=64 and
+//! Public dispatch covers condition widths 1..=64, branch widths 1..=64 and
 //! context requests 0..=64, including constructor/getter/input-preservation checks.
 //! Common Z follows Table 11-20.
 //! No general context propagation or optimizer theorem follows.
@@ -219,6 +219,10 @@ kani::stub_set!(
     stub(std::alloc::alloc_zeroed, reject_conditional_allocation),
 );
 
+fn reject_conditional_biguint_getter(_: &num_bigint::BigUint) -> u128 {
+    panic!("public conditional semantics mismatch");
+}
+
 fn public_native_conditional_input(width: usize) -> (Value, Operand) {
     let mask = u64::MAX >> (64 - width);
     let before = Operand {
@@ -249,14 +253,20 @@ fn check_native_conditional_input(input: &Value, before: Operand) {
 }
 
 // Public construction, truth decoding and conditional selection. Conditions have
-// every normalized four-state value of widths 1..=2, including known-one with X/Z.
+// every normalized four-state value of widths 1..=64, including known-one with X/Z.
 // Branch widths span 1..=64 independently; requests 0..=64 and all signs are free.
 // IEEE 1800 11.4.11/Table 11-20 and 11.8.2 are interpreted by independent models.
+// logical-truth-reference separately proves the chunked scan equals scalar OR
+// folding for every native width. BigUint getter guards must remain unreachable.
 #[kani::proof]
-#[kani::unwind(3)]
+#[kani::unwind(9)]
 #[kani::use_stub_set(small_native_conditional)]
+#[kani::stub(
+    veryl_analyzer::value::biguint_to_u128,
+    reject_conditional_biguint_getter
+)]
 fn public_conditional_native_matches_reference_semantics() {
-    let cw = usize::from(kani::any::<u8>() & 1) + 1;
+    let cw = usize::from(kani::any::<u8>() & 63) + 1;
     let aw = usize::from(kani::any::<u8>() & 63) + 1;
     let bw = usize::from(kani::any::<u8>() & 63) + 1;
     let context = usize::from(kani::any::<u8>() & 127).min(64);
@@ -266,7 +276,7 @@ fn public_conditional_native_matches_reference_semantics() {
     let (a, ar) = public_native_conditional_input(aw);
     let (b, br) = public_native_conditional_input(bw);
     let width = context.max(aw).max(bw);
-    let truth = logical_truth(cr.planes, cw);
+    let truth = crate::public_gates::chunked_logical_truth(cr);
     let expected = conditional_logic_bit(
         truth,
         (ar.planes, aw, ar.signed),
@@ -301,6 +311,18 @@ fn public_conditional_native_matches_reference_semantics() {
     kani::cover!(
         cw == 2,
         "public native conditional condition width 2 is reachable"
+    );
+    kani::cover!(
+        cw == 64,
+        "public native conditional condition width 64 is reachable"
+    );
+    kani::cover!(
+        cr.planes.0 == 1u128 << 63 && cr.planes.1 == 0 && truth == Logic4::One,
+        "public native conditional high bit determines true"
+    );
+    kani::cover!(
+        cr.planes.0 == 0 && cr.planes.1 == 1u128 << 63 && truth == Logic4::X,
+        "public native conditional high bit determines unknown"
     );
     kani::cover!(
         aw == 1,

@@ -2005,13 +2005,16 @@ pub static CONTRACTS: [Contract; 203] = [
         ],
     },
     Contract {
-        group: "values",
+        group: "public-gate-sequences",
         name: "public-conditional-native",
         harness: "public_conditional_native_matches_reference_semantics",
         message: "public conditional semantics mismatch",
         covers: &[
             "public native conditional condition width 1 is reachable",
             "public native conditional condition width 2 is reachable",
+            "public native conditional condition width 64 is reachable",
+            "public native conditional high bit determines true",
+            "public native conditional high bit determines unknown",
             "public native conditional true width 1 is reachable",
             "public native conditional true width 64 is reachable",
             "public native conditional false width 1 is reachable",
@@ -2850,7 +2853,10 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
-    if selected.iter().any(|c| c.group == "values") {
+    if selected
+        .iter()
+        .any(|c| c.group == "values" || c.name == "public-conditional-native")
+    {
         let source = fs::read_to_string(repo.join(CORE)).unwrap();
         let legacy = mutate_method(
             &source,
@@ -4273,6 +4279,12 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "public-conditional-ignores-condition-high-bit",
             "let condition = self.truth();",
             "let mut condition_value = self.clone(); condition_value.trunc(1); let condition = condition_value.truth();",
+        ),
+        (
+            "public-conditional-native",
+            "public-conditional-ignores-upper-word",
+            "let condition = self.truth();",
+            "let mut condition_value = self.clone(); condition_value.trunc(32); let condition = condition_value.truth();",
         ),
         (
             "public-conditional-native",

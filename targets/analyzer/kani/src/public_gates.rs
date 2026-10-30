@@ -359,7 +359,7 @@ fn public_reduction_and_native_continuation_matches_reference_semantics() {
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar
 // scan is independent of the production operation's aggregate plane arithmetic.
-fn chunked_logical_truth(source: Operand) -> Logic4 {
+pub(crate) fn chunked_logical_truth(source: Operand) -> Logic4 {
     let mut saw_one = false;
     let mut saw_unknown = false;
     for chunk in 0..8 {

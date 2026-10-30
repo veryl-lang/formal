@@ -185,6 +185,11 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert_eq!(shard.suite, "logic");
                 assert!(!contract.covers.is_empty());
                 let witnesses: &[&str] = match contract.name {
+                    "public-conditional-native" => &[
+                        "public native conditional condition width 64 is reachable",
+                        "public native conditional high bit determines true",
+                        "public native conditional high bit determines unknown",
+                    ],
                     "public-bitwise-widened-native-trace" => &[
                         "public bitwise trace LHS width 64 is reachable",
                         "public bitwise trace RHS width 64 is reachable",

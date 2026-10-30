@@ -47,13 +47,13 @@ fn check(condition: Operand, a: Operand, b: Operand, context_width: usize, signe
     }
 }
 
-// The public proof includes all normalized native branches, small conditions
-// and context requests through 64. Wider conditions, branches and requests remain.
+// The public proof includes all normalized native conditions and branches
+// and context requests through 64. BigUint conditions, branches and requests remain.
 fn covered_native_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
     fn normalized(x: Operand, limit: usize) -> bool {
         (1..=limit).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0
     }
-    normalized(c, 2) && normalized(a, 64) && normalized(b, 64) && context <= 64
+    normalized(c, 64) && normalized(a, 64) && normalized(b, 64) && context <= 64
 }
 
 #[test]
