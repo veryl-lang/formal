@@ -917,6 +917,78 @@ fn public_reduction_or_width128_matches_reference_semantics() {
     public_reduction_or_wide_continuation::<128>();
 }
 
+// IEEE 1800 11.4.9/11.8.2: scalar NOR negates OR folding and zero extends.
+// Sources span every normalized four-state native width 1..=64 and either sign.
+// Execute four NOT calls at natural and arbitrary native context natural..=64,
+// with both caller signs, then AND/NAND/OR widths 1, 8, 65, 128 on one cache.
+// Observe NOR widths 1 then 8. BigUint prefix construction and allocation remain
+// real; native observations must never enter its getter. Unwind/safety checks
+// remain enabled. reduction-or-reference separately proves the scalar OR tree.
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_reduction_nor_native_continuation_matches_reference_semantics() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let expected = gates::not(native_reduction_or_tree(before));
+    let output = Op::BitNor.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitNor.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && width == 1
+            && expected == Logic4::One,
+        "public native reduction NOR width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (1u128 << 63, 0)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public native reduction NOR width 64 signed high one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (2, 0xffff_ffff)
+            && width == 64
+            && expected == Logic4::X,
+        "public native reduction NOR widened X and Z is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public native reduction NOR widened one dominates X and Z is reachable"
+    );
+}
+
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar

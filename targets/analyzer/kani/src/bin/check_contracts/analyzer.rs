@@ -245,7 +245,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 213] = [
+pub static CONTRACTS: [Contract; 214] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -2062,6 +2062,18 @@ pub static CONTRACTS: [Contract; 213] = [
             "public wide reduction OR width 64 signed high one is reachable",
             "public wide reduction OR widened X and Z is reachable",
             "public wide reduction OR widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-nor-native-continuation",
+        harness: "public_reduction_nor_native_continuation_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public native reduction NOR width 1 zero unchanged is reachable",
+            "public native reduction NOR width 64 signed high one is reachable",
+            "public native reduction NOR widened X and Z is reachable",
+            "public native reduction NOR widened one dominates X and Z is reachable",
         ],
     },
     Contract {
@@ -5299,6 +5311,70 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-reduction-nor-native-continuation")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        // Preserve all NOT/AND/NAND/OR prefix calls and the shared LogicNot arm.
+        for (name, expression) in [
+            ("public-native-reduction-nor-as-or", "x.reduce_or(false)"),
+            ("public-native-reduction-nor-as-nand", "x.reduce_and(true)"),
+            (
+                "public-native-reduction-nor-ignores-unknown",
+                "{ let mut result = x.reduce_or(true); result.mask_xz = 0; result }",
+            ),
+            (
+                "public-native-reduction-nor-unknown-overrides-one",
+                "{ let mut result = x.reduce_or(true); if x.mask_xz != 0 { result.payload = 0; result.mask_xz = 1; } result }",
+            ),
+            (
+                "public-native-reduction-nor-upper-padding-leak",
+                "{ let mut result = x.reduce_or(true); result.payload |= 1u64 << 63; result }",
+            ),
+        ] {
+            let replacement = format!(
+                "Value::U64(x) => if matches!(self, Op::BitNor) {{ {expression} }} else {{ x.reduce_or(true) }},"
+            );
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(
+                    &source,
+                    "eval_value_unary",
+                    "Value::U64(x) => x.reduce_or(true),",
+                    &replacement,
+                ),
+            });
+        }
+        let method = &source[method_range(&source, "eval_value_unary")];
+        let start = method
+            .find("            Op::BitNor | Op::LogicNot => {")
+            .unwrap();
+        let end = start + method[start..].find("            Op::BitXor => {").unwrap();
+        let branch = &method[start..end];
+        for (name, replacement) in [
+            (
+                "public-native-reduction-nor-wrong-width",
+                "ret.expand(if matches!(self, Op::BitNor) && width == 8 { 1 } else { width }, false).into_owned()",
+            ),
+            (
+                "public-native-reduction-nor-signed-result",
+                "{ let mut output = ret.expand(width, false).into_owned(); if matches!(self, Op::BitNor) { if let Value::U64(ref mut native) = output { native.signed = true; } } output }",
+            ),
+        ] {
+            let replacement =
+                replace_once(branch, "ret.expand(width, false).into_owned()", replacement);
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", branch, &replacement),
             });
         }
     }
