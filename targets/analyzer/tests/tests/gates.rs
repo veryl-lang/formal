@@ -1,7 +1,7 @@
 //! Public native bitwise/NOT prefixes and a following native-width bitwise
 //! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
-//! call to preserve history for logical, reduction and BigUint results. The small
-//! natural/natural+2 prefix also proves the following logical AND widths 1 and 8.
+//! call to preserve history for logical, reduction and BigUint results. The
+//! native two-pass bitwise prefix also proves the following logical AND widths 1 and 8.
 //! The native NOT trace proves the following reduction AND widths 1 and 8.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
@@ -79,9 +79,9 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
     }
     let covered_logical_and = normalized_native(x)
         && normalized_native(y)
-        && x.width <= 3
-        && y.width <= 3
-        && widths == [x.width.max(y.width), x.width.max(y.width) + 2];
+        && widths.len() == 2
+        && widths[0] == x.width.max(y.width)
+        && (widths[0]..=64).contains(&widths[1]);
     for (op, kind) in [(Op::LogicAnd, BitOp::And), (Op::LogicOr, BitOp::Or)] {
         let expected = gates::binary(
             gates::logical_truth(x.planes, x.width),

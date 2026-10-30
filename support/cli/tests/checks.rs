@@ -171,12 +171,33 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             if contract.group == "public-gate-sequences" {
                 assert_eq!(shard.suite, "logic");
                 assert!(!contract.covers.is_empty());
-                for witness in [
-                    "public reduction AND source width 64 is reachable",
-                    "public reduction AND widened NOT context is reachable",
-                    "public reduction AND zero dominates unknown is reachable",
-                ] {
-                    assert!(contract.covers.contains(&witness));
+                let witnesses: &[&str] = match contract.name {
+                    "public-reduction-and-native-continuation" => &[
+                        "public reduction AND source width 64 is reachable",
+                        "public reduction AND widened NOT context is reachable",
+                        "public reduction AND zero dominates unknown is reachable",
+                    ],
+                    "public-logical-and-native-continuation" => &[
+                        "public native logical AND LHS width 64 is reachable",
+                        "public native logical AND RHS width 64 is reachable",
+                        "public native logical AND widened context is reachable",
+                        "public native logical AND known ones dominate unknown is reachable",
+                        "public native logical AND signed LHS only is reachable",
+                        "public native logical AND signed RHS only is reachable",
+                    ],
+                    "public-logical-and-mutation-witness" => &[
+                        "logical AND witness signed LHS only is reachable",
+                        "logical AND witness signed RHS only is reachable",
+                        "logical AND witness zero dominates RHS unknown is reachable",
+                    ],
+                    "logical-truth-reference" => &[
+                        "logical truth reference width 64 is reachable",
+                        "logical truth reference X is reachable",
+                    ],
+                    _ => panic!("public gate contracts need a scope witness policy"),
+                };
+                for witness in witnesses {
+                    assert!(contract.covers.contains(witness));
                 }
             }
             if contract.group == "public-comparison-sequences" {
@@ -278,26 +299,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert!(contract.covers.contains(&witness));
         }
     }
-    for left in 1..=3 {
-        for right in 1..=3 {
-            let name = format!("public-small-logical-and-width-{left}-by-{right}");
-            let contract = all.iter().find(|c| c.name == name).unwrap();
-            assert!(contracts.contains(contract.name));
-            for witness in [
-                "public small logical AND zero dominates RHS unknown is reachable",
-                "public small logical AND zero dominates LHS unknown is reachable",
-                "public small logical AND signed LHS only is reachable",
-                "public small logical AND signed RHS only is reachable",
-            ] {
-                assert!(contract.covers.contains(&witness));
-            }
-            if left > 1 || right > 1 {
-                assert!(contract.covers.contains(
-                    &"public small logical AND known ones dominate unknown is reachable"
-                ));
-            }
-        }
-    }
+    assert!(contracts.contains("public-logical-and-native-continuation"));
+    assert!(contracts.contains("logical-truth-reference"));
+    assert!(contracts.contains("public-logical-and-mutation-witness"));
     assert!(contracts.contains("public-reduction-and-native-continuation"));
     assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());

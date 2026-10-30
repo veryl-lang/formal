@@ -429,29 +429,6 @@ fn public_bitwise_widened_xnor_witness_matches_reference_semantics() {
     public_bitwise_widened_continuation::<4, true>();
 }
 
-// IEEE 1800 11.4.7: evaluated operands use independently folded scalar truth
-// tables. This is a value-dispatch theorem, not a short-circuit/effect theorem.
-// Independent normalized four-state widths 1..=3 and source signs; the caller
-// sign is their conjunction. Preserve the natural/natural+2 bitwise prefix on
-// one cache, then observe logical AND at widths 1 and 8. Width 65 stays executable.
-fn small_logical_input(width: usize) -> (Value, Operand) {
-    let mask = (1u8 << width) - 1;
-    let before = Operand {
-        planes: (
-            u128::from(kani::any::<u8>() & mask),
-            u128::from(kani::any::<u8>() & mask),
-        ),
-        width,
-        signed: kani::any(),
-    };
-    let value = Value::from_u128(before.planes.0, before.planes.1, width, before.signed);
-    assert_input(&value, before);
-    let Value::U64(native) = value else {
-        panic!("public gate semantics mismatch");
-    };
-    (Value::U64(native), before)
-}
-
 fn assert_logical_and(output: Value, width: usize, expected: Logic4) {
     let planes = match expected {
         Logic4::Zero => (0, 0),
@@ -466,142 +443,6 @@ fn assert_logical_and(output: Value, width: usize, expected: Logic4) {
             && (output.payload_u128(), output.mask_xz_u128()) == planes,
         "public gate semantics mismatch"
     );
-}
-
-// The nine constant pairs jointly cover independent source widths 1..=3.
-// Constant sizing avoids changing the admitted state/sign domain to fit the solver.
-fn public_small_logical_and_pair<const LEFT: usize, const RIGHT: usize>() {
-    let (a, ar) = small_logical_input(LEFT);
-    let (b, br) = small_logical_input(RIGHT);
-    let natural = ar.width.max(br.width);
-    let signed = ar.signed && br.signed;
-    let mut cache = MaskCache::default();
-    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
-    let _ = Op::BitOr.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
-    let _ = Op::BitXor.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
-    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
-    let lhs = gates::logical_truth(ar.planes, ar.width);
-    let rhs = gates::logical_truth(br.planes, br.width);
-    let expected = gates::binary(lhs, rhs, BitOp::And);
-    let output = Op::LogicAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
-    assert_logical_and(output, 1, expected);
-    let output = Op::LogicAnd.eval_value_binary(&a, &b, 8, signed, &mut cache);
-    assert_logical_and(output, 8, expected);
-    assert_input(&a, ar);
-    assert_input(&b, br);
-    kani::cover!(
-        !ar.signed && !br.signed,
-        "public small logical AND unsigned sources is reachable"
-    );
-    kani::cover!(
-        ar.signed && br.signed,
-        "public small logical AND signed sources is reachable"
-    );
-    kani::cover!(
-        ar.signed && !br.signed,
-        "public small logical AND signed LHS only is reachable"
-    );
-    kani::cover!(
-        !ar.signed && br.signed,
-        "public small logical AND signed RHS only is reachable"
-    );
-    kani::cover!(
-        expected == Logic4::Zero,
-        "public small logical AND false result is reachable"
-    );
-    kani::cover!(
-        expected == Logic4::One,
-        "public small logical AND true result is reachable"
-    );
-    kani::cover!(
-        expected == Logic4::X,
-        "public small logical AND X result is reachable"
-    );
-    kani::cover!(
-        lhs == Logic4::Zero && rhs == Logic4::X,
-        "public small logical AND zero dominates RHS unknown is reachable"
-    );
-    kani::cover!(
-        lhs == Logic4::X && rhs == Logic4::Zero,
-        "public small logical AND zero dominates LHS unknown is reachable"
-    );
-    kani::cover!(
-        ar.planes.0 & ar.planes.1 != 0,
-        "public small logical AND source Z is reachable"
-    );
-    if LEFT > 1 || RIGHT > 1 {
-        kani::cover!(
-            (ar.planes.1 | br.planes.1) != 0 && lhs == Logic4::One && rhs == Logic4::One,
-            "public small logical AND known ones dominate unknown is reachable"
-        );
-    }
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_1_by_1_matches_reference_semantics() {
-    public_small_logical_and_pair::<1, 1>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_1_by_2_matches_reference_semantics() {
-    public_small_logical_and_pair::<1, 2>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_1_by_3_matches_reference_semantics() {
-    public_small_logical_and_pair::<1, 3>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_2_by_1_matches_reference_semantics() {
-    public_small_logical_and_pair::<2, 1>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_2_by_2_matches_reference_semantics() {
-    public_small_logical_and_pair::<2, 2>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_2_by_3_matches_reference_semantics() {
-    public_small_logical_and_pair::<2, 3>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_3_by_1_matches_reference_semantics() {
-    public_small_logical_and_pair::<3, 1>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_3_by_2_matches_reference_semantics() {
-    public_small_logical_and_pair::<3, 2>();
-}
-
-#[kani::proof]
-#[kani::unwind(4)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_small_logical_and_width_3_by_3_matches_reference_semantics() {
-    public_small_logical_and_pair::<3, 3>();
 }
 
 // IEEE 1800 11.4.9: scalar AND fold, with a known zero dominating X/Z.
@@ -691,5 +532,272 @@ fn public_reduction_and_native_continuation_matches_reference_semantics() {
     kani::cover!(
         before.planes.1 & !before.planes.0 != 0,
         "public reduction AND source X is reachable"
+    );
+}
+
+// IEEE 1800 11.4.7: classify each source bit independently. A scalar known
+// one determines true; absent any known one, X/Z determines unknown, else false.
+// Nested loops visit every bit while bounding each loop by eight. This scalar
+// scan is independent of the production operation's aggregate plane arithmetic.
+fn chunked_logical_truth(source: Operand) -> Logic4 {
+    let mut saw_one = false;
+    let mut saw_unknown = false;
+    for chunk in 0..8 {
+        for bit in 0..8 {
+            let position = chunk * 8 + bit;
+            if position < source.width {
+                match read_logic(source.planes.0, source.planes.1, position) {
+                    Logic4::One => saw_one = true,
+                    Logic4::X | Logic4::Z => saw_unknown = true,
+                    Logic4::Zero => {}
+                }
+            }
+        }
+    }
+    if saw_one {
+        Logic4::One
+    } else if saw_unknown {
+        Logic4::X
+    } else {
+        Logic4::Zero
+    }
+}
+
+// Native-only observations must never enter the BigUint getter conversion.
+// Fail closed here instead of expanding unreachable digit-collection loops.
+fn reject_logical_biguint_getter(_: &num_bigint::BigUint) -> u128 {
+    panic!("public gate semantics mismatch");
+}
+
+// Full independent normalized four-state source widths 1..=64 and signs.
+// Execute all four bitwise calls at natural then arbitrary context natural..=64
+// on one fresh cache, followed by logical AND widths 1 then 8. This strictly
+// includes the former nine small-width, natural/natural+2 continuations.
+// Value dispatch only: no short-circuit or operand-evaluation effect theorem.
+#[kani::proof]
+#[kani::unwind(9)]
+#[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_and_native_continuation_matches_reference_semantics() {
+    let (a, ar) = input();
+    let (b, br) = input();
+    let natural = ar.width.max(br.width);
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, width, signed, &mut cache);
+    let lhs = chunked_logical_truth(ar);
+    let rhs = chunked_logical_truth(br);
+    let expected = gates::binary(lhs, rhs, BitOp::And);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 8, signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    kani::cover!(
+        ar.width == 1,
+        "public native logical AND LHS width 1 is reachable"
+    );
+    kani::cover!(
+        ar.width == 64,
+        "public native logical AND LHS width 64 is reachable"
+    );
+    kani::cover!(
+        br.width == 1,
+        "public native logical AND RHS width 1 is reachable"
+    );
+    kani::cover!(
+        br.width == 64,
+        "public native logical AND RHS width 64 is reachable"
+    );
+    kani::cover!(
+        !ar.signed && !br.signed,
+        "public native logical AND unsigned sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "public native logical AND signed sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && !br.signed,
+        "public native logical AND signed LHS only is reachable"
+    );
+    kani::cover!(
+        !ar.signed && br.signed,
+        "public native logical AND signed RHS only is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public native logical AND false result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public native logical AND true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "public native logical AND X result is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::Zero && rhs == Logic4::X,
+        "public native logical AND zero dominates RHS unknown is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::X && rhs == Logic4::Zero,
+        "public native logical AND zero dominates LHS unknown is reachable"
+    );
+    kani::cover!(
+        ar.planes.0 & ar.planes.1 != 0,
+        "public native logical AND source Z is reachable"
+    );
+    kani::cover!(
+        (ar.planes.1 | br.planes.1) != 0 && lhs == Logic4::One && rhs == Logic4::One,
+        "public native logical AND known ones dominate unknown is reachable"
+    );
+    kani::cover!(
+        width == natural,
+        "public native logical AND unchanged context is reachable"
+    );
+    kani::cover!(
+        width > natural,
+        "public native logical AND widened context is reachable"
+    );
+    kani::cover!(
+        width == 64,
+        "public native logical AND context width 64 is reachable"
+    );
+}
+
+// Validate the scalar classification reference against the established four-state
+// OR-table fold for all widths 1..=64, including arbitrary upper plane bits.
+// This pure reference theorem calls no compiler operation or constructor.
+#[kani::proof]
+#[kani::unwind(65)]
+fn logical_truth_scan_matches_scalar_fold() {
+    let source = Operand {
+        planes: (kani::any(), kani::any()),
+        width: usize::from(kani::any::<u8>() & 63) + 1,
+        signed: kani::any(),
+    };
+    let expected = gates::logical_truth(source.planes, source.width);
+    assert!(
+        chunked_logical_truth(source) == expected,
+        "logical truth reference mismatch"
+    );
+    kani::cover!(
+        source.width == 1,
+        "logical truth reference width 1 is reachable"
+    );
+    kani::cover!(
+        source.width == 64,
+        "logical truth reference width 64 is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "logical truth reference false is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "logical truth reference true is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "logical truth reference X is reachable"
+    );
+}
+
+// A fixed counterexample domain keeps mutation detection inexpensive. It never
+// replaces the required full native-width positive proof above. Source signs and
+// all four scalar states remain independent; second bitwise context is width 3.
+fn logical_witness_input() -> (Value, Operand) {
+    let before = Operand {
+        planes: (
+            u128::from(kani::any::<u8>() & 1),
+            u128::from(kani::any::<u8>() & 1),
+        ),
+        width: 1,
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(before.planes.0, before.planes.1, 1, before.signed);
+    assert_input(&value, before);
+    let Value::U64(native) = value else {
+        panic!("public gate semantics mismatch");
+    };
+    (Value::U64(native), before)
+}
+
+#[kani::proof]
+#[kani::unwind(9)]
+#[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_and_mutation_witness_matches_reference_semantics() {
+    let (a, ar) = logical_witness_input();
+    let (b, br) = logical_witness_input();
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, 3, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, 3, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, 3, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, 3, signed, &mut cache);
+    let lhs = chunked_logical_truth(ar);
+    let rhs = chunked_logical_truth(br);
+    let expected = gates::binary(lhs, rhs, BitOp::And);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 8, signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    kani::cover!(
+        !ar.signed && !br.signed,
+        "logical AND witness unsigned sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "logical AND witness signed sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && !br.signed,
+        "logical AND witness signed LHS only is reachable"
+    );
+    kani::cover!(
+        !ar.signed && br.signed,
+        "logical AND witness signed RHS only is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "logical AND witness false result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "logical AND witness true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "logical AND witness X result is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::Zero && rhs == Logic4::X,
+        "logical AND witness zero dominates RHS unknown is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::X && rhs == Logic4::Zero,
+        "logical AND witness zero dominates LHS unknown is reachable"
+    );
+    kani::cover!(
+        ar.planes.0 & ar.planes.1 != 0,
+        "logical AND witness source Z is reachable"
     );
 }
