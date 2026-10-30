@@ -783,3 +783,80 @@ fn public_small_greater_equal_width_3_by_2_matches_reference() {
 fn public_small_greater_equal_width_3_by_3_matches_reference() {
     public_small_greater_equal_pair::<3, 3>();
 }
+
+// Together with the nine existing width pairs1..3, these two disjoint domains
+// cover all independent widths1..4 and all four-state planes/source signs.
+// LEFT_FOUR: (4,1..4); otherwise (1..3,4). Their common width is always4.
+// Eq/Ne/EqWildcard/NeWildcard/Less pairs1 then8 precede LessEq on one cache.
+fn public_less_equal_width4_boundary<const LEFT_FOUR: bool>() {
+    let left_width = if LEFT_FOUR {
+        4
+    } else {
+        u32::from((kani::any::<u8>() & 3).min(2)) + 1
+    };
+    let right_width = if LEFT_FOUR {
+        u32::from(kani::any::<u8>() & 3) + 1
+    } else {
+        4
+    };
+    let (a, ar) = public_input_at_width::<true>(left_width);
+    let (b, br) = public_input_at_width::<true>(right_width);
+    assert!(
+        a.width.max(b.width) == 4,
+        "public comparison semantics mismatch"
+    );
+    let (ar, br, expected) = evaluate_comparison_trace::<5>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    if LEFT_FOUR {
+        kani::cover!(
+            br.width == 1,
+            "public less equal width4 narrow RHS is reachable"
+        );
+        kani::cover!(
+            br.width == 4,
+            "public less equal width4 equal widths are reachable"
+        );
+    } else {
+        kani::cover!(
+            ar.width == 1,
+            "public less equal width4 narrow LHS is reachable"
+        );
+        kani::cover!(
+            ar.width == 3,
+            "public less equal width4 three bit LHS is reachable"
+        );
+    }
+}
+
+fn reject_boundary_biguint_getter(_: &num_bigint::BigUint) -> u128 {
+    panic!("public comparison semantics mismatch");
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_less_equal_left_width4_matches_reference() {
+    public_less_equal_width4_boundary::<true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_less_equal_right_width4_matches_reference() {
+    public_less_equal_width4_boundary::<false>();
+}

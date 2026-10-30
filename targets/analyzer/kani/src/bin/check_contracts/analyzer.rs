@@ -213,7 +213,7 @@ const PUBLIC_SMALL_FIXED_ORDERING_COVERS: &[&str] = &[
     "public comparison false result is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 166] = [
+pub static CONTRACTS: [Contract; 168] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -255,6 +255,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -270,6 +274,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -285,6 +293,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -300,6 +312,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -314,6 +330,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width zero RHS is reachable",
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -328,6 +348,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width zero RHS is reachable",
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -368,6 +392,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -382,6 +410,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -396,6 +428,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -410,6 +446,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width natural call is reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -423,6 +463,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width zero RHS is reachable",
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -436,6 +480,10 @@ pub static CONTRACTS: [Contract; 166] = [
             "nonlinear fixed width zero RHS is reachable",
             "nonlinear fixed width mixed signs are reachable",
             "nonlinear fixed width widened call is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
         ],
     },
     Contract {
@@ -750,6 +798,40 @@ pub static CONTRACTS: [Contract; 166] = [
         harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
         message: "public shift semantics mismatch",
         covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-less-equal-left-width4",
+        harness: "public_less_equal_left_width4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: &[
+            "public comparison unsigned sources are reachable",
+            "public comparison signed RHS only is reachable",
+            "public comparison signed LHS only is reachable",
+            "public comparison signed sources are reachable",
+            "public comparison X result is reachable",
+            "public comparison true result is reachable",
+            "public comparison false result is reachable",
+            "public less equal width4 narrow RHS is reachable",
+            "public less equal width4 equal widths are reachable",
+        ],
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-less-equal-right-width4",
+        harness: "public_less_equal_right_width4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: &[
+            "public comparison unsigned sources are reachable",
+            "public comparison signed RHS only is reachable",
+            "public comparison signed LHS only is reachable",
+            "public comparison signed sources are reachable",
+            "public comparison X result is reachable",
+            "public comparison true result is reachable",
+            "public comparison false result is reachable",
+            "public less equal width4 narrow LHS is reachable",
+            "public less equal width4 three bit LHS is reachable",
+        ],
     },
     Contract {
         group: "public-comparison-sequences",
@@ -2512,11 +2594,15 @@ fn mutate_method(source: &str, name: &str, old: &str, new: &str) -> String {
     mutated
 }
 
-// Conditional cover statements for other width instantiations remain in
+// Conditional cover statements for other generic instantiations remain in
 // Kani's output. They are diagnostic only unless listed in Contract::covers.
-pub const AUXILIARY_NONLINEAR_COVERS: &[&str] = &[
+pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
     "nonlinear fixed width natural call is reachable",
     "nonlinear fixed width widened call is reachable",
+    "public less equal width4 narrow RHS is reachable",
+    "public less equal width4 equal widths are reachable",
+    "public less equal width4 narrow LHS is reachable",
+    "public less equal width4 three bit LHS is reachable",
 ];
 
 // Named covers are mandatory for this profile; the shared runner validates them.
@@ -4212,6 +4298,54 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         });
     }
     for (contract_name, name, path, method, old, new) in [
+        (
+            "public-less-equal-left-width4",
+            "public-less-equal-width4-direction",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, true)",
+            "x.compare(y, signed, xy_width == 4, true)",
+        ),
+        (
+            "public-less-equal-left-width4",
+            "public-less-equal-width4-strict",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, true)",
+            "x.compare(y, signed, false, xy_width != 4)",
+        ),
+        (
+            "public-less-equal-left-width4",
+            "public-less-equal-width4-unsigned-order",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, true)",
+            "x.compare(y, signed && xy_width != 4, false, true)",
+        ),
+        (
+            "public-less-equal-right-width4",
+            "public-less-equal-width4-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::LessEq => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, signed);",
+            "Op::LessEq => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, signed && xy_width != 4);",
+        ),
+        (
+            "public-less-equal-left-width4",
+            "public-less-equal-width4-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self::new_bit_x1(self.width != 4 && (self.is_xz() || rhs.is_xz()), relation)",
+        ),
+        (
+            "public-less-equal-left-width4",
+            "public-less-equal-width4-signed-result",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, false, true)",
+            "{ let mut result = x.compare(y, signed, false, true); if xy_width == 4 { result.signed = true; } result }",
+        ),
         (
             "public-small-greater-equal-width-2-by-2",
             "public-greater-equal-direction",

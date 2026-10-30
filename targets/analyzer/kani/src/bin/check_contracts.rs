@@ -67,7 +67,7 @@ fn main() {
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {
                 harness_timeout: "60s",
-                auxiliary_covers: analyzer::AUXILIARY_NONLINEAR_COVERS,
+                auxiliary_covers: analyzer::AUXILIARY_CONDITIONAL_COVERS,
             },
             options.mode,
             &explicit,

@@ -234,6 +234,8 @@ pub const SHARDS: &[Shard] = &[
             "public-small-greater-width-3-by-1",
             "public-small-greater-width-3-by-2",
             "public-small-greater-width-3-by-3",
+            "public-less-equal-left-width4",
+            "public-less-equal-right-width4",
             "public-small-less-equal-width-1-by-1",
             "public-small-less-equal-width-1-by-2",
             "public-small-less-equal-width-1-by-3",

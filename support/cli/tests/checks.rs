@@ -214,7 +214,10 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
             if contract.group == "public-comparison-sequences" {
                 assert_eq!(shard.suite, "logic");
-                if contract.name.starts_with("public-small-less-equal-width-")
+                if matches!(
+                    contract.name,
+                    "public-less-equal-left-width4" | "public-less-equal-right-width4"
+                ) || contract.name.starts_with("public-small-less-equal-width-")
                     || contract.name.starts_with("public-small-greater-width-")
                     || contract
                         .name
@@ -230,6 +233,20 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public comparison false result is reachable",
                     ] {
                         assert!(contract.covers.contains(&witness));
+                    }
+                    let boundary_witnesses: &[&str] = match contract.name {
+                        "public-less-equal-left-width4" => &[
+                            "public less equal width4 narrow RHS is reachable",
+                            "public less equal width4 equal widths are reachable",
+                        ],
+                        "public-less-equal-right-width4" => &[
+                            "public less equal width4 narrow LHS is reachable",
+                            "public less equal width4 three bit LHS is reachable",
+                        ],
+                        _ => &[],
+                    };
+                    for witness in boundary_witnesses {
+                        assert!(contract.covers.contains(witness));
                     }
                 } else {
                     let sizing_witness =
@@ -305,6 +322,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     assert!(contracts.contains("logical-truth-reference"));
     assert!(contracts.contains("public-logical-and-mutation-witness"));
     assert!(contracts.contains("public-reduction-and-native-continuation"));
+    // These disjoint boundaries complete the existing1..3 matrix through width4.
+    assert!(contracts.contains("public-less-equal-left-width4"));
+    assert!(contracts.contains("public-less-equal-right-width4"));
     assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
