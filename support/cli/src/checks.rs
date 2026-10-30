@@ -216,6 +216,13 @@ pub const SHARDS: &[Shard] = &[
         &[
             "equality",
             "public-equality-native",
+            "public-small-greater-equal-width-1-by-4",
+            "public-small-greater-equal-width-2-by-4",
+            "public-small-greater-equal-width-3-by-4",
+            "public-small-greater-equal-width-4-by-1",
+            "public-small-greater-equal-width-4-by-2",
+            "public-small-greater-equal-width-4-by-3",
+            "public-small-greater-equal-width-4-by-4",
             "public-small-greater-equal-width-1-by-1",
             "public-small-greater-equal-width-1-by-2",
             "public-small-greater-equal-width-1-by-3",
