@@ -172,6 +172,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert_eq!(shard.suite, "logic");
                 assert!(!contract.covers.is_empty());
                 let witnesses: &[&str] = match contract.name {
+                    "public-bitwise-widened-native-trace" => &[
+                        "public bitwise trace LHS width 64 is reachable",
+                        "public bitwise trace RHS width 64 is reachable",
+                        "public bitwise trace widened context is reachable",
+                        "public bitwise trace signed Z extension is reachable",
+                        "public bitwise trace u128 padding is reachable",
+                    ],
+                    "public-bitwise-widened-mutation-witness" => &[
+                        "public bitwise witness signed LHS only is reachable",
+                        "public bitwise witness signed RHS only is reachable",
+                        "public bitwise witness u128 padding is reachable",
+                    ],
                     "public-reduction-and-native-continuation" => &[
                         "public reduction AND source width 64 is reachable",
                         "public reduction AND widened NOT context is reachable",
@@ -285,20 +297,10 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
         }
     }
-    // All four continuations are needed to omit the second native bitwise pass.
-    for op in ["and", "or", "xor", "xnor"] {
-        let name = format!("public-bitwise-widened-{op}");
-        assert!(contracts.contains(name.as_str()));
-        let contract = all.iter().find(|c| c.name == name).unwrap();
-        for witness in [
-            "public widened bitwise growth is reachable",
-            "public widened bitwise signed Z extension is reachable",
-            "public widened bitwise width 64 is reachable",
-            "public widened bitwise u128 padding is reachable",
-        ] {
-            assert!(contract.covers.contains(&witness));
-        }
-    }
+    // Both native passes are required before direct result checks are omitted.
+    assert!(contracts.contains("public-bitwise-native"));
+    assert!(contracts.contains("public-bitwise-widened-native-trace"));
+    assert!(contracts.contains("public-bitwise-widened-mutation-witness"));
     assert!(contracts.contains("public-logical-and-native-continuation"));
     assert!(contracts.contains("logical-truth-reference"));
     assert!(contracts.contains("public-logical-and-mutation-witness"));

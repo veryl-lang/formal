@@ -249,186 +249,6 @@ fn public_bit_not_native_sequence_matches_reference_semantics() {
     kani::cover!(position == 127, "public NOT u128 padding is reachable");
 }
 
-// Fixed width witness for mutation checks; the four full native-width proofs
-// remain required. Keeping this counterexample small avoids spending the mutation
-// budget solving unrelated symbolic width and getter branches.
-fn mutation_input() -> (Value, Operand) {
-    let before = Operand {
-        planes: (
-            u128::from(kani::any::<u8>() & 3),
-            u128::from(kani::any::<u8>() & 3),
-        ),
-        width: 2,
-        signed: kani::any(),
-    };
-    let value = Value::from_u128(
-        before.planes.0,
-        before.planes.1,
-        before.width,
-        before.signed,
-    );
-    assert_input(&value, before);
-    (value, before)
-}
-
-// Each proof observes one continuation while retaining its complete call history.
-fn public_bitwise_widened_continuation<const MODE: u8, const FIXED: bool>() {
-    let (a, ar) = if FIXED { mutation_input() } else { input() };
-    let (b, br) = if FIXED { mutation_input() } else { input() };
-    let natural = ar.width.max(br.width);
-    let width = if FIXED {
-        4
-    } else {
-        natural.max(usize::from(kani::any::<u8>() & 63) + 1)
-    };
-    let signed = ar.signed && br.signed;
-    let position = usize::from(kani::any::<u8>() & 127);
-    let mut cache = MaskCache::default();
-    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
-    if MODE > 1 {
-        let _ = Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache);
-    }
-    if MODE > 2 {
-        let _ = Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache);
-    }
-    if MODE > 3 {
-        let _ = Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache);
-    }
-    let (output, kind) = match MODE {
-        1 => (
-            Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache),
-            BitOp::And,
-        ),
-        2 => (
-            Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache),
-            BitOp::Or,
-        ),
-        3 => (
-            Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache),
-            BitOp::Xor,
-        ),
-        4 => (
-            Op::BitXnor.eval_value_binary(&a, &b, width, signed, &mut cache),
-            BitOp::Xnor,
-        ),
-        _ => unreachable!(),
-    };
-    assert_binary(output, ar, br, width, position, kind);
-    assert_input(&a, ar);
-    assert_input(&b, br);
-    if FIXED {
-        kani::cover!(
-            signed,
-            "public widened bitwise witness signed context is reachable"
-        );
-        kani::cover!(
-            !signed,
-            "public widened bitwise witness unsigned context is reachable"
-        );
-        kani::cover!(
-            ar.planes.1 != 0,
-            "public widened bitwise witness unknown input is reachable"
-        );
-        kani::cover!(
-            position == 127,
-            "public widened bitwise witness padding is reachable"
-        );
-        return;
-    }
-    kani::cover!(
-        ar.width == 1,
-        "public widened bitwise LHS width 1 is reachable"
-    );
-    kani::cover!(
-        ar.width == 64,
-        "public widened bitwise LHS width 64 is reachable"
-    );
-    kani::cover!(
-        br.width == 1,
-        "public widened bitwise RHS width 1 is reachable"
-    );
-    kani::cover!(
-        br.width == 64,
-        "public widened bitwise RHS width 64 is reachable"
-    );
-    kani::cover!(
-        ar.width > br.width,
-        "public widened bitwise wider LHS is reachable"
-    );
-    kani::cover!(
-        ar.width < br.width,
-        "public widened bitwise wider RHS is reachable"
-    );
-    kani::cover!(
-        width == natural,
-        "public widened bitwise unchanged context is reachable"
-    );
-    kani::cover!(
-        width > natural,
-        "public widened bitwise growth is reachable"
-    );
-    kani::cover!(width == 64, "public widened bitwise width 64 is reachable");
-    kani::cover!(
-        signed && width > natural && (ar.planes.0 & ar.planes.1) >> (ar.width - 1) == 1,
-        "public widened bitwise signed Z extension is reachable"
-    );
-    kani::cover!(signed, "public widened bitwise signed context is reachable");
-    kani::cover!(
-        ar.signed != br.signed,
-        "public widened bitwise mixed signs are reachable"
-    );
-    kani::cover!(
-        ar.planes.1 & !ar.planes.0 != 0,
-        "public widened bitwise source X is reachable"
-    );
-    kani::cover!(
-        br.planes.1 & br.planes.0 != 0,
-        "public widened bitwise source Z is reachable"
-    );
-    kani::cover!(
-        position == 127,
-        "public widened bitwise u128 padding is reachable"
-    );
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_bitwise_widened_and_matches_reference_semantics() {
-    public_bitwise_widened_continuation::<1, false>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_bitwise_widened_or_matches_reference_semantics() {
-    public_bitwise_widened_continuation::<2, false>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_bitwise_widened_xor_matches_reference_semantics() {
-    public_bitwise_widened_continuation::<3, false>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_bitwise_widened_xnor_matches_reference_semantics() {
-    public_bitwise_widened_continuation::<4, false>();
-}
-
-#[kani::proof]
-#[kani::unwind(1)]
-#[kani::use_stub_set(small_native_gate)]
-fn public_bitwise_widened_xnor_witness_matches_reference_semantics() {
-    public_bitwise_widened_continuation::<4, true>();
-}
-
 fn assert_logical_and(output: Value, width: usize, expected: Logic4) {
     let planes = match expected {
         Logic4::Zero => (0, 0),
@@ -799,5 +619,196 @@ fn public_logical_and_mutation_witness_matches_reference_semantics() {
     kani::cover!(
         ar.planes.0 & ar.planes.1 != 0,
         "logical AND witness source Z is reachable"
+    );
+}
+
+// All normalized native source widths 1..=64, independent source signs, and
+// caller sign their conjunction. Execute the natural-width prefix, then observe
+// all four operations at arbitrary context natural..=64 on the same cache,
+// including preservation after each widened call. Natural outputs have their own proof. Scalar reference tables and arbitrary getter positions 0..127
+// check every stored bit and the upper u128 padding (IEEE 1800 11.4.8/11.8.2).
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_bitwise_widened_native_trace_matches_reference_semantics() {
+    let (a, ar) = input();
+    let (b, br) = input();
+    let natural = ar.width.max(br.width);
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let signed = ar.signed && br.signed;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let output = Op::BitAnd.eval_value_binary(&a, &b, width, signed, &mut cache);
+    assert_binary(output, ar, br, width, position, BitOp::And);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let output = Op::BitOr.eval_value_binary(&a, &b, width, signed, &mut cache);
+    assert_binary(output, ar, br, width, position, BitOp::Or);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let output = Op::BitXor.eval_value_binary(&a, &b, width, signed, &mut cache);
+    assert_binary(output, ar, br, width, position, BitOp::Xor);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let output = Op::BitXnor.eval_value_binary(&a, &b, width, signed, &mut cache);
+    assert_binary(output, ar, br, width, position, BitOp::Xnor);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    kani::cover!(
+        ar.width == 1,
+        "public bitwise trace LHS width 1 is reachable"
+    );
+    kani::cover!(
+        ar.width == 64,
+        "public bitwise trace LHS width 64 is reachable"
+    );
+    kani::cover!(
+        br.width == 1,
+        "public bitwise trace RHS width 1 is reachable"
+    );
+    kani::cover!(
+        br.width == 64,
+        "public bitwise trace RHS width 64 is reachable"
+    );
+    kani::cover!(
+        ar.width > br.width,
+        "public bitwise trace wider LHS is reachable"
+    );
+    kani::cover!(
+        ar.width < br.width,
+        "public bitwise trace wider RHS is reachable"
+    );
+    kani::cover!(
+        width == natural,
+        "public bitwise trace unchanged context is reachable"
+    );
+    kani::cover!(
+        width > natural,
+        "public bitwise trace widened context is reachable"
+    );
+    kani::cover!(
+        width == 64,
+        "public bitwise trace context width 64 is reachable"
+    );
+    kani::cover!(
+        !ar.signed && !br.signed,
+        "public bitwise trace unsigned sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "public bitwise trace signed sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && !br.signed,
+        "public bitwise trace signed LHS only is reachable"
+    );
+    kani::cover!(
+        !ar.signed && br.signed,
+        "public bitwise trace signed RHS only is reachable"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0,
+        "public bitwise trace source X is reachable"
+    );
+    kani::cover!(
+        br.planes.0 & br.planes.1 != 0,
+        "public bitwise trace source Z is reachable"
+    );
+    kani::cover!(
+        signed && width > natural && (ar.planes.0 & ar.planes.1) >> (ar.width - 1) == 1,
+        "public bitwise trace signed Z extension is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "public bitwise trace u128 padding is reachable"
+    );
+}
+
+// Mutation-only inputs: distinct widths exercise natural sign extension as well
+// as the following widened pass. The full native trace remains mandatory.
+fn bitwise_witness_input(width: usize) -> (Value, Operand) {
+    let mask = (1u8 << width) - 1;
+    let before = Operand {
+        planes: (
+            u128::from(kani::any::<u8>() & mask),
+            u128::from(kani::any::<u8>() & mask),
+        ),
+        width,
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(before.planes.0, before.planes.1, width, before.signed);
+    assert_input(&value, before);
+    let Value::U64(native) = value else {
+        panic!("public gate semantics mismatch");
+    };
+    (Value::U64(native), before)
+}
+
+// Width-4-only mutations leave the entire natural-width prefix intact. A
+// semantic rejection must therefore come from observing the widened operations.
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_bitwise_widened_mutation_witness_matches_reference_semantics() {
+    let (a, ar) = bitwise_witness_input(1);
+    let (b, br) = bitwise_witness_input(2);
+    let signed = ar.signed && br.signed;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let mut cache = MaskCache::default();
+    let output = Op::BitAnd.eval_value_binary(&a, &b, 2, signed, &mut cache);
+    assert_binary(output, ar, br, 2, position, BitOp::And);
+    let output = Op::BitOr.eval_value_binary(&a, &b, 2, signed, &mut cache);
+    assert_binary(output, ar, br, 2, position, BitOp::Or);
+    let output = Op::BitXor.eval_value_binary(&a, &b, 2, signed, &mut cache);
+    assert_binary(output, ar, br, 2, position, BitOp::Xor);
+    let output = Op::BitXnor.eval_value_binary(&a, &b, 2, signed, &mut cache);
+    assert_binary(output, ar, br, 2, position, BitOp::Xnor);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let output = Op::BitAnd.eval_value_binary(&a, &b, 4, signed, &mut cache);
+    assert_binary(output, ar, br, 4, position, BitOp::And);
+    let output = Op::BitOr.eval_value_binary(&a, &b, 4, signed, &mut cache);
+    assert_binary(output, ar, br, 4, position, BitOp::Or);
+    let output = Op::BitXor.eval_value_binary(&a, &b, 4, signed, &mut cache);
+    assert_binary(output, ar, br, 4, position, BitOp::Xor);
+    let output = Op::BitXnor.eval_value_binary(&a, &b, 4, signed, &mut cache);
+    assert_binary(output, ar, br, 4, position, BitOp::Xnor);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    kani::cover!(
+        !ar.signed && !br.signed,
+        "public bitwise witness unsigned sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "public bitwise witness signed sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && !br.signed,
+        "public bitwise witness signed LHS only is reachable"
+    );
+    kani::cover!(
+        !ar.signed && br.signed,
+        "public bitwise witness signed RHS only is reachable"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0,
+        "public bitwise witness source X is reachable"
+    );
+    kani::cover!(
+        br.planes.0 & br.planes.1 != 0,
+        "public bitwise witness source Z is reachable"
+    );
+    kani::cover!(
+        position == 127,
+        "public bitwise witness u128 padding is reachable"
     );
 }
