@@ -2,7 +2,7 @@
 //! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
 //! call to preserve history for logical, reduction and BigUint results. The
 //! native two-pass bitwise prefix also proves the following logical AND widths 1 and 8.
-//! The native NOT trace proves the following reduction AND widths 1, 8, 65 and 128.
+//! The native NOT trace proves reduction AND widths 1, 8, 65, 128, then NAND 1, 8.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -23,6 +23,15 @@ const REDUCTIONS: [(Op, Reduction); 6] = [
     (Op::BitNor, Reduction::Nor),
     (Op::BitXor, Reduction::Xor),
     (Op::BitXnor, Reduction::Xnor),
+];
+
+const REDUCTION_PREFIX: [(Op, usize); 6] = [
+    (Op::BitAnd, 1),
+    (Op::BitAnd, 8),
+    (Op::BitAnd, 65),
+    (Op::BitAnd, 128),
+    (Op::BitNand, 1),
+    (Op::BitNand, 8),
 ];
 
 fn planes(value: &Value) -> (u128, u128) {
@@ -144,6 +153,8 @@ fn check_unary(x: Operand, widths: &[usize]) {
             assert_eq!(matches!(result, Value::U64(_)), width <= 64);
         }
     }
+    let mut reduction_calls = 0;
+    let mut reduction_prefix_matches = covered_not;
     for (op, expected) in REDUCTIONS
         .into_iter()
         .map(|(op, kind)| (op, gates::reduced_logic(x.planes, x.width, kind)))
@@ -154,7 +165,13 @@ fn check_unary(x: Operand, widths: &[usize]) {
     {
         for width in [1, 8, 65, 128] {
             let result = op.eval_value_unary(&input, width, x.signed, &mut cache);
-            if covered_not && op == Op::BitAnd {
+            let covered = reduction_prefix_matches
+                && REDUCTION_PREFIX.get(reduction_calls).is_some_and(
+                    |&(expected_op, expected_width)| op == expected_op && width == expected_width,
+                );
+            reduction_prefix_matches = covered;
+            reduction_calls += 1;
+            if covered {
                 continue;
             }
             assert_eq!(

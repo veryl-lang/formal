@@ -202,6 +202,12 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public bitwise witness signed RHS only is reachable",
                         "public bitwise witness u128 padding is reachable",
                     ],
+                    "public-reduction-nand-native-continuation" => &[
+                        "public native reduction NAND width 1 zero unchanged is reachable",
+                        "public native reduction NAND width 64 signed one is reachable",
+                        "public native reduction NAND widened X and Z is reachable",
+                        "public native reduction NAND widened zero dominates X and Z is reachable",
+                    ],
                     "reduction-and-reference" => &[
                         "reduction AND reference width 64 is reachable",
                         "reduction AND reference X is reachable",
