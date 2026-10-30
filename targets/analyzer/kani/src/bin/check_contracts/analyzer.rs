@@ -240,7 +240,7 @@ const PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS: &[&str] = &[
     "public small logical AND known ones dominate unknown is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 174] = [
+pub static CONTRACTS: [Contract; 175] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -1708,6 +1708,27 @@ pub static CONTRACTS: [Contract; 174] = [
         ],
     },
     Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-and-native-continuation",
+        harness: "public_reduction_and_native_continuation_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public reduction AND source width 1 is reachable",
+            "public reduction AND source width 64 is reachable",
+            "public reduction AND unchanged NOT context is reachable",
+            "public reduction AND widened NOT context is reachable",
+            "public reduction AND NOT context width 64 is reachable",
+            "public reduction AND signed source is reachable",
+            "public reduction AND unsigned source is reachable",
+            "public reduction AND false result is reachable",
+            "public reduction AND true result is reachable",
+            "public reduction AND X result is reachable",
+            "public reduction AND zero dominates unknown is reachable",
+            "public reduction AND source Z is reachable",
+            "public reduction AND source X is reachable",
+        ],
+    },
+    Contract {
         group: "values",
         name: "reductions",
         harness: "native_reductions_matches_reference_semantics",
@@ -2605,6 +2626,7 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
             | "public-getters"
             | "public-native-sequences"
             | "public-comparison-sequences"
+            | "public-gate-sequences"
     )
 }
 
@@ -4621,6 +4643,63 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (name, path, method, old, new) in [
+        (
+            "public-reduction-and-as-nand",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_and(false),",
+            "Value::U64(x) => x.reduce_and(true),",
+        ),
+        (
+            "public-reduction-and-as-or",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_and(false),",
+            "Value::U64(x) => x.reduce_or(false),",
+        ),
+        (
+            "public-reduction-and-ignores-zero",
+            "veryl/crates/analyzer/src/value.rs",
+            "reduce_and",
+            "let known_zero = self.payload | self.mask_xz != mask;",
+            "let known_zero = false;",
+        ),
+        (
+            "public-reduction-and-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "reduce_and",
+            "Self::new_bit_0x(known_zero, self.is_xz())",
+            "Self::new_bit_0x(known_zero, false)",
+        ),
+        (
+            "public-reduction-and-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "reduce_and",
+            "Self::new_bit_0x(known_zero, self.is_xz())",
+            "Self { signed: true, ..Self::new_bit_0x(known_zero, self.is_xz()) }",
+        ),
+        (
+            "public-reduction-and-upper-padding-leak",
+            "veryl/crates/analyzer/src/value.rs",
+            "reduce_and",
+            "Self::new_bit_0x(known_zero, self.is_xz())",
+            "{ let mut result = Self::new_bit_0x(known_zero, self.is_xz()); result.payload |= 1u64 << 63; result }",
+        ),
+    ] {
+        if let Some(&contract) = selected
+            .iter()
+            .find(|c| c.name == "public-reduction-and-native-continuation")
+        {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
             });
         }
     }

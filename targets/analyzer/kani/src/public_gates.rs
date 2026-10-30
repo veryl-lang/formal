@@ -603,3 +603,93 @@ fn public_small_logical_and_width_3_by_2_matches_reference_semantics() {
 fn public_small_logical_and_width_3_by_3_matches_reference_semantics() {
     public_small_logical_and_pair::<3, 3>();
 }
+
+// IEEE 1800 11.4.9: scalar AND fold, with a known zero dominating X/Z.
+// All normalized four-state source widths 1..=64, either source sign, and
+// independent second NOT context natural..=64. Four NOT calls share one cache
+// before reduction AND at result widths 1 then 8. BigUint results stay executable.
+#[kani::proof]
+#[kani::unwind(9)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_reduction_and_native_continuation_matches_reference_semantics() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    // AND is associative under the scalar four-state table. Folding at most
+    // eight bits per chunk preserves the full 64-bit domain while bounding
+    // every reference loop by eight rather than raising the global unwind.
+    let mut expected = Logic4::One;
+    for chunk in 0..8 {
+        let start = chunk * 8;
+        if start < natural {
+            let part = gates::reduced_logic(
+                (before.planes.0 >> start, before.planes.1 >> start),
+                (natural - start).min(8),
+                gates::Reduction::And,
+            );
+            expected = gates::binary(expected, part, BitOp::And);
+        }
+    }
+    let output = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1,
+        "public reduction AND source width 1 is reachable"
+    );
+    kani::cover!(
+        natural == 64,
+        "public reduction AND source width 64 is reachable"
+    );
+    kani::cover!(
+        width == natural,
+        "public reduction AND unchanged NOT context is reachable"
+    );
+    kani::cover!(
+        width > natural,
+        "public reduction AND widened NOT context is reachable"
+    );
+    kani::cover!(
+        width == 64,
+        "public reduction AND NOT context width 64 is reachable"
+    );
+    kani::cover!(
+        before.signed,
+        "public reduction AND signed source is reachable"
+    );
+    kani::cover!(
+        !before.signed,
+        "public reduction AND unsigned source is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public reduction AND false result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public reduction AND true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "public reduction AND X result is reachable"
+    );
+    kani::cover!(
+        before.planes.1 != 0 && expected == Logic4::Zero,
+        "public reduction AND zero dominates unknown is reachable"
+    );
+    kani::cover!(
+        before.planes.0 & before.planes.1 != 0,
+        "public reduction AND source Z is reachable"
+    );
+    kani::cover!(
+        before.planes.1 & !before.planes.0 != 0,
+        "public reduction AND source X is reachable"
+    );
+}

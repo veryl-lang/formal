@@ -123,6 +123,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                             | "public-getters"
                             | "public-native-sequences"
                             | "public-comparison-sequences"
+                            | "public-gate-sequences"
                     )
             );
             if matches!(
@@ -166,6 +167,17 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     _ => panic!("explicit public contracts need a scope witness policy"),
                 };
                 assert!(contract.covers.contains(&witness));
+            }
+            if contract.group == "public-gate-sequences" {
+                assert_eq!(shard.suite, "logic");
+                assert!(!contract.covers.is_empty());
+                for witness in [
+                    "public reduction AND source width 64 is reachable",
+                    "public reduction AND widened NOT context is reachable",
+                    "public reduction AND zero dominates unknown is reachable",
+                ] {
+                    assert!(contract.covers.contains(&witness));
+                }
             }
             if contract.group == "public-comparison-sequences" {
                 assert_eq!(shard.suite, "logic");
@@ -286,6 +298,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
         }
     }
+    assert!(contracts.contains("public-reduction-and-native-continuation"));
     assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());

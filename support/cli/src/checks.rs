@@ -277,6 +277,7 @@ pub const SHARDS: &[Shard] = &[
             "public-small-logical-and-width-3-by-2",
             "public-small-logical-and-width-3-by-3",
             "reductions",
+            "public-reduction-and-native-continuation",
             "condition-truth",
             "conditional",
             "public-conditional-native",
