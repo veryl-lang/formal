@@ -163,27 +163,41 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
             if contract.group == "public-comparison-sequences" {
                 assert_eq!(shard.suite, "logic");
-                let sizing_witness =
-                    if contract.name == "public-small-wildcard-equality-continuation" {
-                        "public comparison sign extension is reachable"
-                    } else {
-                        "public comparison partition sizing is reachable"
-                    };
-                assert!(contract.covers.contains(&sizing_witness));
-                if contract.name.ends_with("-unsigned-continuation") {
+                if contract.name.starts_with("public-small-less-equal-width-") {
                     for witness in [
                         "public comparison unsigned sources are reachable",
                         "public comparison signed RHS only is reachable",
                         "public comparison signed LHS only is reachable",
+                        "public comparison signed sources are reachable",
+                        "public comparison X result is reachable",
+                        "public comparison true result is reachable",
+                        "public comparison false result is reachable",
                     ] {
                         assert!(contract.covers.contains(&witness));
                     }
-                } else if contract.name.ends_with("-signed-continuation") {
-                    assert!(
-                        contract
-                            .covers
-                            .contains(&"public comparison signed sources are reachable")
-                    );
+                } else {
+                    let sizing_witness =
+                        if contract.name == "public-small-wildcard-equality-continuation" {
+                            "public comparison sign extension is reachable"
+                        } else {
+                            "public comparison partition sizing is reachable"
+                        };
+                    assert!(contract.covers.contains(&sizing_witness));
+                    if contract.name.ends_with("-unsigned-continuation") {
+                        for witness in [
+                            "public comparison unsigned sources are reachable",
+                            "public comparison signed RHS only is reachable",
+                            "public comparison signed LHS only is reachable",
+                        ] {
+                            assert!(contract.covers.contains(&witness));
+                        }
+                    } else if contract.name.ends_with("-signed-continuation") {
+                        assert!(
+                            contract
+                                .covers
+                                .contains(&"public comparison signed sources are reachable")
+                        );
+                    }
                 }
             }
             if contract.group == "public-nonlinear" {
@@ -212,6 +226,16 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert!(
                 contracts.contains(name.as_str()),
                 "missing comparison partition: {name}"
+            );
+        }
+    }
+    // All nine width pairs are required before direct checks omit LessEq.
+    for left in 1..=3 {
+        for right in 1..=3 {
+            let name = format!("public-small-less-equal-width-{left}-by-{right}");
+            assert!(
+                contracts.contains(name.as_str()),
+                "missing comparison width pair: {name}"
             );
         }
     }

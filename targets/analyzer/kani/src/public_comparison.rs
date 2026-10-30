@@ -3,7 +3,7 @@
 //! Inequality continues that prefix at all native widths. Wildcard equality and
 //! inequality continue it for source widths 1..=3. Signed and unsigned expression
 //! contexts partition every source sign pair; widths and state domains are unchanged.
-//! Less-than continues the small-width prefix; other ordering comparisons stay direct.
+//! Less-than and less-equal cover small widths; greater comparisons stay direct.
 //! Full u128 getters,
 //! native storage, unsigned result metadata, constructors and source preservation
 //! are checked. IEEE 1800 11.4.4/11.4.5/11.4.6 are modeled independently in comparison.
@@ -451,4 +451,153 @@ fn public_small_less_signed_continuation_matches_reference() {
     let (ar, br) = public_comparison_partition::<4, true>();
     cover_signed_signs(ar, br);
     cover_partition_sizing(ar, br);
+}
+
+// Keep the established variable-width call frame unchanged: these proofs are
+// already close to Kani 0.68's 60-second budget. A separate evaluator avoids
+// changing their symbolic state when adding fixed-width continuations.
+fn evaluate_comparison_trace<const MODE: u8>(
+    a: ValueU64,
+    ar: Operand,
+    b: ValueU64,
+    br: Operand,
+) -> (Operand, Operand, Logic4) {
+    let a = Value::U64(a);
+    let b = Value::U64(b);
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    let _ = native_result(Op::Eq.eval_value_binary(&a, &b, 1, signed, &mut cache));
+    let _ = native_result(Op::Eq.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    if MODE > 1 {
+        let _ = native_result(Op::Ne.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::Ne.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    if MODE > 2 {
+        let _ = native_result(Op::EqWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::EqWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    if MODE > 3 {
+        let _ = native_result(Op::NeWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::NeWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    if MODE > 4 {
+        let _ = native_result(Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    let kind = match MODE {
+        1 => Comparison::NotEqual,
+        2 => Comparison::WildcardEqual,
+        3 => Comparison::WildcardNotEqual,
+        4 => Comparison::Less,
+        5 => Comparison::LessEqual,
+        _ => unreachable!(),
+    };
+    let expected = compared_logic(ar, br, kind);
+    let output = match MODE {
+        1 => Op::Ne.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        2 => Op::EqWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        3 => Op::NeWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        4 => Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        5 => Op::LessEq.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        _ => unreachable!(),
+    };
+    assert_result(output, 1, expected);
+    let output = match MODE {
+        1 => Op::Ne.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        2 => Op::EqWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        3 => Op::NeWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        4 => Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        5 => Op::LessEq.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        _ => unreachable!(),
+    };
+    assert_result(output, 8, expected);
+    assert_public_input(&a, ar);
+    assert_public_input(&b, br);
+    (ar, br, expected)
+}
+
+// The nine width pairs jointly cover the original independent 1..=3 domain.
+// Constant widths reduce bit-vector sizing cost without assumptions or changes
+// to the reference, four-state inputs, signedness, or production call history.
+fn public_small_less_equal_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<5>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_1_by_1_matches_reference() {
+    public_small_less_equal_pair::<1, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_1_by_2_matches_reference() {
+    public_small_less_equal_pair::<1, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_1_by_3_matches_reference() {
+    public_small_less_equal_pair::<1, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_2_by_1_matches_reference() {
+    public_small_less_equal_pair::<2, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_2_by_2_matches_reference() {
+    public_small_less_equal_pair::<2, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_2_by_3_matches_reference() {
+    public_small_less_equal_pair::<2, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_3_by_1_matches_reference() {
+    public_small_less_equal_pair::<3, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_3_by_2_matches_reference() {
+    public_small_less_equal_pair::<3, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_less_equal_width_3_by_3_matches_reference() {
+    public_small_less_equal_pair::<3, 3>();
 }
