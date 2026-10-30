@@ -225,6 +225,13 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public native reduction XOR widened X and Z is reachable",
                         "public native reduction XOR widened unknown dominates one is reachable",
                     ],
+                    "public-reduction-xor-width65" | "public-reduction-xor-width128" => &[
+                        "public wide reduction XOR width 1 zero unchanged is reachable",
+                        "public wide reduction XOR width 64 signed odd parity is reachable",
+                        "public wide reduction XOR width 64 even parity is reachable",
+                        "public wide reduction XOR widened X and Z is reachable",
+                        "public wide reduction XOR widened unknown dominates one is reachable",
+                    ],
                     "reduction-or-reference" => &[
                         "reduction OR reference width 64 is reachable",
                         "reduction OR reference X is reachable",
@@ -494,16 +501,19 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     ] {
         assert!(getter.covers.contains(&witness));
     }
-    // Wide NOR plane checks compose with the scalar model and getter theorem.
+    // Wide reduction plane checks compose with scalar models and the getter theorem.
     for name in [
         "public-reduction-nor-width65",
         "public-reduction-nor-width128",
+        "public-reduction-xor-width65",
+        "public-reduction-xor-width128",
+        "reduction-xor-reference",
         "reduction-or-reference",
         "public-big-getters-128",
     ] {
         assert!(
             contracts.contains(name),
-            "missing NOR proof dependency: {name}"
+            "missing reduction proof dependency: {name}"
         );
     }
     // These disjoint boundaries complete the existing1..3 matrix through width4.

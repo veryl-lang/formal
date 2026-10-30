@@ -245,7 +245,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 218] = [
+pub static CONTRACTS: [Contract; 220] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -2128,6 +2128,32 @@ pub static CONTRACTS: [Contract; 218] = [
             "public native reduction XOR width 64 even parity is reachable",
             "public native reduction XOR widened X and Z is reachable",
             "public native reduction XOR widened unknown dominates one is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-xor-width65",
+        harness: "public_reduction_xor_width65_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public wide reduction XOR width 1 zero unchanged is reachable",
+            "public wide reduction XOR width 64 signed odd parity is reachable",
+            "public wide reduction XOR width 64 even parity is reachable",
+            "public wide reduction XOR widened X and Z is reachable",
+            "public wide reduction XOR widened unknown dominates one is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-xor-width128",
+        harness: "public_reduction_xor_width128_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public wide reduction XOR width 1 zero unchanged is reachable",
+            "public wide reduction XOR width 64 signed odd parity is reachable",
+            "public wide reduction XOR width 64 even parity is reachable",
+            "public wide reduction XOR widened X and Z is reachable",
+            "public wide reduction XOR widened unknown dominates one is reachable",
         ],
     },
     Contract {
@@ -5365,6 +5391,74 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-reduction-xor-width65")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        // Mutate only BigUint XOR result calls, preserving the entire prefix.
+        for (name, expression) in [
+            ("public-wide-reduction-xor-as-xnor", "x.reduce_xor(true)"),
+            ("public-wide-reduction-xor-as-or", "x.reduce_or(false)"),
+            (
+                "public-wide-reduction-xor-ignores-unknown",
+                "{ let mut result = x.reduce_xor(false); result.mask_xz = 0; result }",
+            ),
+            (
+                "public-wide-reduction-xor-ignores-upper-word",
+                "{ let mut source = x.clone(); source.trunc(32); source.reduce_xor(false) }",
+            ),
+            (
+                "public-wide-reduction-xor-upper-padding-leak",
+                "{ let mut result = x.reduce_xor(false); result.payload |= 1u64 << 63; result }",
+            ),
+        ] {
+            let replacement = format!(
+                "Value::U64(x) => if width >= 65 {{ {expression} }} else {{ x.reduce_xor(false) }},"
+            );
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(
+                    &source,
+                    "eval_value_unary",
+                    "Value::U64(x) => x.reduce_xor(false),",
+                    &replacement,
+                ),
+            });
+        }
+        let method = &source[method_range(&source, "eval_value_unary")];
+        let start = method.find("            Op::BitXor => {").unwrap();
+        let end = start
+            + method[start..]
+                .find("            Op::BitXnor => {")
+                .unwrap();
+        let branch = &method[start..end];
+        for (name, replacement) in [
+            (
+                "public-wide-reduction-xor-wrong-width",
+                "Value::U64(ret).expand(if width == 65 { 66 } else { width }, false).into_owned()",
+            ),
+            (
+                "public-wide-reduction-xor-signed-result",
+                "{ let mut output = Value::U64(ret).expand(width, false).into_owned(); if let Value::BigUint(ref mut big) = output { big.signed = true; } output }",
+            ),
+        ] {
+            let replacement = replace_once(
+                branch,
+                "Value::U64(ret).expand(width, false).into_owned()",
+                replacement,
+            );
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", branch, &replacement),
             });
         }
     }
