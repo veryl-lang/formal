@@ -213,7 +213,34 @@ const PUBLIC_SMALL_FIXED_ORDERING_COVERS: &[&str] = &[
     "public comparison false result is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 165] = [
+const PUBLIC_SMALL_LOGICAL_AND_COVERS: &[&str] = &[
+    "public small logical AND unsigned sources is reachable",
+    "public small logical AND signed sources is reachable",
+    "public small logical AND signed LHS only is reachable",
+    "public small logical AND signed RHS only is reachable",
+    "public small logical AND false result is reachable",
+    "public small logical AND true result is reachable",
+    "public small logical AND X result is reachable",
+    "public small logical AND zero dominates RHS unknown is reachable",
+    "public small logical AND zero dominates LHS unknown is reachable",
+    "public small logical AND source Z is reachable",
+];
+
+const PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS: &[&str] = &[
+    "public small logical AND unsigned sources is reachable",
+    "public small logical AND signed sources is reachable",
+    "public small logical AND signed LHS only is reachable",
+    "public small logical AND signed RHS only is reachable",
+    "public small logical AND false result is reachable",
+    "public small logical AND true result is reachable",
+    "public small logical AND X result is reachable",
+    "public small logical AND zero dominates RHS unknown is reachable",
+    "public small logical AND zero dominates LHS unknown is reachable",
+    "public small logical AND source Z is reachable",
+    "public small logical AND known ones dominate unknown is reachable",
+];
+
+pub static CONTRACTS: [Contract; 174] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -1596,6 +1623,69 @@ pub static CONTRACTS: [Contract; 165] = [
             "public NOT source Z is reachable",
             "public NOT u128 padding is reachable",
         ],
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-1-by-1",
+        harness: "public_small_logical_and_width_1_by_1_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-1-by-2",
+        harness: "public_small_logical_and_width_1_by_2_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-1-by-3",
+        harness: "public_small_logical_and_width_1_by_3_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-2-by-1",
+        harness: "public_small_logical_and_width_2_by_1_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-2-by-2",
+        harness: "public_small_logical_and_width_2_by_2_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-2-by-3",
+        harness: "public_small_logical_and_width_2_by_3_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-3-by-1",
+        harness: "public_small_logical_and_width_3_by_1_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-3-by-2",
+        harness: "public_small_logical_and_width_3_by_2_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
+    },
+    Contract {
+        group: "values",
+        name: "public-small-logical-and-width-3-by-3",
+        harness: "public_small_logical_and_width_3_by_3_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: PUBLIC_SMALL_LOGICAL_AND_KNOWN_UNKNOWN_COVERS,
     },
     Contract {
         group: "values",
@@ -4531,6 +4621,63 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    for (name, path, method, old, new) in [
+        (
+            "public-small-logical-and-as-or",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.logical_binary(y, true)",
+            "x.logical_binary(y, false)",
+        ),
+        (
+            "public-small-logical-and-ignores-zero",
+            "veryl/crates/analyzer/src/value.rs",
+            "logical_binary",
+            "!known_zero && unknown",
+            "unknown",
+        ),
+        (
+            "public-small-logical-and-Z-as-one",
+            "veryl/crates/analyzer/src/value.rs",
+            "logical_binary",
+            "self.payload & !self.mask_xz != 0",
+            "self.payload != 0",
+        ),
+        (
+            "public-small-logical-and-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "logical_binary",
+            "let unknown = self.is_xz() || rhs.is_xz();",
+            "let unknown = false;",
+        ),
+        (
+            "public-small-logical-and-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "logical_binary",
+            "Self::new_bit_1x(lhs_one && rhs_one, !known_zero && unknown)",
+            "Self { signed: true, ..Self::new_bit_1x(lhs_one && rhs_one, !known_zero && unknown) }",
+        ),
+        (
+            "public-small-logical-and-upper-padding-leak",
+            "veryl/crates/analyzer/src/value.rs",
+            "logical_binary",
+            "Self::new_bit_1x(lhs_one && rhs_one, !known_zero && unknown)",
+            "{ let mut result = Self::new_bit_1x(lhs_one && rhs_one, !known_zero && unknown); result.payload |= 1u64 << 63; result }",
+        ),
+    ] {
+        if let Some(&contract) = selected
+            .iter()
+            .find(|c| c.name == "public-small-logical-and-width-1-by-1")
+        {
+            let source = fs::read_to_string(repo.join(path)).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, method, old, new),
             });
         }
     }

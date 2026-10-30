@@ -266,6 +266,26 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             assert!(contract.covers.contains(&witness));
         }
     }
+    for left in 1..=3 {
+        for right in 1..=3 {
+            let name = format!("public-small-logical-and-width-{left}-by-{right}");
+            let contract = all.iter().find(|c| c.name == name).unwrap();
+            assert!(contracts.contains(contract.name));
+            for witness in [
+                "public small logical AND zero dominates RHS unknown is reachable",
+                "public small logical AND zero dominates LHS unknown is reachable",
+                "public small logical AND signed LHS only is reachable",
+                "public small logical AND signed RHS only is reachable",
+            ] {
+                assert!(contract.covers.contains(&witness));
+            }
+            if left > 1 || right > 1 {
+                assert!(contract.covers.contains(
+                    &"public small logical AND known ones dominate unknown is reachable"
+                ));
+            }
+        }
+    }
     assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());

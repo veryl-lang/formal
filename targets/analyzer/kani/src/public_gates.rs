@@ -428,3 +428,178 @@ fn public_bitwise_widened_xnor_matches_reference_semantics() {
 fn public_bitwise_widened_xnor_witness_matches_reference_semantics() {
     public_bitwise_widened_continuation::<4, true>();
 }
+
+// IEEE 1800 11.4.7: evaluated operands use independently folded scalar truth
+// tables. This is a value-dispatch theorem, not a short-circuit/effect theorem.
+// Independent normalized four-state widths 1..=3 and source signs; the caller
+// sign is their conjunction. Preserve the natural/natural+2 bitwise prefix on
+// one cache, then observe logical AND at widths 1 and 8. Width 65 stays executable.
+fn small_logical_input(width: usize) -> (Value, Operand) {
+    let mask = (1u8 << width) - 1;
+    let before = Operand {
+        planes: (
+            u128::from(kani::any::<u8>() & mask),
+            u128::from(kani::any::<u8>() & mask),
+        ),
+        width,
+        signed: kani::any(),
+    };
+    let value = Value::from_u128(before.planes.0, before.planes.1, width, before.signed);
+    assert_input(&value, before);
+    let Value::U64(native) = value else {
+        panic!("public gate semantics mismatch");
+    };
+    (Value::U64(native), before)
+}
+
+fn assert_logical_and(output: Value, width: usize, expected: Logic4) {
+    let planes = match expected {
+        Logic4::Zero => (0, 0),
+        Logic4::One => (1, 0),
+        Logic4::X => (0, 1),
+        Logic4::Z => unreachable!(),
+    };
+    assert!(
+        matches!(output, Value::U64(_))
+            && output.width() == width
+            && !output.signed()
+            && (output.payload_u128(), output.mask_xz_u128()) == planes,
+        "public gate semantics mismatch"
+    );
+}
+
+// The nine constant pairs jointly cover independent source widths 1..=3.
+// Constant sizing avoids changing the admitted state/sign domain to fit the solver.
+fn public_small_logical_and_pair<const LEFT: usize, const RIGHT: usize>() {
+    let (a, ar) = small_logical_input(LEFT);
+    let (b, br) = small_logical_input(RIGHT);
+    let natural = ar.width.max(br.width);
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural, signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
+    let _ = Op::BitOr.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
+    let _ = Op::BitXor.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
+    let _ = Op::BitXnor.eval_value_binary(&a, &b, natural + 2, signed, &mut cache);
+    let lhs = gates::logical_truth(ar.planes, ar.width);
+    let rhs = gates::logical_truth(br.planes, br.width);
+    let expected = gates::binary(lhs, rhs, BitOp::And);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 8, signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    kani::cover!(
+        !ar.signed && !br.signed,
+        "public small logical AND unsigned sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && br.signed,
+        "public small logical AND signed sources is reachable"
+    );
+    kani::cover!(
+        ar.signed && !br.signed,
+        "public small logical AND signed LHS only is reachable"
+    );
+    kani::cover!(
+        !ar.signed && br.signed,
+        "public small logical AND signed RHS only is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public small logical AND false result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public small logical AND true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "public small logical AND X result is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::Zero && rhs == Logic4::X,
+        "public small logical AND zero dominates RHS unknown is reachable"
+    );
+    kani::cover!(
+        lhs == Logic4::X && rhs == Logic4::Zero,
+        "public small logical AND zero dominates LHS unknown is reachable"
+    );
+    kani::cover!(
+        ar.planes.0 & ar.planes.1 != 0,
+        "public small logical AND source Z is reachable"
+    );
+    if LEFT > 1 || RIGHT > 1 {
+        kani::cover!(
+            (ar.planes.1 | br.planes.1) != 0 && lhs == Logic4::One && rhs == Logic4::One,
+            "public small logical AND known ones dominate unknown is reachable"
+        );
+    }
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_1_by_1_matches_reference_semantics() {
+    public_small_logical_and_pair::<1, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_1_by_2_matches_reference_semantics() {
+    public_small_logical_and_pair::<1, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_1_by_3_matches_reference_semantics() {
+    public_small_logical_and_pair::<1, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_2_by_1_matches_reference_semantics() {
+    public_small_logical_and_pair::<2, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_2_by_2_matches_reference_semantics() {
+    public_small_logical_and_pair::<2, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_2_by_3_matches_reference_semantics() {
+    public_small_logical_and_pair::<2, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_3_by_1_matches_reference_semantics() {
+    public_small_logical_and_pair::<3, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_3_by_2_matches_reference_semantics() {
+    public_small_logical_and_pair::<3, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_gate)]
+fn public_small_logical_and_width_3_by_3_matches_reference_semantics() {
+    public_small_logical_and_pair::<3, 3>();
+}

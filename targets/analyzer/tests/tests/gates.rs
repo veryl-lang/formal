@@ -1,6 +1,7 @@
 //! Public native bitwise/NOT prefixes and a following native-width bitwise
 //! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
-//! call to preserve history for logical, reduction and BigUint results.
+//! call to preserve history for logical, reduction and BigUint results. The small
+//! natural/natural+2 prefix also proves the following logical AND widths 1 and 8.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -75,6 +76,11 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
             assert_eq!(matches!(result, Value::U64(_)), width <= 64);
         }
     }
+    let covered_logical_and = normalized_native(x)
+        && normalized_native(y)
+        && x.width <= 3
+        && y.width <= 3
+        && widths == [x.width.max(y.width), x.width.max(y.width) + 2];
     for (op, kind) in [(Op::LogicAnd, BitOp::And), (Op::LogicOr, BitOp::Or)] {
         let expected = gates::binary(
             gates::logical_truth(x.planes, x.width),
@@ -83,6 +89,9 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
         );
         for width in [1, 8, 65] {
             let result = op.eval_value_binary(&lhs, &rhs, width, signed, &mut cache);
+            if covered_logical_and && op == Op::LogicAnd && matches!(width, 1 | 8) {
+                continue;
+            }
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| if position == 0 {
