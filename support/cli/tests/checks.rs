@@ -316,9 +316,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         }
     }
     // Every fixed width pair is required before its direct result checks are omitted.
-    for family in ["less-equal", "greater", "greater-equal"] {
-        for left in 1..=3 {
-            for right in 1..=3 {
+    for (family, limit) in [("less-equal", 3), ("greater", 4), ("greater-equal", 3)] {
+        for left in 1..=limit {
+            for right in 1..=limit {
                 let name = format!("public-small-{family}-width-{left}-by-{right}");
                 assert!(
                     contracts.contains(name.as_str()),

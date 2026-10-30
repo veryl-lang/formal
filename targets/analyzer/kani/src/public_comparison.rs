@@ -860,3 +860,63 @@ fn public_less_equal_left_width4_matches_reference() {
 fn public_less_equal_right_width4_matches_reference() {
     public_less_equal_width4_boundary::<false>();
 }
+
+// Constant pairs add exactly the seven missing width-four boundaries. Together
+// with the existing1..3 matrix, all independent widths1..4 and source signs are
+// covered without assumptions. Each retains the complete LessEq prefix/cache.
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_1_by_4_matches_reference() {
+    public_small_greater_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_2_by_4_matches_reference() {
+    public_small_greater_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_3_by_4_matches_reference() {
+    public_small_greater_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_1_matches_reference() {
+    public_small_greater_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_2_matches_reference() {
+    public_small_greater_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_3_matches_reference() {
+    public_small_greater_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_4_matches_reference() {
+    public_small_greater_pair::<4, 4>();
+}
