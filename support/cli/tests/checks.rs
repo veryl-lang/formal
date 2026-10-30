@@ -67,6 +67,19 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .parent()
         .unwrap();
     let all: Vec<_> = analyzer::CONTRACTS.iter().collect();
+    // Conditional diagnostics belong only to their matching public boundary proofs.
+    // They must never become mandatory witnesses for unrelated contracts.
+    for contract in &all {
+        for witness in contract.covers {
+            if witness.starts_with("public less equal width4 ") {
+                assert_eq!(contract.group, "public-comparison-sequences");
+                assert!(matches!(
+                    contract.name,
+                    "public-less-equal-left-width4" | "public-less-equal-right-width4"
+                ));
+            }
+        }
+    }
     // Kani's default harness filter is a substring match.
     for contract in &all {
         assert_eq!(
