@@ -1,8 +1,7 @@
-//! Public native bitwise/NOT prefixes and a following native-width bitwise
-//! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
-//! call to preserve history for logical, reduction and BigUint results. The
-//! native two-pass bitwise prefix also proves the following logical AND widths 1 and 8.
-//! The native NOT trace proves all six reductions at widths 1, 8, 65 and 128.
+//! Exhaustive normalized native traces are proved in public_gates.rs at widths
+//! 1..=64, including the complete operator/cache history and source preservation.
+//! Retain finite native/BigUint boundaries with wider context histories, narrowing
+//! casts and independent scalar reference anchors.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -23,33 +22,6 @@ const REDUCTIONS: [(Op, Reduction); 6] = [
     (Op::BitNor, Reduction::Nor),
     (Op::BitXor, Reduction::Xor),
     (Op::BitXnor, Reduction::Xnor),
-];
-
-const REDUCTION_PREFIX: [(Op, usize); 24] = [
-    (Op::BitAnd, 1),
-    (Op::BitAnd, 8),
-    (Op::BitAnd, 65),
-    (Op::BitAnd, 128),
-    (Op::BitNand, 1),
-    (Op::BitNand, 8),
-    (Op::BitNand, 65),
-    (Op::BitNand, 128),
-    (Op::BitOr, 1),
-    (Op::BitOr, 8),
-    (Op::BitOr, 65),
-    (Op::BitOr, 128),
-    (Op::BitNor, 1),
-    (Op::BitNor, 8),
-    (Op::BitNor, 65),
-    (Op::BitNor, 128),
-    (Op::BitXor, 1),
-    (Op::BitXor, 8),
-    (Op::BitXor, 65),
-    (Op::BitXor, 128),
-    (Op::BitXnor, 1),
-    (Op::BitXnor, 8),
-    (Op::BitXnor, 65),
-    (Op::BitXnor, 128),
 ];
 
 fn planes(value: &Value) -> (u128, u128) {
@@ -104,11 +76,6 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
             assert_eq!(matches!(result, Value::U64(_)), width <= 64);
         }
     }
-    let covered_logical_and = normalized_native(x)
-        && normalized_native(y)
-        && widths.len() == 2
-        && widths[0] == x.width.max(y.width)
-        && (widths[0]..=64).contains(&widths[1]);
     for (op, kind) in [(Op::LogicAnd, BitOp::And), (Op::LogicOr, BitOp::Or)] {
         let expected = gates::binary(
             gates::logical_truth(x.planes, x.width),
@@ -117,9 +84,6 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
         );
         for width in [1, 8, 65] {
             let result = op.eval_value_binary(&lhs, &rhs, width, signed, &mut cache);
-            if covered_logical_and && op == Op::LogicAnd && matches!(width, 1 | 8) {
-                continue;
-            }
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| if position == 0 {
@@ -145,18 +109,11 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
 }
 
 fn check_unary(x: Operand, widths: &[usize]) {
-    let covered_not = normalized_native(x)
-        && widths.len() == 2
-        && widths[0] == x.width
-        && (x.width..=64).contains(&widths[1]);
     let input = Value::from_u128(x.planes.0, x.planes.1, x.width, x.signed);
     let mut cache = MaskCache::default();
     for &width in widths {
         for use_sign in [false, true] {
             let result = Op::BitNot.eval_value_unary(&input, width, use_sign, &mut cache);
-            if covered_not {
-                continue;
-            }
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| {
@@ -171,8 +128,6 @@ fn check_unary(x: Operand, widths: &[usize]) {
             assert_eq!(matches!(result, Value::U64(_)), width <= 64);
         }
     }
-    let mut reduction_calls = 0;
-    let mut reduction_prefix_matches = covered_not;
     for (op, expected) in REDUCTIONS
         .into_iter()
         .map(|(op, kind)| (op, gates::reduced_logic(x.planes, x.width, kind)))
@@ -183,15 +138,6 @@ fn check_unary(x: Operand, widths: &[usize]) {
     {
         for width in [1, 8, 65, 128] {
             let result = op.eval_value_unary(&input, width, x.signed, &mut cache);
-            let covered = reduction_prefix_matches
-                && REDUCTION_PREFIX.get(reduction_calls).is_some_and(
-                    |&(expected_op, expected_width)| op == expected_op && width == expected_width,
-                );
-            reduction_prefix_matches = covered;
-            reduction_calls += 1;
-            if covered {
-                continue;
-            }
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| if position == 0 {
@@ -210,36 +156,6 @@ fn check_unary(x: Operand, widths: &[usize]) {
         (planes(&input), input.width(), input.signed()),
         (x.planes, x.width, x.signed)
     );
-}
-
-#[test]
-fn gates_exhaustive_four_state_small_widths() {
-    for x_width in 1..=3 {
-        let mask = (1u128 << x_width) - 1;
-        for state in 0..(1u128 << (2 * x_width)) {
-            for x_signed in [false, true] {
-                let x = Operand {
-                    planes: (state & mask, state >> x_width),
-                    width: x_width,
-                    signed: x_signed,
-                };
-                check_unary(x, &[x_width, x_width + 2]);
-                for y_width in 1..=3 {
-                    let mask = (1u128 << y_width) - 1;
-                    for state in 0..(1u128 << (2 * y_width)) {
-                        for y_signed in [false, true] {
-                            let y = Operand {
-                                planes: (state & mask, state >> y_width),
-                                width: y_width,
-                                signed: y_signed,
-                            };
-                            check_binary(x, y, &[x_width.max(y_width), x_width.max(y_width) + 2]);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[test]

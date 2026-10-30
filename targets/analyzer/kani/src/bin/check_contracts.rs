@@ -63,15 +63,27 @@ fn main() {
     if !legacy.is_empty() && (options.mode != Mode::Mutation || !legacy_mutations.is_empty()) {
         runner.run(options.mode, &legacy, &legacy_mutations);
     }
-    if !explicit.is_empty() && (options.mode != Mode::Mutation || !explicit_mutations.is_empty()) {
+    let (extended, explicit): (Vec<_>, Vec<_>) = explicit
+        .into_iter()
+        .partition(|c| analyzer::uses_extended_logical_timeout(c));
+    let (extended_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
+        .into_iter()
+        .partition(|m| analyzer::uses_extended_logical_timeout(m.contract));
+    for (timeout, contracts, mutations) in [
+        ("60s", explicit, explicit_mutations),
+        ("180s", extended, extended_mutations),
+    ] {
+        if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
+            continue;
+        }
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {
-                harness_timeout: "60s",
+                harness_timeout: timeout,
                 auxiliary_covers: analyzer::AUXILIARY_CONDITIONAL_COVERS,
             },
             options.mode,
-            &explicit,
-            &explicit_mutations,
+            &contracts,
+            &mutations,
         );
     }
 }

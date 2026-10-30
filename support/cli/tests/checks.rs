@@ -80,6 +80,17 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
         }
     }
+    for contract in &all {
+        assert_eq!(
+            analyzer::uses_extended_logical_timeout(contract),
+            matches!(
+                contract.name,
+                "public-logical-and-width65"
+                    | "public-logical-or-native-continuation"
+                    | "public-logical-or-width65"
+            )
+        );
+    }
     // Kani's default harness filter is a substring match.
     for contract in &all {
         assert_eq!(
@@ -182,7 +193,15 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert!(contract.covers.contains(&witness));
             }
             if contract.group == "public-gate-sequences" {
-                assert_eq!(shard.suite, "logic");
+                let suite = if contract.name.starts_with("public-reduction-")
+                    || contract.name.starts_with("reduction-")
+                    || contract.name.starts_with("public-logical-not-")
+                {
+                    "reductions"
+                } else {
+                    "logic"
+                };
+                assert_eq!(shard.suite, suite);
                 assert!(!contract.covers.is_empty());
                 let witnesses: &[&str] = match contract.name {
                     "public-conditional-native" => &[
@@ -213,6 +232,39 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public wide reduction NAND width 64 signed one is reachable",
                         "public wide reduction NAND widened X and Z is reachable",
                         "public wide reduction NAND widened zero dominates X and Z is reachable",
+                    ],
+                    "public-logical-not-native-continuation"
+                    | "public-logical-not-width65"
+                    | "public-logical-not-width128" => &[
+                        "public logical NOT width 1 zero unchanged is reachable",
+                        "public logical NOT width 64 signed high one is reachable",
+                        "public logical NOT widened X and Z is reachable",
+                        "public logical NOT widened one dominates X and Z is reachable",
+                    ],
+                    "public-logical-and-width65"
+                    | "public-logical-or-native-continuation"
+                    | "public-logical-or-width65" => {
+                        &["public logical binary full continuation is reachable"]
+                    }
+                    "public-logical-and-width65-witness"
+                    | "public-logical-or-native-witness"
+                    | "public-logical-or-width65-witness" => &[
+                        "public logical binary witness zero result is reachable",
+                        "public logical binary witness one result is reachable",
+                        "public logical binary witness X result is reachable",
+                    ],
+                    "public-logical-binary-domain" => &[
+                        "public logical binary unsigned narrow LHS and high RHS are reachable",
+                        "public logical binary signed high LHS and narrow RHS are reachable",
+                        "public logical binary signed LHS known ones dominate X and Z",
+                        "public logical binary signed RHS zero and unknown LHS are reachable",
+                        "public logical binary zero LHS and Z RHS are reachable",
+                        "public logical binary both unknown widened sources are reachable",
+                        "public logical binary both zero unchanged sources are reachable",
+                    ],
+                    "logical-truth-unrolled-reference" => &[
+                        "logical unrolled truth width 64 is reachable",
+                        "logical unrolled truth X is reachable",
                     ],
                     "reduction-xor-reference" => &[
                         "reduction XOR reference width 64 is reachable",
@@ -523,6 +575,17 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         "public-reduction-xor-width128",
         "public-reduction-xnor-width65",
         "public-reduction-xnor-width128",
+        "public-logical-not-native-continuation",
+        "public-logical-not-width65",
+        "public-logical-not-width128",
+        "logical-truth-unrolled-reference",
+        "public-logical-binary-domain",
+        "public-logical-and-width65-witness",
+        "public-logical-or-native-witness",
+        "public-logical-or-width65-witness",
+        "public-logical-and-width65",
+        "public-logical-or-native-continuation",
+        "public-logical-or-width65",
         "reduction-xor-reference",
         "reduction-or-reference",
         "public-big-getters-128",
@@ -535,7 +598,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     // These disjoint boundaries complete the existing1..3 matrix through width4.
     assert!(contracts.contains("public-less-equal-left-width4"));
     assert!(contracts.contains("public-less-equal-right-width4"));
-    assert_eq!(proof_shards, 8);
+    assert_eq!(proof_shards, 9);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -925,7 +988,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 23);
+    assert_eq!(all.len(), 24);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -948,7 +1011,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 9);
+    assert_eq!(rows("value").len(), 10);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

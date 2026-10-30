@@ -245,7 +245,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 223] = [
+pub static CONTRACTS: [Contract; 234] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -2196,6 +2196,124 @@ pub static CONTRACTS: [Contract; 223] = [
         ],
     },
     Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-not-native-continuation",
+        harness: "public_logical_not_native_continuation_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical NOT width 1 zero unchanged is reachable",
+            "public logical NOT width 64 signed high one is reachable",
+            "public logical NOT widened X and Z is reachable",
+            "public logical NOT widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-not-width65",
+        harness: "public_logical_not_width65_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical NOT width 1 zero unchanged is reachable",
+            "public logical NOT width 64 signed high one is reachable",
+            "public logical NOT widened X and Z is reachable",
+            "public logical NOT widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-not-width128",
+        harness: "public_logical_not_width128_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical NOT width 1 zero unchanged is reachable",
+            "public logical NOT width 64 signed high one is reachable",
+            "public logical NOT widened X and Z is reachable",
+            "public logical NOT widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "logical-truth-unrolled-reference",
+        harness: "unrolled_native_logical_truth_matches_reference_semantics",
+        message: "logical unrolled truth reference mismatch",
+        covers: &[
+            "logical unrolled truth width 1 is reachable",
+            "logical unrolled truth width 64 is reachable",
+            "logical unrolled truth zero is reachable",
+            "logical unrolled truth one is reachable",
+            "logical unrolled truth X is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-binary-domain",
+        harness: "public_logical_binary_domain_is_reachable",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical binary unsigned narrow LHS and high RHS are reachable",
+            "public logical binary signed high LHS and narrow RHS are reachable",
+            "public logical binary signed LHS known ones dominate X and Z",
+            "public logical binary signed RHS zero and unknown LHS are reachable",
+            "public logical binary zero LHS and Z RHS are reachable",
+            "public logical binary both unknown widened sources are reachable",
+            "public logical binary both zero unchanged sources are reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-and-width65",
+        harness: "public_logical_and_width65_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &["public logical binary full continuation is reachable"],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-or-native-continuation",
+        harness: "public_logical_or_native_continuation_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &["public logical binary full continuation is reachable"],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-or-width65",
+        harness: "public_logical_or_width65_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &["public logical binary full continuation is reachable"],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-and-width65-witness",
+        harness: "public_logical_and_width65_witness_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical binary witness zero result is reachable",
+            "public logical binary witness one result is reachable",
+            "public logical binary witness X result is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-or-native-witness",
+        harness: "public_logical_or_native_witness_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical binary witness zero result is reachable",
+            "public logical binary witness one result is reachable",
+            "public logical binary witness X result is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-logical-or-width65-witness",
+        harness: "public_logical_or_width65_witness_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public logical binary witness zero result is reachable",
+            "public logical binary witness one result is reachable",
+            "public logical binary witness X result is reachable",
+        ],
+    },
+    Contract {
         group: "values",
         name: "reductions",
         harness: "native_reductions_matches_reference_semantics",
@@ -3088,6 +3206,10 @@ pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
     "public less equal width4 equal widths are reachable",
     "public less equal width4 narrow LHS is reachable",
     "public less equal width4 three bit LHS is reachable",
+    "public logical binary full continuation is reachable",
+    "public logical binary witness zero result is reachable",
+    "public logical binary witness one result is reachable",
+    "public logical binary witness X result is reachable",
 ];
 
 // Named covers are mandatory for this profile; the shared runner validates them.
@@ -3101,6 +3223,18 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
             | "public-native-sequences"
             | "public-comparison-sequences"
             | "public-gate-sequences"
+    )
+}
+
+// Full two-operand heap continuations require about 37 seconds of symbolic
+// execution/conversion before solving. Keep the larger budget scoped to these
+// new universal proofs; their finite mutation witnesses retain the normal cap.
+pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
+    matches!(
+        contract.name,
+        "public-logical-and-width65"
+            | "public-logical-or-native-continuation"
+            | "public-logical-or-width65"
     )
 }
 
@@ -5430,6 +5564,295 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    // Logical-operation mutations preserve the exact earlier call trace. Wide
+    // variants leave native result calls intact; LogicNot leaves NOR unchanged.
+    for (contract_name, name, method, old, new) in [
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-as-or",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) { x.reduce_or(false) } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-as-nand",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) { x.reduce_and(true) } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-ignores-unknown",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) { { let mut result = x.reduce_or(true); result.mask_xz = 0; result } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-ignores-upper-word",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) { { let mut source = x.clone(); source.trunc(32); source.reduce_or(true) } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-upper-padding-leak",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) { { let mut result = x.reduce_or(true); result.payload |= 1u64 << 63; result } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-as-or",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) && width >= 65 { x.reduce_or(false) } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-as-nand",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) && width >= 65 { x.reduce_and(true) } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-ignores-unknown",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) && width >= 65 { { let mut result = x.reduce_or(true); result.mask_xz = 0; result } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-ignores-upper-word",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) && width >= 65 { { let mut source = x.clone(); source.trunc(32); source.reduce_or(true) } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-upper-padding-leak",
+            "eval_value_unary",
+            "Value::U64(x) => x.reduce_or(true),",
+            "Value::U64(x) => if matches!(self, Op::LogicNot) && width >= 65 { { let mut result = x.reduce_or(true); result.payload |= 1u64 << 63; result } } else { x.reduce_or(true) },",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-as-or",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { x.logical_binary(y, false) } else { x.logical_binary(y, true) },",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-unknown-overrides-zero",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, true); if x.mask_xz != 0 || y.mask_xz != 0 { result.payload = 0; result.mask_xz = 1; } result } } else { x.logical_binary(y, true) },",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-ignores-unknown",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, true); result.mask_xz = 0; result } } else { x.logical_binary(y, true) },",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-ignores-rhs",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { x.logical_binary(x, true) } else { x.logical_binary(y, true) },",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-upper-padding-leak",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, true); result.payload |= 1u64 << 63; result } } else { x.logical_binary(y, true) },",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-as-and",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, true),",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-unknown-overrides-one",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => { let mut result = x.logical_binary(y, false); if x.mask_xz != 0 || y.mask_xz != 0 { result.payload = 0; result.mask_xz = 1; } result },",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-ignores-unknown",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => { let mut result = x.logical_binary(y, false); result.mask_xz = 0; result },",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-ignores-rhs",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(x, false),",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-upper-padding-leak",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => { let mut result = x.logical_binary(y, false); result.payload |= 1u64 << 63; result },",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-as-and",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { x.logical_binary(y, true) } else { x.logical_binary(y, false) },",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-unknown-overrides-one",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, false); if x.mask_xz != 0 || y.mask_xz != 0 { result.payload = 0; result.mask_xz = 1; } result } } else { x.logical_binary(y, false) },",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-ignores-unknown",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, false); result.mask_xz = 0; result } } else { x.logical_binary(y, false) },",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-ignores-rhs",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { x.logical_binary(x, false) } else { x.logical_binary(y, false) },",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-upper-padding-leak",
+            "eval_value_binary",
+            "(Value::U64(x), Value::U64(y)) => x.logical_binary(y, false),",
+            "(Value::U64(x), Value::U64(y)) => if width >= 65 { { let mut result = x.logical_binary(y, false); result.payload |= 1u64 << 63; result } } else { x.logical_binary(y, false) },",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source =
+                fs::read_to_string(repo.join("veryl/crates/analyzer/src/ir/op.rs")).unwrap();
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: "veryl/crates/analyzer/src/ir/op.rs",
+                source: mutate_method(&source, method, old, new),
+            });
+        }
+    }
+    for (contract_name, name, method_name, start_marker, end_marker, replacement) in [
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-wrong-width",
+            "eval_value_unary",
+            "            Op::BitNor | Op::LogicNot => {",
+            "            Op::BitXor => {",
+            "ret.expand(if matches!(self, Op::LogicNot) && width == 8 { 1 } else { width }, false).into_owned()",
+        ),
+        (
+            "public-logical-not-native-continuation",
+            "public-logical-not-native-signed-result",
+            "eval_value_unary",
+            "            Op::BitNor | Op::LogicNot => {",
+            "            Op::BitXor => {",
+            "{ let mut output = ret.expand(width, false).into_owned(); if matches!(self, Op::LogicNot) { if let Value::U64(ref mut native) = output { native.signed = true; } } output }",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-wrong-width",
+            "eval_value_unary",
+            "            Op::BitNor | Op::LogicNot => {",
+            "            Op::BitXor => {",
+            "ret.expand(if matches!(self, Op::LogicNot) && width == 65 { 66 } else { width }, false).into_owned()",
+        ),
+        (
+            "public-logical-not-width65",
+            "public-logical-not-wide-signed-result",
+            "eval_value_unary",
+            "            Op::BitNor | Op::LogicNot => {",
+            "            Op::BitXor => {",
+            "{ let mut output = ret.expand(width, false).into_owned(); if matches!(self, Op::LogicNot) { if let Value::BigUint(ref mut big) = output { big.signed = true; } } output }",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-wrong-width",
+            "eval_value_binary",
+            "            Op::LogicAnd => {",
+            "            Op::LogicOr => {",
+            "ret.expand(if true && width == 65 { 66 } else { width }, false).into_owned()",
+        ),
+        (
+            "public-logical-and-width65-witness",
+            "public-logical-and-wide-signed-result",
+            "eval_value_binary",
+            "            Op::LogicAnd => {",
+            "            Op::LogicOr => {",
+            "{ let mut output = ret.expand(width, false).into_owned(); if true { if let Value::BigUint(ref mut big) = output { big.signed = true; } } output }",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-wrong-width",
+            "eval_value_binary",
+            "            Op::LogicOr => {",
+            "            Op::LogicShiftR => {",
+            "ret.expand(if true && width == 8 { 1 } else { width }, false).into_owned()",
+        ),
+        (
+            "public-logical-or-native-witness",
+            "public-logical-or-native-signed-result",
+            "eval_value_binary",
+            "            Op::LogicOr => {",
+            "            Op::LogicShiftR => {",
+            "{ let mut output = ret.expand(width, false).into_owned(); if true { if let Value::U64(ref mut native) = output { native.signed = true; } } output }",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-wrong-width",
+            "eval_value_binary",
+            "            Op::LogicOr => {",
+            "            Op::LogicShiftR => {",
+            "ret.expand(if true && width == 65 { 66 } else { width }, false).into_owned()",
+        ),
+        (
+            "public-logical-or-width65-witness",
+            "public-logical-or-wide-signed-result",
+            "eval_value_binary",
+            "            Op::LogicOr => {",
+            "            Op::LogicShiftR => {",
+            "{ let mut output = ret.expand(width, false).into_owned(); if true { if let Value::BigUint(ref mut big) = output { big.signed = true; } } output }",
+        ),
+    ] {
+        if let Some(&contract) = selected.iter().find(|c| c.name == contract_name) {
+            let source =
+                fs::read_to_string(repo.join("veryl/crates/analyzer/src/ir/op.rs")).unwrap();
+            let method = &source[method_range(&source, method_name)];
+            let start = method.find(start_marker).unwrap();
+            let end = start + method[start..].find(end_marker).unwrap();
+            let branch = &method[start..end];
+            let replacement =
+                replace_once(branch, "ret.expand(width, false).into_owned()", replacement);
+            mutations.push(Mutation {
+                name,
+                contract,
+                path: "veryl/crates/analyzer/src/ir/op.rs",
+                source: mutate_method(&source, method_name, branch, &replacement),
             });
         }
     }

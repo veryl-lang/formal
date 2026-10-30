@@ -1571,6 +1571,486 @@ fn public_reduction_xnor_width128_matches_reference_semantics() {
     public_reduction_xnor_wide_continuation::<128>();
 }
 
+// Per-bit classification for normalized native planes. Unlike aggregate plane
+// arithmetic in the compiler, each bit uses the independent scalar state table.
+// Unrolling avoids adding width-dependent oracle branches to the heap trace.
+fn unrolled_native_logical_truth(source: Operand) -> Logic4 {
+    assert!(
+        (1..=64).contains(&source.width)
+            && (source.planes.0 | source.planes.1) >> source.width == 0,
+        "logical unrolled truth reference mismatch"
+    );
+    let mut saw_one = false;
+    let mut saw_unknown = false;
+    macro_rules! bit {
+        ($position:expr) => {{
+            let state = read_logic(source.planes.0, source.planes.1, $position);
+            saw_one |= state == Logic4::One;
+            saw_unknown |= matches!(state, Logic4::X | Logic4::Z);
+        }};
+    }
+    bit!(0);
+    bit!(1);
+    bit!(2);
+    bit!(3);
+    bit!(4);
+    bit!(5);
+    bit!(6);
+    bit!(7);
+    bit!(8);
+    bit!(9);
+    bit!(10);
+    bit!(11);
+    bit!(12);
+    bit!(13);
+    bit!(14);
+    bit!(15);
+    bit!(16);
+    bit!(17);
+    bit!(18);
+    bit!(19);
+    bit!(20);
+    bit!(21);
+    bit!(22);
+    bit!(23);
+    bit!(24);
+    bit!(25);
+    bit!(26);
+    bit!(27);
+    bit!(28);
+    bit!(29);
+    bit!(30);
+    bit!(31);
+    bit!(32);
+    bit!(33);
+    bit!(34);
+    bit!(35);
+    bit!(36);
+    bit!(37);
+    bit!(38);
+    bit!(39);
+    bit!(40);
+    bit!(41);
+    bit!(42);
+    bit!(43);
+    bit!(44);
+    bit!(45);
+    bit!(46);
+    bit!(47);
+    bit!(48);
+    bit!(49);
+    bit!(50);
+    bit!(51);
+    bit!(52);
+    bit!(53);
+    bit!(54);
+    bit!(55);
+    bit!(56);
+    bit!(57);
+    bit!(58);
+    bit!(59);
+    bit!(60);
+    bit!(61);
+    bit!(62);
+    bit!(63);
+    if saw_one {
+        Logic4::One
+    } else if saw_unknown {
+        Logic4::X
+    } else {
+        Logic4::Zero
+    }
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+fn unrolled_native_logical_truth_matches_reference_semantics() {
+    let width = usize::from(kani::any::<u8>() & 63) + 1;
+    let mask = u64::MAX >> (64 - width);
+    let source = Operand {
+        planes: (
+            u128::from(kani::any::<u64>() & mask),
+            u128::from(kani::any::<u64>() & mask),
+        ),
+        width,
+        signed: kani::any(),
+    };
+    let expected = gates::logical_truth(source.planes, width);
+    assert!(
+        unrolled_native_logical_truth(source) == expected,
+        "logical unrolled truth reference mismatch"
+    );
+    kani::cover!(width == 1, "logical unrolled truth width 1 is reachable");
+    kani::cover!(width == 64, "logical unrolled truth width 64 is reachable");
+    kani::cover!(
+        expected == Logic4::Zero,
+        "logical unrolled truth zero is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "logical unrolled truth one is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "logical unrolled truth X is reachable"
+    );
+}
+
+// IEEE 1800 11.4.7/11.8.2. Native operands cover every normalized four-state
+// value at widths 1..=64 and either sign. The NOT caller runs both signs at the
+// natural width and an independent native context natural..=64. Every subsequent
+// reduction runs at 1, 8, 65, 128 on the same cache before logical NOT.
+// gates::logical_truth is scalar OR folding; reduction-or-reference proves the
+// tree classifier. Numeric BigUint construction/allocation are real. Wide raw
+// planes compose with public-big-getters-128, including its u64 constructor.
+fn public_logical_not_trace<const RESULT: usize>() {
+    let (value, before) = input();
+    let natural = before.width;
+    let context = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, context, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, context, true, &mut cache);
+    // Expand the fixed trace without raising BigUint loop bounds.
+    macro_rules! reduction {
+        ($op:expr) => {{
+            let _ = ($op).eval_value_unary(&value, 1, before.signed, &mut cache);
+            let _ = ($op).eval_value_unary(&value, 8, before.signed, &mut cache);
+            let _ = ($op).eval_value_unary(&value, 65, before.signed, &mut cache);
+            let _ = ($op).eval_value_unary(&value, 128, before.signed, &mut cache);
+        }};
+    }
+    reduction!(Op::BitAnd);
+    reduction!(Op::BitNand);
+    reduction!(Op::BitOr);
+    reduction!(Op::BitNor);
+    reduction!(Op::BitXor);
+    reduction!(Op::BitXnor);
+    let expected = gates::not(native_reduction_or_tree(before));
+    let output = Op::LogicNot.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::LogicNot.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    if RESULT != 8 {
+        if RESULT == 128 {
+            let _ = Op::LogicNot.eval_value_unary(&value, 65, before.signed, &mut cache);
+        }
+        let output = Op::LogicNot.eval_value_unary(&value, RESULT, before.signed, &mut cache);
+        assert_wide_boolean_planes(output, RESULT, expected);
+    }
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && context == 1
+            && expected == Logic4::One,
+        "public logical NOT width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (1u128 << 63, 0)
+            && context == 64
+            && expected == Logic4::Zero,
+        "public logical NOT width 64 signed high one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (2, 0xffff_ffff)
+            && context == 64
+            && expected == Logic4::X,
+        "public logical NOT widened X and Z is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && context == 64
+            && expected == Logic4::Zero,
+        "public logical NOT widened one dominates X and Z is reachable"
+    );
+}
+
+// Fixed-width symbolic witnesses preserve the full trace and admit arbitrary
+// native bit planes and signs. They detect mutations without paying the variable
+// width expansion cost; the separate universal harnesses still cover 1..=64.
+fn logical_binary_inputs<const WITNESS: bool>() -> (Value, Operand, Value, Operand, usize) {
+    if !WITNESS {
+        let (a, ar) = input();
+        let (b, br) = input();
+        let context = ar
+            .width
+            .max(br.width)
+            .max(usize::from(kani::any::<u8>() & 63) + 1);
+        return (a, ar, b, br, context);
+    }
+    let ar = Operand {
+        planes: (
+            u128::from(kani::any::<u64>()),
+            u128::from(kani::any::<u64>()),
+        ),
+        width: 64,
+        signed: kani::any(),
+    };
+    let br = Operand {
+        planes: (
+            u128::from(kani::any::<u64>()),
+            u128::from(kani::any::<u64>()),
+        ),
+        width: 64,
+        signed: kani::any(),
+    };
+    let a = Value::from_u128(ar.planes.0, ar.planes.1, 64, ar.signed);
+    let b = Value::from_u128(br.planes.0, br.planes.1, 64, br.signed);
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    let (Value::U64(a), Value::U64(b)) = (a, b) else {
+        panic!("public gate semantics mismatch");
+    };
+    (Value::U64(a), ar, Value::U64(b), br, 64)
+}
+
+// IEEE 1800 11.4.7/11.8.2. Independent normalized four-state source widths
+// 1..=64 and signs; caller sign is their conjunction, matching the direct trace.
+// Execute AND/OR/XOR/XNOR at natural then independent context natural..=64 on
+// one cache. Then logical AND 1/8/65, followed by logical OR 1/8/65 as selected.
+// STAGE 0 observes AND65, 1 observes OR1/8, 2 observes OR65. All earlier calls run.
+// Evaluated-value dispatch only; this is not a short-circuit/effect theorem.
+// Per-bit classifiers compose with logical-truth-unrolled-reference. Full unsigned
+// numeric planes and metadata compose with public-big-getters-128 for BigUint.
+fn public_logical_binary_trace<const STAGE: u8, const WITNESS: bool>() {
+    let (a, ar, b, br, context) = logical_binary_inputs::<WITNESS>();
+    let natural = ar.width.max(br.width);
+    let signed = ar.signed && br.signed;
+    let mut cache = MaskCache::default();
+    macro_rules! bitwise {
+        ($width:expr) => {{
+            let _ = Op::BitAnd.eval_value_binary(&a, &b, $width, signed, &mut cache);
+            let _ = Op::BitOr.eval_value_binary(&a, &b, $width, signed, &mut cache);
+            let _ = Op::BitXor.eval_value_binary(&a, &b, $width, signed, &mut cache);
+            let _ = Op::BitXnor.eval_value_binary(&a, &b, $width, signed, &mut cache);
+        }};
+    }
+    bitwise!(natural);
+    bitwise!(context);
+    let lhs = unrolled_native_logical_truth(ar);
+    let rhs = unrolled_native_logical_truth(br);
+    let conjunction = gates::binary(lhs, rhs, BitOp::And);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 1, signed, &mut cache);
+    assert_logical_and(output, 1, conjunction);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 8, signed, &mut cache);
+    assert_logical_and(output, 8, conjunction);
+    let output = Op::LogicAnd.eval_value_binary(&a, &b, 65, signed, &mut cache);
+    if STAGE == 0 {
+        assert_wide_boolean_planes(output, 65, conjunction);
+    } else {
+        drop(output);
+        let disjunction = gates::binary(lhs, rhs, BitOp::Or);
+        let output = Op::LogicOr.eval_value_binary(&a, &b, 1, signed, &mut cache);
+        assert_logical_and(output, 1, disjunction);
+        let output = Op::LogicOr.eval_value_binary(&a, &b, 8, signed, &mut cache);
+        assert_logical_and(output, 8, disjunction);
+        if STAGE == 2 {
+            let output = Op::LogicOr.eval_value_binary(&a, &b, 65, signed, &mut cache);
+            assert_wide_boolean_planes(output, 65, disjunction);
+        }
+    }
+    assert_input(&a, ar);
+    assert_input(&b, br);
+    if WITNESS {
+        let outcome = gates::binary(lhs, rhs, if STAGE == 0 { BitOp::And } else { BitOp::Or });
+        kani::cover!(
+            outcome == Logic4::Zero,
+            "public logical binary witness zero result is reachable"
+        );
+        kani::cover!(
+            outcome == Logic4::One,
+            "public logical binary witness one result is reachable"
+        );
+        kani::cover!(
+            outcome == Logic4::X,
+            "public logical binary witness X result is reachable"
+        );
+    } else {
+        kani::cover!(true, "public logical binary full continuation is reachable");
+    }
+}
+
+fn cover_logical_binary_domain(ar: Operand, br: Operand, context: usize, lhs: Logic4, rhs: Logic4) {
+    kani::cover!(
+        ar.width == 1
+            && br.width == 64
+            && !ar.signed
+            && !br.signed
+            && ar.planes == (0, 0)
+            && br.planes == (1u128 << 63, 0)
+            && context == 64,
+        "public logical binary unsigned narrow LHS and high RHS are reachable"
+    );
+    kani::cover!(
+        ar.width == 64
+            && br.width == 1
+            && ar.signed
+            && br.signed
+            && ar.planes == (1u128 << 63, 0)
+            && br.planes == (0, 0)
+            && context == 64,
+        "public logical binary signed high LHS and narrow RHS are reachable"
+    );
+    kani::cover!(
+        ar.width == 32
+            && br.width == 2
+            && ar.signed
+            && !br.signed
+            && ar.planes == (1, 2)
+            && br.planes == (3, 2)
+            && context == 64
+            && lhs == Logic4::One
+            && rhs == Logic4::One,
+        "public logical binary signed LHS known ones dominate X and Z"
+    );
+    kani::cover!(
+        ar.width == 2
+            && br.width == 32
+            && !ar.signed
+            && br.signed
+            && ar.planes == (0, 2)
+            && br.planes == (0, 0)
+            && context == 64
+            && lhs == Logic4::X
+            && rhs == Logic4::Zero,
+        "public logical binary signed RHS zero and unknown LHS are reachable"
+    );
+    kani::cover!(
+        ar.width == 32
+            && br.width == 2
+            && !ar.signed
+            && !br.signed
+            && ar.planes == (0, 0)
+            && br.planes == (2, 2)
+            && context == 64
+            && lhs == Logic4::Zero
+            && rhs == Logic4::X,
+        "public logical binary zero LHS and Z RHS are reachable"
+    );
+    kani::cover!(
+        ar.width == 2
+            && br.width == 32
+            && ar.signed
+            && br.signed
+            && ar.planes == (0, 2)
+            && br.planes == (0, 2)
+            && context == 64
+            && lhs == Logic4::X
+            && rhs == Logic4::X,
+        "public logical binary both unknown widened sources are reachable"
+    );
+    kani::cover!(
+        ar.width == 1
+            && br.width == 1
+            && !ar.signed
+            && !br.signed
+            && ar.planes == (0, 0)
+            && br.planes == (0, 0)
+            && context == 1
+            && lhs == Logic4::Zero
+            && rhs == Logic4::Zero,
+        "public logical binary both zero unchanged sources are reachable"
+    );
+}
+
+// Check the admitted constructor/sign/width/truth cubes separately from the
+// heap continuation. The semantic harness has the identical unconstrained input
+// generator and checks all inputs, plus reachability of each actual result state.
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_binary_domain_is_reachable() {
+    let (_, ar) = input();
+    let (_, br) = input();
+    let natural = ar.width.max(br.width);
+    let context = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let lhs = unrolled_native_logical_truth(ar);
+    let rhs = unrolled_native_logical_truth(br);
+    cover_logical_binary_domain(ar, br, context, lhs, rhs);
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_not_native_continuation_matches_reference_semantics() {
+    public_logical_not_trace::<8>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_not_width65_matches_reference_semantics() {
+    public_logical_not_trace::<65>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_not_width128_matches_reference_semantics() {
+    public_logical_not_trace::<128>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_and_width65_matches_reference_semantics() {
+    public_logical_binary_trace::<0, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_or_native_continuation_matches_reference_semantics() {
+    public_logical_binary_trace::<1, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_or_width65_matches_reference_semantics() {
+    public_logical_binary_trace::<2, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_and_width65_witness_matches_reference_semantics() {
+    public_logical_binary_trace::<0, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_or_native_witness_matches_reference_semantics() {
+    public_logical_binary_trace::<1, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(1)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_logical_or_width65_witness_matches_reference_semantics() {
+    public_logical_binary_trace::<2, true>();
+}
+
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar
