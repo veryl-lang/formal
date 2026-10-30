@@ -610,6 +610,84 @@ fn public_reduction_nand_native_continuation_matches_reference_semantics() {
     );
 }
 
+// IEEE 1800 11.4.9/11.8.2: zero extend the independent scalar NAND result.
+// Sources span every normalized four-state native width 1..=64 and either sign.
+// Preserve the NOT prefix, all four AND results, and NAND results 1/8. The
+// width-128 proof also executes NAND width 65 before observing its result.
+// Numeric BigUint construction, allocation and both public getters run unchanged.
+// Unwind 2 suffices for these one-digit results; safety and unwind checks stay on.
+fn public_reduction_nand_wide_continuation<const RESULT: usize>() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let expected = gates::not(native_reduction_and_tree(before));
+    let output = Op::BitNand.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitNand.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    if RESULT == 128 {
+        let _ = Op::BitNand.eval_value_unary(&value, 65, before.signed, &mut cache);
+    }
+    let output = Op::BitNand.eval_value_unary(&value, RESULT, before.signed, &mut cache);
+    assert_wide_boolean(output, RESULT, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && width == 1
+            && expected == Logic4::One,
+        "public wide reduction NAND width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (u64::MAX as u128, 0)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public wide reduction NAND width 64 signed one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && width == 64
+            && expected == Logic4::X,
+        "public wide reduction NAND widened X and Z is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (0xffff_fffa, 0xffff_fffc)
+            && width == 64
+            && expected == Logic4::One,
+        "public wide reduction NAND widened zero dominates X and Z is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+fn public_reduction_nand_width65_matches_reference_semantics() {
+    public_reduction_nand_wide_continuation::<65>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+fn public_reduction_nand_width128_matches_reference_semantics() {
+    public_reduction_nand_wide_continuation::<128>();
+}
+
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar

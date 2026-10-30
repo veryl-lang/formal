@@ -208,6 +208,12 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public native reduction NAND widened X and Z is reachable",
                         "public native reduction NAND widened zero dominates X and Z is reachable",
                     ],
+                    "public-reduction-nand-width65" | "public-reduction-nand-width128" => &[
+                        "public wide reduction NAND width 1 zero unchanged is reachable",
+                        "public wide reduction NAND width 64 signed one is reachable",
+                        "public wide reduction NAND widened X and Z is reachable",
+                        "public wide reduction NAND widened zero dominates X and Z is reachable",
+                    ],
                     "reduction-and-reference" => &[
                         "reduction AND reference width 64 is reachable",
                         "reduction AND reference X is reachable",
@@ -247,7 +253,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 }
             }
             if contract.group == "public-comparison-sequences" {
-                assert_eq!(shard.suite, "logic");
+                let suite = if contract.name.contains("greater") {
+                    "comparison-greater"
+                } else if contract.name.contains("less") {
+                    "comparison-less"
+                } else {
+                    "comparison-equality"
+                };
+                assert_eq!(shard.suite, suite);
                 if matches!(
                     contract.name,
                     "public-less-equal-left-width4" | "public-less-equal-right-width4"
@@ -433,7 +446,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     // These disjoint boundaries complete the existing1..3 matrix through width4.
     assert!(contracts.contains("public-less-equal-left-width4"));
     assert!(contracts.contains("public-less-equal-right-width4"));
-    assert_eq!(proof_shards, 5);
+    assert_eq!(proof_shards, 8);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -823,7 +836,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 20);
+    assert_eq!(all.len(), 23);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -846,7 +859,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 6);
+    assert_eq!(rows("value").len(), 9);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
