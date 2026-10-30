@@ -213,7 +213,23 @@ const PUBLIC_SMALL_FIXED_ORDERING_COVERS: &[&str] = &[
     "public comparison false result is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 189] = [
+const PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS: &[&str] = &[
+    "public comparison unsigned sources are reachable",
+    "public comparison signed RHS only is reachable",
+    "public comparison signed LHS only is reachable",
+    "public comparison signed sources are reachable",
+    "public comparison X result is reachable",
+    "public comparison true result is reachable",
+    "public comparison false result is reachable",
+    "public width4 wildcard equality RHS X matches",
+    "public width4 wildcard equality RHS Z matches",
+    "public width4 wildcard equality LHS X remains significant",
+    "public width4 wildcard equality LHS Z remains significant",
+    "public width4 wildcard equality known mismatch dominates LHS unknown",
+    "public width4 wildcard equality known mismatch survives RHS wildcard",
+];
+
+pub static CONTRACTS: [Contract; 196] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -1162,6 +1178,55 @@ pub static CONTRACTS: [Contract; 189] = [
         harness: "public_small_wildcard_inequality_signed_continuation_matches_reference",
         message: "public comparison semantics mismatch",
         covers: PUBLIC_SMALL_WILDCARD_INEQUALITY_SIGNED_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-1-by-4",
+        harness: "public_small_wildcard_equal_width_1_by_4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-2-by-4",
+        harness: "public_small_wildcard_equal_width_2_by_4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-3-by-4",
+        harness: "public_small_wildcard_equal_width_3_by_4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-4-by-1",
+        harness: "public_small_wildcard_equal_width_4_by_1_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-4-by-2",
+        harness: "public_small_wildcard_equal_width_4_by_2_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-4-by-3",
+        harness: "public_small_wildcard_equal_width_4_by_3_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-wildcard-equal-width-4-by-4",
+        harness: "public_small_wildcard_equal_width_4_by_4_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_WIDTH4_WILDCARD_EQUAL_COVERS,
     },
     Contract {
         group: "public-comparison-sequences",
@@ -4397,6 +4462,62 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         });
     }
     for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-swaps-operands",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "if xy_width == 4 { y.equal(x, true, false) } else { x.equal(y, true, false) }",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-ignores-wildcards",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "x.equal(y, xy_width != 4, false)",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-negated",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "x.equal(y, true, xy_width == 4)",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-zero-sign-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::EqWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed();",
+            "Op::EqWildcard => {\n                let xy_width = x.width().max(y.width());\n                let eq_signed = x.signed() && y.signed() && xy_width != 4;",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-LHS-wildcards",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "let compare_mask = if wildcard { !rhs.mask_xz } else { u64::MAX };",
+            "let compare_mask = if wildcard { if self.width == 4 { !(self.mask_xz | rhs.mask_xz) } else { !rhs.mask_xz } } else { u64::MAX };",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-unknown-overrides-mismatch",
+            "veryl/crates/analyzer/src/value.rs",
+            "equal",
+            "Self::new_bit_0x(mismatch, unknown)",
+            "Self::new_bit_0x(mismatch && !(self.width == 4 && wildcard && unknown), unknown)",
+        ),
+        (
+            "public-small-wildcard-equal-width-1-by-4",
+            "public-wildcard-equal-width4-signed-result",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.equal(y, true, false)",
+            "{ let mut result = x.equal(y, true, false); if xy_width == 4 { result.signed = true; } result }",
+        ),
         (
             "public-small-less-width-1-by-4",
             "public-less-width4-direction",

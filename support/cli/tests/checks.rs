@@ -231,6 +231,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     contract.name,
                     "public-less-equal-left-width4" | "public-less-equal-right-width4"
                 ) || contract.name.starts_with("public-small-less-equal-width-")
+                    || contract
+                        .name
+                        .starts_with("public-small-wildcard-equal-width-")
                     || contract.name.starts_with("public-small-less-width-")
                     || contract.name.starts_with("public-small-greater-width-")
                     || contract
@@ -247,6 +250,21 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public comparison false result is reachable",
                     ] {
                         assert!(contract.covers.contains(&witness));
+                    }
+                    if contract
+                        .name
+                        .starts_with("public-small-wildcard-equal-width-")
+                    {
+                        for witness in [
+                            "public width4 wildcard equality RHS X matches",
+                            "public width4 wildcard equality RHS Z matches",
+                            "public width4 wildcard equality LHS X remains significant",
+                            "public width4 wildcard equality LHS Z remains significant",
+                            "public width4 wildcard equality known mismatch dominates LHS unknown",
+                            "public width4 wildcard equality known mismatch survives RHS wildcard",
+                        ] {
+                            assert!(contract.covers.contains(&witness));
+                        }
                     }
                     let boundary_witnesses: &[&str] = match contract.name {
                         "public-less-equal-left-width4" => &[
@@ -336,6 +354,19 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert!(
                     contracts.contains(name.as_str()),
                     "missing Less boundary: {name}"
+                );
+            }
+        }
+    }
+    // The wildcard equality continuation covers1..3; these complete widths1..4.
+    assert!(contracts.contains("public-small-wildcard-equality-continuation"));
+    for left in 1..=4 {
+        for right in 1..=4 {
+            if left == 4 || right == 4 {
+                let name = format!("public-small-wildcard-equal-width-{left}-by-{right}");
+                assert!(
+                    contracts.contains(name.as_str()),
+                    "missing wildcard boundary: {name}"
                 );
             }
         }
