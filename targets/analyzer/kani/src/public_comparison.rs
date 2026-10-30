@@ -1165,3 +1165,108 @@ fn public_small_wildcard_equal_width_4_by_3_matches_reference() {
 fn public_small_wildcard_equal_width_4_by_4_matches_reference() {
     public_small_wildcard_equal_width4_pair::<4, 4>();
 }
+
+// IEEE 1800 11.4.5/11.4.6: wildcard inequality negates only known equality
+// results; ambiguous LHS X/Z remains X. RHS wildcards and known mismatch
+// priority stay asymmetric. The existing1..3 partitions and seven constant
+// boundaries cover independent widths1..4 and source signs without assumptions.
+// Eq/Ne/EqWildcard pairs1 then8 share one cache before NeWildcard results1 then8.
+fn public_small_wildcard_not_equal_width4_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<3>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    kani::cover!(
+        br.planes.1 & !br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard inequality RHS X matches"
+    );
+    kani::cover!(
+        br.planes.1 & br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard inequality RHS Z matches"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard inequality LHS X remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 & ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard inequality LHS Z remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 != 0 && br.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard inequality known mismatch dominates LHS unknown"
+    );
+    kani::cover!(
+        br.planes.1 != 0 && ar.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard inequality known mismatch survives RHS wildcard"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_1_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_2_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_3_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_1_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_2_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_3_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 4>();
+}

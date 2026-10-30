@@ -1,5 +1,5 @@
 //! Equality and inequality prefixes at native source widths, followed by wildcard
-//! equality/inequality and all ordering pairs for widths 1..=3 are
+//! equality/inequality and all ordering pairs for widths 1..=4 are
 //! proved in public_comparison.rs.
 //! Keep every production call on the shared cache before later observations;
 //! retain all other comparison checks and independent reference anchors.
@@ -46,7 +46,7 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
     let normalized_native =
         |x: Operand| (1..=64).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0;
     let native_sources = normalized_native(x) && normalized_native(y);
-    let prefix_len = if x.width <= 3 && y.width <= 3 { 16 } else { 4 };
+    let prefix_len = if x.width <= 4 && y.width <= 4 { 16 } else { 4 };
     let proved_prefix = &NATIVE_COMPARISON_PREFIX[..prefix_len];
     let mut calls = 0;
     let mut prefix_matches = true;

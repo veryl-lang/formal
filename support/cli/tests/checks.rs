@@ -234,6 +234,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     || contract
                         .name
                         .starts_with("public-small-wildcard-equal-width-")
+                    || contract
+                        .name
+                        .starts_with("public-small-wildcard-not-equal-width-")
                     || contract.name.starts_with("public-small-less-width-")
                     || contract.name.starts_with("public-small-greater-width-")
                     || contract
@@ -262,6 +265,21 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                             "public width4 wildcard equality LHS Z remains significant",
                             "public width4 wildcard equality known mismatch dominates LHS unknown",
                             "public width4 wildcard equality known mismatch survives RHS wildcard",
+                        ] {
+                            assert!(contract.covers.contains(&witness));
+                        }
+                    }
+                    if contract
+                        .name
+                        .starts_with("public-small-wildcard-not-equal-width-")
+                    {
+                        for witness in [
+                            "public width4 wildcard inequality RHS X matches",
+                            "public width4 wildcard inequality RHS Z matches",
+                            "public width4 wildcard inequality LHS X remains significant",
+                            "public width4 wildcard inequality LHS Z remains significant",
+                            "public width4 wildcard inequality known mismatch dominates LHS unknown",
+                            "public width4 wildcard inequality known mismatch survives RHS wildcard",
                         ] {
                             assert!(contract.covers.contains(&witness));
                         }
@@ -367,6 +385,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert!(
                     contracts.contains(name.as_str()),
                     "missing wildcard boundary: {name}"
+                );
+            }
+        }
+    }
+    // Both wildcard inequality contexts cover1..3; these complete widths1..4.
+    for left in 1..=4 {
+        for right in 1..=4 {
+            if left == 4 || right == 4 {
+                let name = format!("public-small-wildcard-not-equal-width-{left}-by-{right}");
+                assert!(
+                    contracts.contains(name.as_str()),
+                    "missing wildcard inequality boundary: {name}"
                 );
             }
         }
