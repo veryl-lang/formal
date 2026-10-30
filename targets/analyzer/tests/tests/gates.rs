@@ -2,7 +2,7 @@
 //! context are proved in targets/analyzer/kani/src/public_gates.rs. Execute every
 //! call to preserve history for logical, reduction and BigUint results. The
 //! native two-pass bitwise prefix also proves the following logical AND widths 1 and 8.
-//! The native NOT trace proves the following reduction AND widths 1 and 8.
+//! The native NOT trace proves the following reduction AND widths 1, 8, 65 and 128.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -154,7 +154,7 @@ fn check_unary(x: Operand, widths: &[usize]) {
     {
         for width in [1, 8, 65, 128] {
             let result = op.eval_value_unary(&input, width, x.signed, &mut cache);
-            if covered_not && op == Op::BitAnd && matches!(width, 1 | 8) {
+            if covered_not && op == Op::BitAnd {
                 continue;
             }
             assert_eq!(

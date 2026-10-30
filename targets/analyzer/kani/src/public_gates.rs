@@ -270,8 +270,9 @@ fn assert_logical_and(output: Value, width: usize, expected: Logic4) {
 // independent second NOT context natural..=64. Four NOT calls share one cache
 // before reduction AND at result widths 1 then 8. BigUint results stay executable.
 #[kani::proof]
-#[kani::unwind(9)]
+#[kani::unwind(3)]
 #[kani::use_stub_set(small_native_gate)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
 fn public_reduction_and_native_continuation_matches_reference_semantics() {
     let (value, before) = input();
     let natural = before.width;
@@ -281,21 +282,8 @@ fn public_reduction_and_native_continuation_matches_reference_semantics() {
     let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
     let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
     let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
-    // AND is associative under the scalar four-state table. Folding at most
-    // eight bits per chunk preserves the full 64-bit domain while bounding
-    // every reference loop by eight rather than raising the global unwind.
-    let mut expected = Logic4::One;
-    for chunk in 0..8 {
-        let start = chunk * 8;
-        if start < natural {
-            let part = gates::reduced_logic(
-                (before.planes.0 >> start, before.planes.1 >> start),
-                (natural - start).min(8),
-                gates::Reduction::And,
-            );
-            expected = gates::binary(expected, part, BitOp::And);
-        }
-    }
+    // reduction-and-reference proves this scalar tree equals the sequential fold.
+    let expected = native_reduction_and_tree(before);
     let output = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
     assert_logical_and(output, 1, expected);
     let output = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
@@ -353,6 +341,210 @@ fn public_reduction_and_native_continuation_matches_reference_semantics() {
         before.planes.1 & !before.planes.0 != 0,
         "public reduction AND source X is reachable"
     );
+}
+
+// BigUint results are permitted, while source-only BigUint paths and mask-cache
+// access remain forbidden. Numeric conversions, allocation and getters run unchanged.
+kani::stub_set!(
+    native_gate_wide_result,
+    stub(veryl_analyzer::value::u128_to_biguint, reject_gate_biguint),
+    stub(veryl_analyzer::value::MaskCache::get, reject_gate_cache),
+    stub(
+        <veryl_analyzer::value::ValueBigUint as std::clone::Clone>::clone,
+        reject_gate_clone
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::gen_mask,
+        reject_gate_mask
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::payload,
+        reject_gate_plane
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::mask_xz,
+        reject_gate_plane
+    ),
+    stub(
+        veryl_analyzer::value::ValueBigUint::to_value_u64,
+        reject_gate_to_native
+    ),
+);
+
+fn assert_wide_boolean(output: Value, width: usize, expected: Logic4) {
+    let planes = match expected {
+        Logic4::Zero => (0, 0),
+        Logic4::One => (1, 0),
+        Logic4::X => (0, 1),
+        Logic4::Z => unreachable!(),
+    };
+    let Value::BigUint(big) = output else {
+        panic!("public gate semantics mismatch");
+    };
+    assert!(
+        big.payload.bits() <= 128 && big.mask_xz.bits() <= 128,
+        "public gate semantics mismatch"
+    );
+    let output = Value::BigUint(big);
+    assert!(
+        output.width() == width
+            && !output.signed()
+            && (output.payload_u128(), output.mask_xz_u128()) == planes,
+        "public gate semantics mismatch"
+    );
+}
+
+// Balanced scalar AND folding avoids increasing the global unwind bound for
+// real BigUint loops. Out-of-width leaves use AND's identity, One.
+fn scalar_and_four(states: [Logic4; 4]) -> Logic4 {
+    gates::binary(
+        gates::binary(states[0], states[1], BitOp::And),
+        gates::binary(states[2], states[3], BitOp::And),
+        BitOp::And,
+    )
+}
+
+fn source_and_four(source: Operand, offset: usize) -> Logic4 {
+    let bit = |position| {
+        if position < source.width {
+            read_logic(source.planes.0, source.planes.1, position)
+        } else {
+            Logic4::One
+        }
+    };
+    scalar_and_four([
+        bit(offset),
+        bit(offset + 1),
+        bit(offset + 2),
+        bit(offset + 3),
+    ])
+}
+
+fn source_and_sixteen(source: Operand, offset: usize) -> Logic4 {
+    scalar_and_four([
+        source_and_four(source, offset),
+        source_and_four(source, offset + 4),
+        source_and_four(source, offset + 8),
+        source_and_four(source, offset + 12),
+    ])
+}
+
+fn native_reduction_and_tree(source: Operand) -> Logic4 {
+    scalar_and_four([
+        source_and_sixteen(source, 0),
+        source_and_sixteen(source, 16),
+        source_and_sixteen(source, 32),
+        source_and_sixteen(source, 48),
+    ])
+}
+
+#[kani::proof]
+#[kani::unwind(65)]
+fn native_reduction_and_tree_matches_scalar_fold() {
+    let source = Operand {
+        planes: (kani::any(), kani::any()),
+        width: usize::from(kani::any::<u8>() & 63) + 1,
+        signed: kani::any(),
+    };
+    let expected = gates::reduced_logic(source.planes, source.width, gates::Reduction::And);
+    assert!(
+        native_reduction_and_tree(source) == expected,
+        "reduction AND reference mismatch"
+    );
+    kani::cover!(
+        source.width == 1,
+        "reduction AND reference width 1 is reachable"
+    );
+    kani::cover!(
+        source.width == 64,
+        "reduction AND reference width 64 is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "reduction AND reference zero is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "reduction AND reference one is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::X,
+        "reduction AND reference X is reachable"
+    );
+}
+
+// IEEE 1800 11.4.9/11.8.2: the scalar AND result is zero extended.
+// All normalized four-state native source widths and signs are admitted.
+// Execute the native NOT prefix, then reductions at 1 and 8. The width-128
+// proof also executes width 65 before observing its result, on the same cache.
+// The separately checked scalar tree needs no loops. Unwind 3 bounds real
+// BigUint conversion loops; unwinding and safety assertions remain enabled.
+fn public_reduction_and_wide_continuation<const RESULT: usize>() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    let expected = native_reduction_and_tree(before);
+    let output = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    if RESULT == 128 {
+        let _ = Op::BitAnd.eval_value_unary(&value, 65, before.signed, &mut cache);
+    }
+    let output = Op::BitAnd.eval_value_unary(&value, RESULT, before.signed, &mut cache);
+    assert_wide_boolean(output, RESULT, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && width == 1
+            && expected == Logic4::Zero,
+        "public wide reduction AND width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (u64::MAX as u128, 0)
+            && width == 64
+            && expected == Logic4::One,
+        "public wide reduction AND width 64 signed one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && width == 64
+            && expected == Logic4::X,
+        "public wide reduction AND widened X and Z condition is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (0xffff_fffa, 0xffff_fffc)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public wide reduction AND widened zero dominates X and Z is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_gate_wide_result)]
+fn public_reduction_and_width65_matches_reference_semantics() {
+    public_reduction_and_wide_continuation::<65>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(native_gate_wide_result)]
+fn public_reduction_and_width128_matches_reference_semantics() {
+    public_reduction_and_wide_continuation::<128>();
 }
 
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
