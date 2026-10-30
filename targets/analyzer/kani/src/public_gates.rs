@@ -989,6 +989,127 @@ fn public_reduction_nor_native_continuation_matches_reference_semantics() {
     );
 }
 
+// Complete numeric plane equality without collecting digits in this producer
+// proof: bit length <= 1 and bit 0 uniquely determine each entire plane.
+// public-big-getters-128 separately proves the public u128 getters for every
+// canonical BigUint plane bounded by 128 bits, at all metadata widths 65..=128
+// and either sign. These results satisfy that domain, so the two proofs compose.
+fn assert_wide_boolean_planes(output: Value, width: usize, expected: Logic4) {
+    let planes = match expected {
+        Logic4::Zero => (false, false),
+        Logic4::One => (true, false),
+        Logic4::X => (false, true),
+        Logic4::Z => unreachable!(),
+    };
+    let Value::BigUint(big) = output else {
+        panic!("public gate semantics mismatch");
+    };
+    assert!(
+        big.payload.bits() <= 1
+            && big.mask_xz.bits() <= 1
+            && big.payload.bit(0) == planes.0
+            && big.mask_xz.bit(0) == planes.1,
+        "public gate semantics mismatch"
+    );
+    let output = Value::BigUint(big);
+    assert!(
+        output.width() == width && !output.signed(),
+        "public gate semantics mismatch"
+    );
+}
+
+// IEEE 1800 11.4.9/11.8.2: zero extend the independent scalar NOR result.
+// Sources span all normalized four-state native widths 1..=64 and either sign.
+// The second NOT context independently spans natural..=64; both caller signs run
+// at both contexts. Preserve AND/NAND/OR widths 1, 8, 65, 128, then NOR 1/8.
+// The width-128 proof also executes NOR width 65 before observing its result.
+// BigUint numeric construction and allocation run unchanged. Exact numeric
+// planes compose with public-big-getters-128; native prefix/input observations
+// must never enter the BigUint getter conversion.
+// Unwind 2 covers one-digit results, with safety and unwind assertions enabled.
+// reduction-or-reference separately proves the balanced scalar OR model.
+fn public_reduction_nor_wide_continuation<const RESULT: usize>() {
+    let (value, before) = input();
+    let natural = before.width;
+    let width = natural.max(usize::from(kani::any::<u8>() & 63) + 1);
+    let mut cache = MaskCache::default();
+    let _ = Op::BitNot.eval_value_unary(&value, natural, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, natural, true, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, false, &mut cache);
+    let _ = Op::BitNot.eval_value_unary(&value, width, true, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitAnd.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitNand.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 1, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 8, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 65, before.signed, &mut cache);
+    let _ = Op::BitOr.eval_value_unary(&value, 128, before.signed, &mut cache);
+    let expected = gates::not(native_reduction_or_tree(before));
+    let output = Op::BitNor.eval_value_unary(&value, 1, before.signed, &mut cache);
+    assert_logical_and(output, 1, expected);
+    let output = Op::BitNor.eval_value_unary(&value, 8, before.signed, &mut cache);
+    assert_logical_and(output, 8, expected);
+    if RESULT == 128 {
+        let _ = Op::BitNor.eval_value_unary(&value, 65, before.signed, &mut cache);
+    }
+    let output = Op::BitNor.eval_value_unary(&value, RESULT, before.signed, &mut cache);
+    assert_wide_boolean_planes(output, RESULT, expected);
+    assert_input(&value, before);
+    kani::cover!(
+        natural == 1
+            && !before.signed
+            && before.planes == (0, 0)
+            && width == 1
+            && expected == Logic4::One,
+        "public wide reduction NOR width 1 zero unchanged is reachable"
+    );
+    kani::cover!(
+        natural == 64
+            && before.signed
+            && before.planes == (1u128 << 63, 0)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public wide reduction NOR width 64 signed high one is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && !before.signed
+            && before.planes == (2, 0xffff_ffff)
+            && width == 64
+            && expected == Logic4::X,
+        "public wide reduction NOR widened X and Z is reachable"
+    );
+    kani::cover!(
+        natural == 32
+            && before.signed
+            && before.planes == (3, 0xffff_fffe)
+            && width == 64
+            && expected == Logic4::Zero,
+        "public wide reduction NOR widened one dominates X and Z is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_reduction_nor_width65_matches_reference_semantics() {
+    public_reduction_nor_wide_continuation::<65>();
+}
+
+#[kani::proof]
+#[kani::unwind(2)]
+#[kani::use_stub_set(native_gate_wide_result)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_logical_biguint_getter)]
+fn public_reduction_nor_width128_matches_reference_semantics() {
+    public_reduction_nor_wide_continuation::<128>();
+}
+
 // IEEE 1800 11.4.7: classify each source bit independently. A scalar known
 // one determines true; absent any known one, X/Z determines unknown, else false.
 // Nested loops visit every bit while bounding each loop by eight. This scalar

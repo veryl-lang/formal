@@ -245,7 +245,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 214] = [
+pub static CONTRACTS: [Contract; 216] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -530,6 +530,10 @@ pub static CONTRACTS: [Contract; 214] = [
             "public BigUint getters high one is reachable",
             "public BigUint getters high X is reachable",
             "public BigUint getters high Z and padding are reachable",
+            "public BigUint getters u64 constructor zero is reachable",
+            "public BigUint getters u64 constructor one is reachable",
+            "public BigUint getters u64 constructor X is reachable",
+            "public BigUint getters u64 constructor Z is reachable",
         ],
     },
     Contract {
@@ -2074,6 +2078,30 @@ pub static CONTRACTS: [Contract; 214] = [
             "public native reduction NOR width 64 signed high one is reachable",
             "public native reduction NOR widened X and Z is reachable",
             "public native reduction NOR widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-nor-width65",
+        harness: "public_reduction_nor_width65_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public wide reduction NOR width 1 zero unchanged is reachable",
+            "public wide reduction NOR width 64 signed high one is reachable",
+            "public wide reduction NOR widened X and Z is reachable",
+            "public wide reduction NOR widened one dominates X and Z is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-nor-width128",
+        harness: "public_reduction_nor_width128_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public wide reduction NOR width 1 zero unchanged is reachable",
+            "public wide reduction NOR width 64 signed high one is reachable",
+            "public wide reduction NOR widened X and Z is reachable",
+            "public wide reduction NOR widened one dominates X and Z is reachable",
         ],
     },
     Contract {
@@ -5311,6 +5339,70 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 contract,
                 path,
                 source: replace_once(&source, old, new),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-reduction-nor-width65")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        // Preserve the full prefix, including NOR 1/8 and the shared LogicNot arm.
+        for (name, expression) in [
+            ("public-wide-reduction-nor-as-or", "x.reduce_or(false)"),
+            ("public-wide-reduction-nor-as-nand", "x.reduce_and(true)"),
+            (
+                "public-wide-reduction-nor-ignores-unknown",
+                "{ let mut result = x.reduce_or(true); result.mask_xz = 0; result }",
+            ),
+            (
+                "public-wide-reduction-nor-unknown-overrides-one",
+                "{ let mut result = x.reduce_or(true); if x.mask_xz != 0 { result.payload = 0; result.mask_xz = 1; } result }",
+            ),
+            (
+                "public-wide-reduction-nor-upper-padding-leak",
+                "{ let mut result = x.reduce_or(true); result.payload |= 1u64 << 63; result }",
+            ),
+        ] {
+            let replacement = format!(
+                "Value::U64(x) => if matches!(self, Op::BitNor) && width >= 65 {{ {expression} }} else {{ x.reduce_or(true) }},"
+            );
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(
+                    &source,
+                    "eval_value_unary",
+                    "Value::U64(x) => x.reduce_or(true),",
+                    &replacement,
+                ),
+            });
+        }
+        let method = &source[method_range(&source, "eval_value_unary")];
+        let start = method
+            .find("            Op::BitNor | Op::LogicNot => {")
+            .unwrap();
+        let end = start + method[start..].find("            Op::BitXor => {").unwrap();
+        let branch = &method[start..end];
+        for (name, replacement) in [
+            (
+                "public-wide-reduction-nor-wrong-width",
+                "ret.expand(if matches!(self, Op::BitNor) && width == 65 { 66 } else { width }, false).into_owned()",
+            ),
+            (
+                "public-wide-reduction-nor-signed-result",
+                "{ let mut output = ret.expand(width, false).into_owned(); if matches!(self, Op::BitNor) && width >= 65 { if let Value::BigUint(ref mut big) = output { big.signed = true; } } output }",
+            ),
+        ] {
+            let replacement =
+                replace_once(branch, "ret.expand(width, false).into_owned()", replacement);
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", branch, &replacement),
             });
         }
     }

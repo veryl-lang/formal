@@ -1,4 +1,6 @@
 //! Public getter projection for canonical BigUint planes bounded by 128 bits.
+//! Select u64 or u128 construction for both planes, retaining every u128 input
+//! and adding every u64 input used by native reduction producers.
 //! Both planes, metadata widths 65..=128 and signs vary independently. Data may
 //! occupy bits above the declared width: these getters return raw low 128 bits.
 //! Input packing is checked bitwise against independent u128 inputs before the
@@ -10,13 +12,28 @@ use veryl_analyzer::value::{Value, ValueBigUint};
 #[kani::proof]
 #[kani::unwind(3)]
 fn public_big_getters_match_reference_bits() {
-    let payload: u128 = kani::any();
-    let xz: u128 = kani::any();
+    let native_constructor: bool = kani::any();
+    let (payload, xz) = if native_constructor {
+        (
+            u128::from(kani::any::<u64>()),
+            u128::from(kani::any::<u64>()),
+        )
+    } else {
+        (kani::any::<u128>(), kani::any::<u128>())
+    };
     let width = u32::from(kani::any::<u8>() & 63) + 65;
     let signed: bool = kani::any();
     let big = ValueBigUint {
-        payload: Box::new(num_bigint::BigUint::from(payload)),
-        mask_xz: Box::new(num_bigint::BigUint::from(xz)),
+        payload: Box::new(if native_constructor {
+            num_bigint::BigUint::from(payload as u64)
+        } else {
+            num_bigint::BigUint::from(payload)
+        }),
+        mask_xz: Box::new(if native_constructor {
+            num_bigint::BigUint::from(xz as u64)
+        } else {
+            num_bigint::BigUint::from(xz)
+        }),
         width,
         signed,
     };
@@ -53,5 +70,21 @@ fn public_big_getters_match_reference_bits() {
     kani::cover!(
         payload == u128::MAX && xz == u128::MAX && width == 127 && signed,
         "public BigUint getters high Z and padding are reachable"
+    );
+    kani::cover!(
+        native_constructor && payload == 0 && xz == 0 && width == 65 && !signed,
+        "public BigUint getters u64 constructor zero is reachable"
+    );
+    kani::cover!(
+        native_constructor && payload == 1 && xz == 0 && width == 128 && signed,
+        "public BigUint getters u64 constructor one is reachable"
+    );
+    kani::cover!(
+        native_constructor && payload == 0 && xz == 1 && width == 65 && signed,
+        "public BigUint getters u64 constructor X is reachable"
+    );
+    kani::cover!(
+        native_constructor && payload == 1 && xz == 1 && width == 128 && !signed,
+        "public BigUint getters u64 constructor Z is reachable"
     );
 }

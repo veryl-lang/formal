@@ -230,6 +230,12 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public native reduction NOR widened X and Z is reachable",
                         "public native reduction NOR widened one dominates X and Z is reachable",
                     ],
+                    "public-reduction-nor-width65" | "public-reduction-nor-width128" => &[
+                        "public wide reduction NOR width 1 zero unchanged is reachable",
+                        "public wide reduction NOR width 64 signed high one is reachable",
+                        "public wide reduction NOR widened X and Z is reachable",
+                        "public wide reduction NOR widened one dominates X and Z is reachable",
+                    ],
                     "public-reduction-or-width65" | "public-reduction-or-width128" => &[
                         "public wide reduction OR width 1 zero unchanged is reachable",
                         "public wide reduction OR width 64 signed high one is reachable",
@@ -465,6 +471,30 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     assert!(contracts.contains("logical-truth-reference"));
     assert!(contracts.contains("public-logical-and-mutation-witness"));
     assert!(contracts.contains("public-reduction-and-native-continuation"));
+    let getter = all
+        .iter()
+        .find(|c| c.name == "public-big-getters-128")
+        .unwrap();
+    for witness in [
+        "public BigUint getters u64 constructor zero is reachable",
+        "public BigUint getters u64 constructor one is reachable",
+        "public BigUint getters u64 constructor X is reachable",
+        "public BigUint getters u64 constructor Z is reachable",
+    ] {
+        assert!(getter.covers.contains(&witness));
+    }
+    // Wide NOR plane checks compose with the scalar model and getter theorem.
+    for name in [
+        "public-reduction-nor-width65",
+        "public-reduction-nor-width128",
+        "reduction-or-reference",
+        "public-big-getters-128",
+    ] {
+        assert!(
+            contracts.contains(name),
+            "missing NOR proof dependency: {name}"
+        );
+    }
     // These disjoint boundaries complete the existing1..3 matrix through width4.
     assert!(contracts.contains("public-less-equal-left-width4"));
     assert!(contracts.contains("public-less-equal-right-width4"));
