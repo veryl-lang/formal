@@ -50,7 +50,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        submodules: recursive
+        submodules: true
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt
@@ -122,7 +122,7 @@ jobs:
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- apply-locks "$VERYL_CANDIDATE" "$FORMAL_LOCK_DIGEST"
     - uses: Swatinem/rust-cache@v2
       with:
-        shared-key: formal-${{ matrix.check }}-${{ matrix.suite }}
+        shared-key: formal-${{ matrix.check }}
         workspaces: ${{ steps.ci-cli.outputs.workspaces }}
       env:
         CARGO_TARGET_DIR: ${{ github.workspace }}/target
