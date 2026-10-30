@@ -231,6 +231,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     contract.name,
                     "public-less-equal-left-width4" | "public-less-equal-right-width4"
                 ) || contract.name.starts_with("public-small-less-equal-width-")
+                    || contract.name.starts_with("public-small-less-width-")
                     || contract.name.starts_with("public-small-greater-width-")
                     || contract
                         .name
@@ -323,6 +324,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert!(
                     contracts.contains(name.as_str()),
                     "missing comparison width pair: {name}"
+                );
+            }
+        }
+    }
+    // The original two Less contexts plus these boundaries cover widths1..4.
+    for left in 1..=4 {
+        for right in 1..=4 {
+            if left == 4 || right == 4 {
+                let name = format!("public-small-less-width-{left}-by-{right}");
+                assert!(
+                    contracts.contains(name.as_str()),
+                    "missing Less boundary: {name}"
                 );
             }
         }

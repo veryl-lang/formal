@@ -980,3 +980,83 @@ fn public_small_greater_equal_width_4_by_3_matches_reference() {
 fn public_small_greater_equal_width_4_by_4_matches_reference() {
     public_small_greater_equal_pair::<4, 4>();
 }
+
+// The existing signed/unsigned partitions cover all widths1..3. Seven constant
+// boundary pairs complete all independent widths1..4, normalized four-state
+// planes and source signs. Eq/Ne/EqWildcard/NeWildcard pairs1 then8 execute on
+// the same fresh cache before Less results1 then8 (IEEE 1800 11.4.4).
+fn public_small_less_width4_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<4>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_1_by_4_matches_reference() {
+    public_small_less_width4_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_2_by_4_matches_reference() {
+    public_small_less_width4_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_3_by_4_matches_reference() {
+    public_small_less_width4_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_1_matches_reference() {
+    public_small_less_width4_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_2_matches_reference() {
+    public_small_less_width4_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_3_matches_reference() {
+    public_small_less_width4_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_4_matches_reference() {
+    public_small_less_width4_pair::<4, 4>();
+}
