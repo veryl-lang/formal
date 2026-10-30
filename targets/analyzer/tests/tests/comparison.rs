@@ -1,5 +1,5 @@
 //! Equality and inequality prefixes at native source widths, followed by wildcard
-//! equality/inequality and ordering pairs through greater for widths 1..=3 are
+//! equality/inequality and all ordering pairs for widths 1..=3 are
 //! proved in public_comparison.rs.
 //! Keep every production call on the shared cache before later observations;
 //! retain all other comparison checks and independent reference anchors.
@@ -20,7 +20,7 @@ const COMPARISONS: [(Op, Comparison); 8] = [
     (Op::GreaterEq, Comparison::GreaterEqual),
 ];
 
-const NATIVE_COMPARISON_PREFIX: [(Op, usize); 14] = [
+const NATIVE_COMPARISON_PREFIX: [(Op, usize); 16] = [
     (Op::Eq, 1),
     (Op::Eq, 8),
     (Op::Ne, 1),
@@ -35,6 +35,8 @@ const NATIVE_COMPARISON_PREFIX: [(Op, usize); 14] = [
     (Op::LessEq, 8),
     (Op::Greater, 1),
     (Op::Greater, 8),
+    (Op::GreaterEq, 1),
+    (Op::GreaterEq, 8),
 ];
 
 fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
@@ -44,7 +46,7 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
     let normalized_native =
         |x: Operand| (1..=64).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0;
     let native_sources = normalized_native(x) && normalized_native(y);
-    let prefix_len = if x.width <= 3 && y.width <= 3 { 14 } else { 4 };
+    let prefix_len = if x.width <= 3 && y.width <= 3 { 16 } else { 4 };
     let proved_prefix = &NATIVE_COMPARISON_PREFIX[..prefix_len];
     let mut calls = 0;
     let mut prefix_matches = true;
@@ -83,36 +85,9 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
     assert_eq!((rhs.width(), rhs.signed()), (y.width, y.signed));
 }
 
-#[test]
-fn comparison_exhaustive_four_state_small_widths() {
-    for x_width in 1..=3 {
-        for y_width in 1..=3 {
-            let x_mask = (1u128 << x_width) - 1;
-            let y_mask = (1u128 << y_width) - 1;
-            for x_state in 0..(1u128 << (2 * x_width)) {
-                for y_state in 0..(1u128 << (2 * y_width)) {
-                    for x_signed in [false, true] {
-                        for y_signed in [false, true] {
-                            check_comparisons(
-                                Operand {
-                                    planes: (x_state & x_mask, x_state >> x_width),
-                                    width: x_width,
-                                    signed: x_signed,
-                                },
-                                Operand {
-                                    planes: (y_state & y_mask, y_state >> y_width),
-                                    width: y_width,
-                                    signed: y_signed,
-                                },
-                                &[1, 8],
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// The exhaustive widths 1..=3, all four-state planes, independent signs,
+// and result widths [1, 8] trace is proved for all eight operators in
+// public_comparison.rs, including source preservation after the last call.
 
 #[test]
 fn comparison_unknown_bits_do_not_create_known_mismatches() {

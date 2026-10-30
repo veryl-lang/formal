@@ -171,6 +171,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 assert_eq!(shard.suite, "logic");
                 if contract.name.starts_with("public-small-less-equal-width-")
                     || contract.name.starts_with("public-small-greater-width-")
+                    || contract
+                        .name
+                        .starts_with("public-small-greater-equal-width-")
                 {
                     for witness in [
                         "public comparison unsigned sources are reachable",
@@ -238,7 +241,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         }
     }
     // Every fixed width pair is required before its direct result checks are omitted.
-    for family in ["less-equal", "greater"] {
+    for family in ["less-equal", "greater", "greater-equal"] {
         for left in 1..=3 {
             for right in 1..=3 {
                 let name = format!("public-small-{family}-width-{left}-by-{right}");

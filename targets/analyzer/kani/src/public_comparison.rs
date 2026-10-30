@@ -3,7 +3,7 @@
 //! Inequality continues that prefix at all native widths. Wildcard equality and
 //! inequality continue it for source widths 1..=3. Signed and unsigned expression
 //! contexts partition every source sign pair; widths and state domains are unchanged.
-//! Less-than, less-equal and greater cover small widths; greater-equal stays direct.
+//! All four ordering operators continue the prefix for source widths 1..=3.
 //! Full u128 getters,
 //! native storage, unsigned result metadata, constructors and source preservation
 //! are checked. IEEE 1800 11.4.4/11.4.5/11.4.6 are modeled independently in comparison.
@@ -488,6 +488,10 @@ fn evaluate_comparison_trace<const MODE: u8>(
         let _ = native_result(Op::LessEq.eval_value_binary(&a, &b, 1, signed, &mut cache));
         let _ = native_result(Op::LessEq.eval_value_binary(&a, &b, 8, signed, &mut cache));
     }
+    if MODE > 6 {
+        let _ = native_result(Op::Greater.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::Greater.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
     let kind = match MODE {
         1 => Comparison::NotEqual,
         2 => Comparison::WildcardEqual,
@@ -495,6 +499,7 @@ fn evaluate_comparison_trace<const MODE: u8>(
         4 => Comparison::Less,
         5 => Comparison::LessEqual,
         6 => Comparison::Greater,
+        7 => Comparison::GreaterEqual,
         _ => unreachable!(),
     };
     let expected = compared_logic(ar, br, kind);
@@ -505,6 +510,7 @@ fn evaluate_comparison_trace<const MODE: u8>(
         4 => Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache),
         5 => Op::LessEq.eval_value_binary(&a, &b, 1, signed, &mut cache),
         6 => Op::Greater.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        7 => Op::GreaterEq.eval_value_binary(&a, &b, 1, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 1, expected);
@@ -515,6 +521,7 @@ fn evaluate_comparison_trace<const MODE: u8>(
         4 => Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache),
         5 => Op::LessEq.eval_value_binary(&a, &b, 8, signed, &mut cache),
         6 => Op::Greater.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        7 => Op::GreaterEq.eval_value_binary(&a, &b, 8, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 8, expected);
@@ -691,4 +698,88 @@ fn public_small_greater_width_3_by_2_matches_reference() {
 #[kani::use_stub_set(small_native_comparison)]
 fn public_small_greater_width_3_by_3_matches_reference() {
     public_small_greater_pair::<3, 3>();
+}
+
+// GreaterEq observes widths 1 then 8 after the complete Greater prefix.
+fn public_small_greater_equal_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<7>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_1_matches_reference() {
+    public_small_greater_equal_pair::<1, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_2_matches_reference() {
+    public_small_greater_equal_pair::<1, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_3_matches_reference() {
+    public_small_greater_equal_pair::<1, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_1_matches_reference() {
+    public_small_greater_equal_pair::<2, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_2_matches_reference() {
+    public_small_greater_equal_pair::<2, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_3_matches_reference() {
+    public_small_greater_equal_pair::<2, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_1_matches_reference() {
+    public_small_greater_equal_pair::<3, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_2_matches_reference() {
+    public_small_greater_equal_pair::<3, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_3_matches_reference() {
+    public_small_greater_equal_pair::<3, 3>();
 }
