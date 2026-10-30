@@ -169,7 +169,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             }
             if contract.group == "public-comparison-sequences" {
                 assert_eq!(shard.suite, "logic");
-                if contract.name.starts_with("public-small-less-equal-width-") {
+                if contract.name.starts_with("public-small-less-equal-width-")
+                    || contract.name.starts_with("public-small-greater-width-")
+                {
                     for witness in [
                         "public comparison unsigned sources are reachable",
                         "public comparison signed RHS only is reachable",
@@ -235,14 +237,16 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             );
         }
     }
-    // All nine width pairs are required before direct checks omit LessEq.
-    for left in 1..=3 {
-        for right in 1..=3 {
-            let name = format!("public-small-less-equal-width-{left}-by-{right}");
-            assert!(
-                contracts.contains(name.as_str()),
-                "missing comparison width pair: {name}"
-            );
+    // Every fixed width pair is required before its direct result checks are omitted.
+    for family in ["less-equal", "greater"] {
+        for left in 1..=3 {
+            for right in 1..=3 {
+                let name = format!("public-small-{family}-width-{left}-by-{right}");
+                assert!(
+                    contracts.contains(name.as_str()),
+                    "missing comparison width pair: {name}"
+                );
+            }
         }
     }
     assert_eq!(proof_shards, 5);

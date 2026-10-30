@@ -213,7 +213,7 @@ const PUBLIC_SMALL_FIXED_ORDERING_COVERS: &[&str] = &[
     "public comparison false result is reachable",
 ];
 
-pub static CONTRACTS: [Contract; 142] = [
+pub static CONTRACTS: [Contract; 151] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -750,6 +750,69 @@ pub static CONTRACTS: [Contract; 142] = [
         harness: "public_shift_big_amount_width_63_upper_z_matches_reference",
         message: "public shift semantics mismatch",
         covers: WORD_BIG_AMOUNT_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-1-by-1",
+        harness: "public_small_greater_width_1_by_1_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-1-by-2",
+        harness: "public_small_greater_width_1_by_2_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-1-by-3",
+        harness: "public_small_greater_width_1_by_3_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-2-by-1",
+        harness: "public_small_greater_width_2_by_1_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-2-by-2",
+        harness: "public_small_greater_width_2_by_2_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-2-by-3",
+        harness: "public_small_greater_width_2_by_3_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-3-by-1",
+        harness: "public_small_greater_width_3_by_1_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-3-by-2",
+        harness: "public_small_greater_width_3_by_2_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
+    },
+    Contract {
+        group: "public-comparison-sequences",
+        name: "public-small-greater-width-3-by-3",
+        harness: "public_small_greater_width_3_by_3_matches_reference",
+        message: "public comparison semantics mismatch",
+        covers: PUBLIC_SMALL_FIXED_ORDERING_COVERS,
     },
     Contract {
         group: "public-comparison-sequences",
@@ -3967,6 +4030,54 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         });
     }
     for (contract_name, name, path, method, old, new) in [
+        (
+            "public-small-greater-width-2-by-2",
+            "public-greater-direction",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, true, false)",
+            "x.compare(y, signed, false, false)",
+        ),
+        (
+            "public-small-greater-width-1-by-1",
+            "public-greater-inclusive",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, true, false)",
+            "x.compare(y, signed, true, true)",
+        ),
+        (
+            "public-small-greater-width-2-by-2",
+            "public-greater-unsigned-order",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "x.compare(y, signed, true, false)",
+            "x.compare(y, false, true, false)",
+        ),
+        (
+            "public-small-greater-width-1-by-2",
+            "public-greater-zero-extension",
+            "veryl/crates/analyzer/src/ir/op.rs",
+            "eval_value_binary",
+            "Op::Greater => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, signed);",
+            "Op::Greater => {\n                let xy_width = x.width().max(y.width());\n                let x = x.expand(xy_width, false);",
+        ),
+        (
+            "public-small-greater-width-1-by-1",
+            "public-greater-ignores-unknown",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self::new_bit_x1(false, relation)",
+        ),
+        (
+            "public-small-greater-width-1-by-1",
+            "public-greater-signed-result",
+            "veryl/crates/analyzer/src/value.rs",
+            "compare",
+            "Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation)",
+            "Self { signed: true, ..Self::new_bit_x1(self.is_xz() || rhs.is_xz(), relation) }",
+        ),
         (
             "public-small-less-equal-width-2-by-2",
             "public-less-equal-direction",
