@@ -225,6 +225,13 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public native reduction XOR widened X and Z is reachable",
                         "public native reduction XOR widened unknown dominates one is reachable",
                     ],
+                    "public-reduction-xnor-native-continuation" => &[
+                        "public native reduction XNOR width 1 zero unchanged is reachable",
+                        "public native reduction XNOR width 64 signed odd parity is reachable",
+                        "public native reduction XNOR width 64 even parity is reachable",
+                        "public native reduction XNOR widened X and Z is reachable",
+                        "public native reduction XNOR widened unknown dominates one is reachable",
+                    ],
                     "public-reduction-xor-width65" | "public-reduction-xor-width128" => &[
                         "public wide reduction XOR width 1 zero unchanged is reachable",
                         "public wide reduction XOR width 64 signed odd parity is reachable",

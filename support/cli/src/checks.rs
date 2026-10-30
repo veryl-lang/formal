@@ -340,6 +340,7 @@ pub const SHARDS: &[Shard] = &[
             "public-reduction-xor-native-continuation",
             "public-reduction-xor-width65",
             "public-reduction-xor-width128",
+            "public-reduction-xnor-native-continuation",
             "condition-truth",
             "conditional",
             "public-conditional-native",

@@ -245,7 +245,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 220] = [
+pub static CONTRACTS: [Contract; 221] = [
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -2154,6 +2154,19 @@ pub static CONTRACTS: [Contract; 220] = [
             "public wide reduction XOR width 64 even parity is reachable",
             "public wide reduction XOR widened X and Z is reachable",
             "public wide reduction XOR widened unknown dominates one is reachable",
+        ],
+    },
+    Contract {
+        group: "public-gate-sequences",
+        name: "public-reduction-xnor-native-continuation",
+        harness: "public_reduction_xnor_native_continuation_matches_reference_semantics",
+        message: "public gate semantics mismatch",
+        covers: &[
+            "public native reduction XNOR width 1 zero unchanged is reachable",
+            "public native reduction XNOR width 64 signed odd parity is reachable",
+            "public native reduction XNOR width 64 even parity is reachable",
+            "public native reduction XNOR widened X and Z is reachable",
+            "public native reduction XNOR widened unknown dominates one is reachable",
         ],
     },
     Contract {
@@ -5447,6 +5460,72 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             (
                 "public-wide-reduction-xor-signed-result",
                 "{ let mut output = Value::U64(ret).expand(width, false).into_owned(); if let Value::BigUint(ref mut big) = output { big.signed = true; } output }",
+            ),
+        ] {
+            let replacement = replace_once(
+                branch,
+                "Value::U64(ret).expand(width, false).into_owned()",
+                replacement,
+            );
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(&source, "eval_value_unary", branch, &replacement),
+            });
+        }
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-reduction-xnor-native-continuation")
+    {
+        let path = "veryl/crates/analyzer/src/ir/op.rs";
+        let source = fs::read_to_string(repo.join(path)).unwrap();
+        // Mutate only XNOR, leaving every NOT and earlier reduction call intact.
+        for (name, expression) in [
+            ("public-native-reduction-xnor-as-xor", "x.reduce_xor(false)"),
+            ("public-native-reduction-xnor-as-nor", "x.reduce_or(true)"),
+            (
+                "public-native-reduction-xnor-ignores-unknown",
+                "{ let mut result = x.reduce_xor(true); result.mask_xz = 0; result }",
+            ),
+            (
+                "public-native-reduction-xnor-ignores-upper-word",
+                "{ let mut source = x.clone(); source.trunc(32); source.reduce_xor(true) }",
+            ),
+            (
+                "public-native-reduction-xnor-upper-padding-leak",
+                "{ let mut result = x.reduce_xor(true); result.payload |= 1u64 << 63; result }",
+            ),
+        ] {
+            let replacement = format!("Value::U64(x) => {expression},");
+            mutations.push(Mutation {
+                name,
+                contract,
+                path,
+                source: mutate_method(
+                    &source,
+                    "eval_value_unary",
+                    "Value::U64(x) => x.reduce_xor(true),",
+                    &replacement,
+                ),
+            });
+        }
+        let method = &source[method_range(&source, "eval_value_unary")];
+        let start = method.find("            Op::BitXnor => {").unwrap();
+        let end = start
+            + method[start..]
+                .find("            _ => unimplemented!(),")
+                .unwrap();
+        let branch = &method[start..end];
+        for (name, replacement) in [
+            (
+                "public-native-reduction-xnor-wrong-width",
+                "Value::U64(ret).expand(if width == 8 { 1 } else { width }, false).into_owned()",
+            ),
+            (
+                "public-native-reduction-xnor-signed-result",
+                "{ let mut output = Value::U64(ret).expand(width, false).into_owned(); if let Value::U64(ref mut native) = output { native.signed = true; } output }",
             ),
         ] {
             let replacement = replace_once(
