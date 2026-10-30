@@ -4952,7 +4952,9 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "Value::U64(x.divide_remainder(y, width, signed, false))",
         ),
         (
-            "public-small-remainder-width-4-signed",
+            // -1 (one signed bit) % -2 (two signed bits) distinguishes the
+            // missing LHS extension at width 2; wider positive proofs stay intact.
+            "public-small-remainder-width-2-signed",
             "public-small-remainder-skips-left-sign-extension",
             "Op::Rem => {\n                let x = x.expand(width, signed);",
             "Op::Rem => {\n                let x = x.expand(width, false);",

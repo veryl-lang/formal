@@ -247,7 +247,7 @@ fn binary_resolves_paths_from_its_execution_directory() {
     let event = f._directory.path().join("event.json");
     let output = f._directory.path().join("output");
     for (event_name, inputs, mode, shards) in [
-        ("push", Value::Null, "all", 19),
+        ("push", Value::Null, "all", 20),
         (
             "workflow_dispatch",
             json!({"target":"simulator", "mode":"positive"}),
