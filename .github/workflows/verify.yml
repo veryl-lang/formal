@@ -78,6 +78,7 @@ jobs:
         if-no-files-found: error
         retention-days: 14
   contracts:
+    if: github.event_name != 'pull_request'
     name: ${{ matrix.check }} (${{ matrix.suite }})
     needs:
     - prepare

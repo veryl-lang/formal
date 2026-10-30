@@ -39,8 +39,9 @@ generates a verification summary.
 ## CI
 
 The committed Veryl revision must pass the complete verification suite.
-[CI](.github/workflows/verify.yml) checks that revision on pull requests and
-pushes to master.
+[CI](.github/workflows/verify.yml) runs formatting and host CLI/runner tests on
+pull requests. Pushes to master run the complete suite, including proofs and
+mutation checks.
 
 Nightly resolves dependency locks once for upstream master and shares them across
 all verification jobs. It updates the submodule pointer and those lock files
