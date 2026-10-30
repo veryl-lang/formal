@@ -27,8 +27,8 @@ cargo run --locked --manifest-path support/cli/Cargo.toml -- run cache-contracts
 
 `plan CHECK SUITE` lists the commands; `run CHECK SUITE` executes them. Available
 check/suite pairs are defined in the [catalog](support/cli/src/checks.rs).
-The value target uses `native`, `storage`, `logic`, `arithmetic`, and `nonlinear`
-suites.
+The value target uses `native`, `storage`, `shifts`, `logic`, `arithmetic`, and
+`nonlinear` suites.
 Omit `--mode positive` to include mutation checks. On Ubuntu, `setup CHECK SUITE`
 installs additional verification tools required by the suite.
 

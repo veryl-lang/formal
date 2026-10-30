@@ -129,7 +129,13 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 contract.group,
                 "public-wide-resize" | "public-getters" | "public-native-sequences"
             ) {
-                assert_eq!(shard.suite, "storage");
+                let expected_suite =
+                    if contract.name.contains("shift") || contract.name.contains("big-amount") {
+                        "shifts"
+                    } else {
+                        "storage"
+                    };
+                assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
                     "public-native-zero-extension-wide" => {
                         "public native wide zero extension interior widths are reachable"
@@ -239,7 +245,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             );
         }
     }
-    assert_eq!(proof_shards, 4);
+    assert_eq!(proof_shards, 5);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -629,7 +635,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 19);
+    assert_eq!(all.len(), 20);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -652,7 +658,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 5);
+    assert_eq!(rows("value").len(), 6);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
