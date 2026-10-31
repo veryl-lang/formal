@@ -245,7 +245,94 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 234] = [
+pub static CONTRACTS: [Contract; 241] = [
+    Contract {
+        group: "public-big-values",
+        name: "big-numeric-api",
+        harness: "bounded_biguint_numeric_api_follows_scalar_bits",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big numeric API zero and maximum shift are reachable",
+            "big numeric API two full words are reachable",
+            "big numeric API word crossing is reachable",
+            "big numeric API opposite high bits are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "big-numeric-bridge",
+        harness: "bounded_biguint_numeric_bridge_preserves_bits",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big numeric bridge zero is reachable",
+            "big numeric bridge two words are reachable",
+            "big numeric bridge word boundary is reachable",
+            "big numeric bridge inline word is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "big-truth-reference",
+        harness: "big_truth_reference_matches_scalar_fold",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big truth reference zero is reachable",
+            "big truth reference one is reachable",
+            "big truth reference X is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "public-big-truth",
+        harness: "public_big_truth_matches_reference_semantics",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big truth zero endpoint is reachable",
+            "big truth high one is reachable",
+            "big truth high X is reachable",
+            "big truth high Z is reachable",
+            "big truth known one dominates X is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "public-big-conditional-native",
+        harness: "public_big_condition_matches_reference_semantics",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big conditional zero endpoint is reachable",
+            "big conditional high one is reachable",
+            "big conditional high X is reachable",
+            "big conditional high Z is reachable",
+            "big conditional mixed signs and known one are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "public-native-sign-extension-wide",
+        harness: "public_native_sign_extension_wide_matches_reference_semantics",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big sign extension one is reachable",
+            "big sign extension X is reachable",
+            "big sign extension Z is reachable",
+            "big sign extension interior is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "public-big-selection-native",
+        harness: "public_big_selection_matches_reference_semantics",
+        message: "public BigUint semantics mismatch",
+        covers: &[
+            "big selection crosses word boundary is reachable",
+            "big selection upper word is reachable",
+            "big selection partial overlap is reachable",
+            "big selection maximum endpoint is reachable",
+            "big selection reversed endpoints are reachable",
+            "big selection high Z is reachable",
+        ],
+    },
     Contract {
         group: "public-nonlinear",
         name: "public-small-remainder-width-1-unsigned",
@@ -3218,6 +3305,7 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     matches!(
         contract.group,
         "public-nonlinear"
+            | "public-big-values"
             | "public-wide-resize"
             | "public-getters"
             | "public-native-sequences"
@@ -3240,6 +3328,141 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
+    if let Some(&contract) = selected.iter().find(|c| c.name == "public-big-truth") {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "big-truth-ignores-upper-one",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "(!known.is_zero(), !x.mask_xz.is_zero())",
+                "(!known.is_zero() && x.payload.bits() <= 64, !x.mask_xz.is_zero())",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-truth-ignores-unknown",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "(!known.is_zero(), !x.mask_xz.is_zero())",
+                "(!known.is_zero(), false)",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-truth-X-overrides-known-one",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "(!known.is_zero(), !x.mask_xz.is_zero())",
+                "(!known.is_zero() && x.mask_xz.is_zero(), !x.mask_xz.is_zero())",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-conditional-native")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "big-condition-ignores-truth",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let condition = self.truth();",
+                "let condition = Some(false);",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-condition-forces-unsigned",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "a.conditional(b, condition, context_width, signed)",
+                "a.conditional(b, condition, context_width, false)",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-condition-swaps-branches",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "a.conditional(b, condition, context_width, signed)",
+                "b.conditional(a, condition, context_width, signed)",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-native-sign-extension-wide")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "big-sign-extension-skips-fill",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "if x.signed && use_sign {\n                        let msb = payload.bit((x.width - 1) as u64);",
+                "if false && x.signed && use_sign {\n                        let msb = payload.bit((x.width - 1) as u64);",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-sign-extension-drops-XZ",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "if msb_xz {\n                                *mask_xz |= &mask;",
+                "if false && msb_xz {\n                                *mask_xz |= &mask;",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-sign-extension-clears-sign",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "let signed = if use_sign { x.signed } else { false };",
+                "let signed = false;",
+            ),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "public-big-selection-native")
+    {
+        let source = fs::read_to_string(repo.join(CORE)).unwrap();
+        mutations.push(Mutation {
+            name: "big-selection-loses-payload",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "*ret.payload >>= end;",
+                "*ret.payload = BigUint::zero();",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-selection-loses-XZ",
+            contract,
+            path: CORE,
+            source: replace_once(
+                &source,
+                "*ret.mask_xz = (&*ret.mask_xz & &valid_mask) | (&mask ^ &valid_mask);",
+                "*ret.mask_xz = BigUint::zero();",
+            ),
+        });
+        mutations.push(Mutation {
+            name: "big-selection-missing-bits-zero", contract, path: CORE,
+            source: replace_once(&source, "            if end >= self.width as usize {\n                return Self::new_x(width, false);\n            }\n            let valid_width = (self.width as usize - end).min(width);\n            let valid_mask = Self::gen_mask(valid_width);\n            let mut ret = self.clone();", "            if end >= self.width as usize {\n                return Self { payload: Box::new(BigUint::zero()), mask_xz: Box::new(BigUint::zero()), width: width as u32, signed: false };\n            }\n            let valid_width = (self.width as usize - end).min(width);\n            let valid_mask = Self::gen_mask(valid_width);\n            let mut ret = self.clone();"),
+        });
+    }
     if selected
         .iter()
         .any(|c| c.group == "values" || c.name == "public-conditional-native")

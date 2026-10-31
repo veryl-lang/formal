@@ -63,15 +63,22 @@ fn main() {
     if !legacy.is_empty() && (options.mode != Mode::Mutation || !legacy_mutations.is_empty()) {
         runner.run(options.mode, &legacy, &legacy_mutations);
     }
+    let (big, explicit): (Vec<_>, Vec<_>) = explicit
+        .into_iter()
+        .partition(|c| c.group == "public-big-values");
+    let (big_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "public-big-values");
     let (extended, explicit): (Vec<_>, Vec<_>) = explicit
         .into_iter()
         .partition(|c| analyzer::uses_extended_logical_timeout(c));
     let (extended_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
         .into_iter()
         .partition(|m| analyzer::uses_extended_logical_timeout(m.contract));
-    for (timeout, contracts, mutations) in [
-        ("60s", explicit, explicit_mutations),
-        ("180s", extended, extended_mutations),
+    for (timeout, cache_dereferences, contracts, mutations) in [
+        ("60s", false, explicit, explicit_mutations),
+        ("180s", false, extended, extended_mutations),
+        ("60s", true, big, big_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
             continue;
@@ -79,6 +86,7 @@ fn main() {
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {
                 harness_timeout: timeout,
+                cache_dereferences,
                 auxiliary_covers: analyzer::AUXILIARY_CONDITIONAL_COVERS,
             },
             options.mode,

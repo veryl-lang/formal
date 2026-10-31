@@ -1,5 +1,7 @@
 //! Public native dispatch is proved in targets/analyzer/kani/src/conditional.rs.
-//! Retain wider/BigUint and unsized-literal paths plus independent model checks.
+//! public_big_values.rs adds conditions of widths 65..=128 with native results.
+//! Retain BigUint branches/results and unsized-literal paths plus model checks.
+//! Public constructors and actual BigUint truth remain checked in big_helpers.rs.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::comparison::Operand;
@@ -48,12 +50,14 @@ fn check(condition: Operand, a: Operand, b: Operand, context_width: usize, signe
 }
 
 // The public proof includes all normalized native conditions and branches
-// and context requests through 64. BigUint conditions, branches and requests remain.
+// and context requests through 64; public_big_values.rs covers conditions65..128.
+// BigUint branches and wider context requests remain direct.
 fn covered_native_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
     fn normalized(x: Operand, limit: usize) -> bool {
-        (1..=limit).contains(&x.width) && ((x.planes.0 | x.planes.1) >> x.width) == 0
+        (1..=limit).contains(&x.width)
+            && (x.planes.0 | x.planes.1) & !(u128::MAX >> (128 - x.width)) == 0
     }
-    normalized(c, 64) && normalized(a, 64) && normalized(b, 64) && context <= 64
+    normalized(c, 128) && normalized(a, 64) && normalized(b, 64) && context <= 64
 }
 
 #[test]

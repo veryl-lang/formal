@@ -142,6 +142,13 @@ pub const SHARDS: &[Shard] = &[
             "public-native-zero-extension-wide",
             "public-native-zero-fill-extension-wide",
             "public-big-getters-128",
+            "big-numeric-api",
+            "big-numeric-bridge",
+            "big-truth-reference",
+            "public-big-truth",
+            "public-big-conditional-native",
+            "public-native-sign-extension-wide",
+            "public-big-selection-native",
             "extension",
             "shape-total",
             "shape-index",
@@ -547,6 +554,7 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             ));
             steps.push(Invocation::adapter("run --locked -p veryl-formal-contract-tests --example check_aggregate_contracts --", &[], mode));
             steps.push(Invocation::adapter("run --locked -p veryl-formal-contract-tests --example check_selection_contracts --", &[], mode));
+            steps.push(Invocation::adapter("run --locked -p veryl-formal-contract-tests --example check_big_helper_contracts --", &[], mode));
             steps.push(Invocation::adapter(
                 "run --locked -p veryl-formal-contract-tests --example check_ir_contracts --",
                 &[],

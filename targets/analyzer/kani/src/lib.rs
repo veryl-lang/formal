@@ -56,3 +56,6 @@ mod public_big_getters;
 
 #[cfg(kani)]
 mod public_big_amount;
+
+#[cfg(kani)]
+mod public_big_values;

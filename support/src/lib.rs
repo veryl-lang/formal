@@ -189,6 +189,8 @@ pub enum Backend<'a> {
         /// Inapplicable cover diagnostics recognized during mutation runs.
         /// These never satisfy or waive the contract's required witnesses.
         auxiliary_covers: &'a [&'a str],
+        /// Cache repeated symbolic dereferences without disabling any checks.
+        cache_dereferences: bool,
     },
     NativeTests {
         package: &'a str,
@@ -238,11 +240,20 @@ impl Backend<'_> {
     fn run(self, manifest: &Path, target: &Path, contract: &Contract, phase: Phase) -> Output {
         match self {
             Self::Kani { harness_timeout } => {
-                run_proof(manifest, target, contract, harness_timeout, false)
+                run_proof(manifest, target, contract, harness_timeout, false, false)
             }
             Self::KaniWithExplicitCovers {
-                harness_timeout, ..
-            } => run_proof(manifest, target, contract, harness_timeout, true),
+                harness_timeout,
+                cache_dereferences,
+                ..
+            } => run_proof(
+                manifest,
+                target,
+                contract,
+                harness_timeout,
+                true,
+                cache_dereferences,
+            ),
             Self::NativeTests {
                 package,
                 test_target,
@@ -326,6 +337,7 @@ fn proof_command(
     contract: &Contract,
     harness_timeout: &str,
     explicit_covers: bool,
+    cache_dereferences: bool,
 ) -> Command {
     let mut command = Command::new("cargo");
     command
@@ -345,6 +357,9 @@ fn proof_command(
     if explicit_covers {
         command.arg("--no-assertion-reach-checks");
     }
+    if cache_dereferences {
+        command.args(["--cbmc-args", "--symex-cache-dereferences"]);
+    }
     command
 }
 
@@ -354,10 +369,18 @@ fn run_proof(
     contract: &Contract,
     harness_timeout: &str,
     explicit_covers: bool,
+    cache_dereferences: bool,
 ) -> Output {
-    proof_command(manifest, target, contract, harness_timeout, explicit_covers)
-        .output()
-        .expect("failed to launch cargo kani")
+    proof_command(
+        manifest,
+        target,
+        contract,
+        harness_timeout,
+        explicit_covers,
+        cache_dereferences,
+    )
+    .output()
+    .expect("failed to launch cargo kani")
 }
 
 fn copy_file(source: &Path, destination: &Path) {
@@ -712,8 +735,8 @@ mod tests {
     fn explicit_cover_profile_only_changes_reachability_diagnostics() {
         let manifest = Path::new("proof/Cargo.toml");
         let target = Path::new("proof/target");
-        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false);
-        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true);
+        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false, false);
+        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true, false);
         assert_eq!(legacy.get_program(), explicit.get_program());
         assert!(legacy.get_envs().eq(explicit.get_envs()));
         let legacy_args: Vec<_> = legacy.get_args().collect();
@@ -732,6 +755,33 @@ mod tests {
     }
 
     #[test]
+    fn cached_dereferences_preserve_the_verification_profile() {
+        let plain = proof_command(
+            Path::new("p/Cargo.toml"),
+            Path::new("p/target"),
+            &CONTRACTS[0],
+            "180s",
+            true,
+            false,
+        );
+        let cached = proof_command(
+            Path::new("p/Cargo.toml"),
+            Path::new("p/target"),
+            &CONTRACTS[0],
+            "180s",
+            true,
+            true,
+        );
+        let plain_args: Vec<_> = plain.get_args().collect();
+        let cached_args: Vec<_> = cached.get_args().collect();
+        assert_eq!(&cached_args[..plain_args.len()], plain_args.as_slice());
+        assert_eq!(
+            &cached_args[plain_args.len()..],
+            ["--cbmc-args", "--symex-cache-dereferences"]
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "explicit-cover backend requires named reachability witnesses")]
     fn explicit_cover_profile_rejects_missing_witnesses_before_running_tools() {
         Runner {
@@ -745,6 +795,7 @@ mod tests {
             Backend::KaniWithExplicitCovers {
                 harness_timeout: "60s",
                 auxiliary_covers: &["auxiliary diagnostic"],
+                cache_dereferences: false,
             },
             Mode::Positive,
             &[&CONTRACTS[1]],
@@ -888,6 +939,7 @@ mod tests {
         let backend = Backend::KaniWithExplicitCovers {
             harness_timeout: "60s",
             auxiliary_covers: &["auxiliary diagnostic"],
+            cache_dereferences: false,
         };
         let only_auxiliary = "Check 1:\n - Status: SATISFIED\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- SUCCESSFUL";
         assert!(!backend.positive(true, only_auxiliary, &CONTRACTS[0]));

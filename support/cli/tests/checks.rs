@@ -144,6 +144,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     || matches!(
                         contract.group,
                         "public-wide-resize"
+                            | "public-big-values"
                             | "public-getters"
                             | "public-native-sequences"
                             | "public-comparison-sequences"
@@ -152,7 +153,10 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             );
             if matches!(
                 contract.group,
-                "public-wide-resize" | "public-getters" | "public-native-sequences"
+                "public-wide-resize"
+                    | "public-getters"
+                    | "public-native-sequences"
+                    | "public-big-values"
             ) {
                 let expected_suite =
                     if contract.name.contains("shift") || contract.name.contains("big-amount") {
@@ -162,6 +166,19 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     };
                 assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
+                    "big-numeric-api" => "big numeric API word crossing is reachable",
+                    "big-numeric-bridge" => "big numeric bridge inline word is reachable",
+                    "big-truth-reference" => "big truth reference X is reachable",
+                    "public-big-truth" => "big truth known one dominates X is reachable",
+                    "public-big-conditional-native" => {
+                        "big conditional mixed signs and known one are reachable"
+                    }
+                    "public-native-sign-extension-wide" => {
+                        "big sign extension interior is reachable"
+                    }
+                    "public-big-selection-native" => {
+                        "big selection crosses word boundary is reachable"
+                    }
                     "public-native-zero-extension-wide" => {
                         "public native wide zero extension interior widths are reachable"
                     }
@@ -624,6 +641,7 @@ fn value_native_retains_all_finite_checks_without_installing_kani() {
         BTreeSet::from([
             "check_aggregate_contracts",
             "check_selection_contracts",
+            "check_big_helper_contracts",
             "check_ir_contracts",
             "check_expression_contracts",
             "check_graph_contracts",
