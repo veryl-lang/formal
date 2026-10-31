@@ -1,7 +1,7 @@
-//! Native assignment semantics and public constructor/dispatch/getters for every
-//! pairing of widths 1, 4, 63, and 64 are proved in
-//! `targets/analyzer/kani/src/partial_assignment.rs`. Reference truth tables,
-//! the 14-bit regression, and native/BigUint conversions remain executable checks.
+//! Assignment semantics for all normalized widths 1..128 and arbitrary endpoints
+//! are proved by public_big_ops.rs under the bounded numeric API contract.
+//! Keep real-library conversion/field boundaries, the 14-bit regression, and
+//! reference anchors. These finite comparisons check actual BigUint integration.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::{Logic4, read_logic};
@@ -47,31 +47,47 @@ fn assignment_contract_native_biguint_boundaries_and_conversions() {
             if matches!(width, 1 | 4 | 63 | 64) && matches!(rhs_width, 1 | 4 | 63 | 64) {
                 continue;
             }
-            for beg in 0..width {
-                // Exercise every in-bounds field, including fields crossing bit 64.
-                for end in 0..=beg {
-                    for pattern in patterns {
-                        for signed in [false, true] {
-                            let dst_payload = !pattern & width_mask(width);
-                            let dst_xz = pattern & width_mask(width);
-                            let rhs_payload = pattern & width_mask(rhs_width);
-                            let rhs_xz = !pattern & width_mask(rhs_width);
-                            let mut actual = Value::from_u128(dst_payload, dst_xz, width, signed);
-                            let rhs = Value::from_u128(rhs_payload, rhs_xz, rhs_width, !signed);
-                            actual.assign(rhs, beg, end);
-                            assert_eq!(
-                                actual.payload_u128(),
-                                reference_plane(dst_payload, rhs_payload, width, beg, end,),
-                                "payload: dst={width}, rhs={rhs_width}, [{beg}:{end}]"
+            for (beg, end) in [
+                (0, 0),
+                (width - 1, 0),
+                (width - 1, width - 1),
+                (width / 2, width / 2),
+                (width / 2, 0),
+                (width - 1, width / 2),
+                (64, 63),
+                (65, 63),
+                (width - 1, 1),
+            ] {
+                if beg >= width || end > beg {
+                    continue;
+                }
+                for pattern in patterns {
+                    for signed in [false, true] {
+                        let dst_payload = !pattern & width_mask(width);
+                        let dst_xz = pattern & width_mask(width);
+                        let rhs_payload = pattern & width_mask(rhs_width);
+                        let rhs_xz = !pattern & width_mask(rhs_width);
+                        let mut actual = Value::from_u128(dst_payload, dst_xz, width, signed);
+                        let rhs = Value::from_u128(rhs_payload, rhs_xz, rhs_width, !signed);
+                        actual.assign(rhs, beg, end);
+                        assert_eq!(
+                            actual.payload_u128(),
+                            reference_plane(dst_payload, rhs_payload, width, beg, end,),
+                            "payload: dst={width}, rhs={rhs_width}, [{beg}:{end}]"
+                        );
+                        assert_eq!(
+                            actual.mask_xz_u128(),
+                            reference_plane(dst_xz, rhs_xz, width, beg, end,),
+                            "mask_xz: dst={width}, rhs={rhs_width}, [{beg}:{end}]"
+                        );
+                        if let Value::BigUint(v) = &actual {
+                            assert!(
+                                v.payload.bits() <= width as u64
+                                    && v.mask_xz.bits() <= width as u64
                             );
-                            assert_eq!(
-                                actual.mask_xz_u128(),
-                                reference_plane(dst_xz, rhs_xz, width, beg, end,),
-                                "mask_xz: dst={width}, rhs={rhs_width}, [{beg}:{end}]"
-                            );
-                            assert_eq!(actual.width(), width);
-                            assert_eq!(actual.signed(), signed);
                         }
+                        assert_eq!(actual.width(), width);
+                        assert_eq!(actual.signed(), signed);
                     }
                 }
             }

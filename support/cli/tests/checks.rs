@@ -85,7 +85,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             analyzer::uses_extended_logical_timeout(contract),
             matches!(
                 contract.name,
-                "public-logical-and-width65"
+                "assignment256-big-native"
+                    | "assignment256-big-big"
+                    | "bitwise256-and"
+                    | "bitwise256-or"
+                    | "bitwise256-xor"
+                    | "bitwise256-xnor"
+                    | "shift256-left"
+                    | "shift256-right"
+                    | "shift256-arith-left"
+                    | "shift256-arith-right-signed"
+                    | "shift256-arith-right-unsigned"
+                    | "public-logical-and-width65"
                     | "public-logical-or-native-continuation"
                     | "public-logical-or-width65"
                     | "public-conditional-wide-native-native"
@@ -163,7 +174,11 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     | "public-big-values"
             ) {
                 let expected_suite = if contract.group == "public-big-values" {
-                    "big-values"
+                    if contract.name.contains("256") {
+                        "big-operators"
+                    } else {
+                        "big-values"
+                    }
                 } else if contract.name.contains("shift") || contract.name.contains("big-amount") {
                     "shifts"
                 } else {
@@ -171,6 +186,33 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 };
                 assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
+                    "reduction256-and" => "wide reduction maximum widths are reachable",
+                    "reduction256-nand" => "wide reduction maximum widths are reachable",
+                    "reduction256-or" => "wide reduction maximum widths are reachable",
+                    "reduction256-nor" => "wide reduction maximum widths are reachable",
+                    "reduction256-xor" => "wide reduction maximum widths are reachable",
+                    "reduction256-xnor" => "wide reduction maximum widths are reachable",
+                    "reduction256-logic-not" => "wide reduction maximum widths are reachable",
+
+                    "assignment256-high" => "assignment bit254 intermediate is reachable",
+                    "bitwise256-and" => "wide bitwise lower boundary is reachable",
+                    "bitwise256-or" => "wide bitwise lower boundary is reachable",
+                    "bitwise256-xor" => "wide bitwise lower boundary is reachable",
+                    "bitwise256-xnor" => "wide bitwise lower boundary is reachable",
+                    "not256" => "wide NOT sign expansion is reachable",
+                    "shift256-left" => "wide shift oversized amount is reachable",
+                    "shift256-right" => "wide shift oversized amount is reachable",
+                    "shift256-arith-left" => "wide shift oversized amount is reachable",
+                    "shift256-arith-right-signed" => "wide shift oversized amount is reachable",
+                    "shift256-arith-right-unsigned" => "wide shift oversized amount is reachable",
+
+                    "numeric256-shifts" => "numeric256 left crosses128 is reachable",
+                    "assignment256-native-native" => "wide assignment full window is reachable",
+                    "assignment256-native-big" => "wide assignment full window is reachable",
+                    "assignment256-big-native" => "wide assignment full window is reachable",
+                    "assignment256-big-big" => "wide assignment full window is reachable",
+
+                    "numeric256-api" => "numeric256 high difference is reachable",
                     "conditional-expansion-value-summary" => {
                         "wide expansion value summary borrowed sign is reachable"
                     }
@@ -286,7 +328,18 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public logical NOT widened X and Z is reachable",
                         "public logical NOT widened one dominates X and Z is reachable",
                     ],
-                    "public-logical-and-width65"
+                    "assignment256-big-native"
+                    | "assignment256-big-big"
+                    | "bitwise256-and"
+                    | "bitwise256-or"
+                    | "bitwise256-xor"
+                    | "bitwise256-xnor"
+                    | "shift256-left"
+                    | "shift256-right"
+                    | "shift256-arith-left"
+                    | "shift256-arith-right-signed"
+                    | "shift256-arith-right-unsigned"
+                    | "public-logical-and-width65"
                     | "public-logical-or-native-continuation"
                     | "public-logical-or-width65" => {
                         &["public logical binary full continuation is reachable"]
@@ -665,7 +718,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 10);
+    assert_eq!(proof_shards, 11);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1056,7 +1109,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 25);
+    assert_eq!(all.len(), 26);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1079,7 +1132,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 11);
+    assert_eq!(rows("value").len(), 12);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

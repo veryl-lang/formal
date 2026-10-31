@@ -3,6 +3,9 @@
 //! Native context widening 4->8/64 is also proved. Keep BigUint source/amount
 //! or context paths and independent model anchors. Wide-amount caller proofs at
 //! widths 1/2/31/32/63/64 use shared fixtures; their real constructors stay checked.
+//! public_big_ops.rs proves all four BigUint kernels at prepared widths 65..128.
+//! Expansion has separate proofs; context integration remains finite here.
+//! Keep actual library histories, high amount planes and X/Z sign-fill boundaries here.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::logic4::Logic4;
@@ -49,6 +52,12 @@ fn shift_context_widens_before_shifting() {
                             expected,
                             "{kind:?}, source_width={source_width}, width={width}, signed={signed}, amount={amount}"
                         );
+                        if let Value::BigUint(v) = &output {
+                            assert!(
+                                v.payload.bits() <= width as u64
+                                    && v.mask_xz.bits() <= width as u64
+                            );
+                        }
                         assert_eq!(output.width(), width);
                         assert_eq!(
                             output.signed(),
@@ -84,6 +93,9 @@ fn check_shift(source: (u128, u128), width: usize, amount: (u128, u128), amount_
                     expected,
                     "{kind:?}, width={width}, source={source:?}, amount={amount:?}, signed={signed}"
                 );
+                if let Value::BigUint(v) = &output {
+                    assert!(v.payload.bits() <= width as u64 && v.mask_xz.bits() <= width as u64);
+                }
                 assert_eq!(output.width(), width);
                 let expected_signed = decoded.is_some()
                     && signed

@@ -156,6 +156,35 @@ pub const SHARDS: &[Shard] = &[
     // Keep the numeric API proofs and mutations together, independently of
     // storage geometry and real-library getter contracts.
     Shard::value(
+        "big-operators",
+        &[
+            "numeric256-shifts",
+            "assignment256-native-native",
+            "assignment256-native-big",
+            "assignment256-big-native",
+            "assignment256-big-big",
+            "assignment256-high",
+            "bitwise256-and",
+            "bitwise256-or",
+            "bitwise256-xor",
+            "bitwise256-xnor",
+            "not256",
+            "shift256-left",
+            "shift256-right",
+            "shift256-arith-left",
+            "shift256-arith-right-signed",
+            "shift256-arith-right-unsigned",
+            "reduction256-and",
+            "reduction256-nand",
+            "reduction256-or",
+            "reduction256-nor",
+            "reduction256-xor",
+            "reduction256-xnor",
+            "reduction256-logic-not",
+            "numeric256-api",
+        ],
+    ),
+    Shard::value(
         "big-values",
         &[
             "conditional-expansion-value-summary",

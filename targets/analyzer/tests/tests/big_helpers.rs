@@ -83,11 +83,67 @@ fn biguint_public_constructor_boundaries() {
                         "public BigUint helper semantics mismatch"
                     );
                 }
+                // Finite real-library bridge for intermediates up to bit255.
+                // Width128 shifted by128 must retain the high half before clipping.
+                for (plane, number) in [(p, &big.payload), (x, &big.mask_xz)] {
+                    let shifted = number.as_ref() << width;
+                    assert!(
+                        shifted.bits() <= 2 * width as u64,
+                        "public BigUint helper semantics mismatch"
+                    );
+                    for position in 0..256 {
+                        let expected = position >= width
+                            && position - width < 128
+                            && (plane >> (position - width)) & 1 != 0;
+                        assert!(
+                            shifted.bit(position as u64) == expected,
+                            "public BigUint helper semantics mismatch"
+                        );
+                    }
+                    assert!(
+                        (&shifted >> width) == **number,
+                        "public BigUint helper semantics mismatch"
+                    );
+                }
                 assert!(
                     input.clone() == input,
                     "public BigUint helper semantics mismatch"
                 );
             }
         }
+    }
+}
+
+// Finite exhaustive two-key histories over the supported cache key domain,
+// plus a full-table traversal. This does not quantify arbitrary HashMap states.
+#[test]
+fn biguint_mask_cache_width_histories() {
+    fn check(cache: &mut veryl_analyzer::value::MaskCache, width: usize) {
+        let mask = cache.get(width);
+        assert!(
+            mask.bits() == width as u64,
+            "public BigUint helper semantics mismatch"
+        );
+        for p in 0..=128 {
+            assert!(
+                mask.bit(p) == (p < width as u64),
+                "public BigUint helper semantics mismatch"
+            );
+        }
+    }
+    for a in 0..=128 {
+        for b in 0..=128 {
+            let mut cache = veryl_analyzer::value::MaskCache::default();
+            check(&mut cache, a);
+            check(&mut cache, b);
+            check(&mut cache, a);
+        }
+    }
+    let mut cache = veryl_analyzer::value::MaskCache::default();
+    for width in 0..=128 {
+        check(&mut cache, width);
+    }
+    for width in (0..=128).rev() {
+        check(&mut cache, width);
     }
 }

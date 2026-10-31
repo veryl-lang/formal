@@ -59,3 +59,6 @@ mod public_big_amount;
 
 #[cfg(kani)]
 mod public_big_values;
+
+#[cfg(kani)]
+mod public_big_ops;

@@ -1,7 +1,14 @@
 //! Exhaustive finite mask comparison and retained public constructor boundaries.
 use std::{fs, path::Path};
 use veryl_formal_runner::{Contract, Mutation};
-pub static NATIVE: [Contract; 2] = [
+pub static NATIVE: [Contract; 3] = [
+    Contract {
+        name: "big-mask-cache-histories",
+        group: "big-helpers",
+        harness: "biguint_mask_cache_width_histories",
+        message: "public BigUint helper semantics mismatch",
+        covers: &[],
+    },
     Contract {
         name: "big-mask-exhaustive",
         group: "big-helpers",
@@ -68,6 +75,35 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             contract,
             path,
             source: original.replacen(old, "let lo = 0u64;", 1),
+        });
+    }
+    if let Some(&contract) = selected
+        .iter()
+        .find(|c| c.name == "big-mask-cache-histories")
+    {
+        let old = ".or_insert_with(|| ValueBigUint::gen_mask(width));";
+        assert_eq!(original.matches(old).count(), 1);
+        result.push(Mutation {
+            name: "mask-cache-wrong-mask-width",
+            contract,
+            path,
+            source: original.replacen(
+                old,
+                ".or_insert_with(|| ValueBigUint::gen_mask(width.saturating_sub(1)));",
+                1,
+            ),
+        });
+        let old_entry = ".entry(width)";
+        let old_get = "self.table.get(&width).unwrap()";
+        assert_eq!(original.matches(old_entry).count(), 1);
+        assert_eq!(original.matches(old_get).count(), 1);
+        result.push(Mutation {
+            name: "mask-cache-key-collision",
+            contract,
+            path,
+            source: original
+                .replacen(old_entry, ".entry(width % 64)", 1)
+                .replacen(old_get, "self.table.get(&(width % 64)).unwrap()", 1),
         });
     }
     result

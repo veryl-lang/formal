@@ -1,7 +1,8 @@
 //! Exhaustive normalized native traces are proved in public_gates.rs at widths
 //! 1..=64, including the complete operator/cache history and source preservation.
-//! Retain finite native/BigUint boundaries with wider context histories, narrowing
-//! casts and independent scalar reference anchors.
+//! BigUint bitwise/NOT/reduction operators are also proved in public_big_ops.rs
+//! under numeric/cache and context-expansion contracts. Retain finite actual
+//! library/cache histories, narrowing casts and independent scalar anchors.
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -25,6 +26,9 @@ const REDUCTIONS: [(Op, Reduction); 6] = [
 ];
 
 fn planes(value: &Value) -> (u128, u128) {
+    if let Value::BigUint(v) = value {
+        assert!(v.payload.bits() <= v.width as u64 && v.mask_xz.bits() <= v.width as u64);
+    }
     (value.payload_u128(), value.mask_xz_u128())
 }
 

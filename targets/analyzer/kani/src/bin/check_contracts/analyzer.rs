@@ -245,7 +245,266 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 252] = [
+pub static CONTRACTS: [Contract; 276] = [
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-and",
+        harness: "wide_reduction_and_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-nand",
+        harness: "wide_reduction_nand_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-or",
+        harness: "wide_reduction_or_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-nor",
+        harness: "wide_reduction_nor_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-xor",
+        harness: "wide_reduction_xor_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-xnor",
+        harness: "wide_reduction_xnor_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "reduction256-logic-not",
+        harness: "wide_reduction_logic_not_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide reduction maximum widths are reachable",
+            "wide reduction unknown source is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "assignment256-high",
+        harness: "assignment_high_intermediate_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &["assignment bit254 intermediate is reachable"],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "bitwise256-and",
+        harness: "wide_bitwise_and_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide bitwise lower boundary is reachable",
+            "wide bitwise upper unknown is reachable",
+            "wide bitwise signed operands are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "bitwise256-or",
+        harness: "wide_bitwise_or_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide bitwise lower boundary is reachable",
+            "wide bitwise upper unknown is reachable",
+            "wide bitwise signed operands are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "bitwise256-xor",
+        harness: "wide_bitwise_xor_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide bitwise lower boundary is reachable",
+            "wide bitwise upper unknown is reachable",
+            "wide bitwise signed operands are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "bitwise256-xnor",
+        harness: "wide_bitwise_xnor_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide bitwise lower boundary is reachable",
+            "wide bitwise upper unknown is reachable",
+            "wide bitwise signed operands are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "not256",
+        harness: "wide_bit_not_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide NOT sign expansion is reachable",
+            "wide NOT unknown is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "shift256-left",
+        harness: "wide_shift_left_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide shift oversized amount is reachable",
+            "wide shift unknown amount is reachable",
+            "wide shift source sign partition is reachable",
+            "wide shift bit255 intermediate input is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "shift256-right",
+        harness: "wide_shift_right_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide shift oversized amount is reachable",
+            "wide shift unknown amount is reachable",
+            "wide shift source sign partition is reachable",
+            "wide shift bit255 intermediate input is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "shift256-arith-left",
+        harness: "wide_shift_arith_left_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide shift oversized amount is reachable",
+            "wide shift unknown amount is reachable",
+            "wide shift source sign partition is reachable",
+            "wide shift bit255 intermediate input is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "shift256-arith-right-signed",
+        harness: "wide_shift_arith_right_signed_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide shift oversized amount is reachable",
+            "wide shift unknown amount is reachable",
+            "wide shift source sign partition is reachable",
+            "wide shift bit255 intermediate input is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "shift256-arith-right-unsigned",
+        harness: "wide_shift_arith_right_unsigned_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide shift oversized amount is reachable",
+            "wide shift unknown amount is reachable",
+            "wide shift source sign partition is reachable",
+            "wide shift bit255 intermediate input is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "numeric256-shifts",
+        harness: "numeric256_shifts_follow_scalar_coordinates",
+        message: "wide numeric semantics mismatch",
+        covers: &[
+            "numeric256 left crosses128 is reachable",
+            "numeric256 right crosses128 is reachable",
+            "numeric256 bit255 is reachable",
+            "numeric256 oversized shift is reachable",
+            "numeric256 zero mask is reachable",
+            "numeric256 full mask is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "assignment256-native-native",
+        harness: "assignment_native_native_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide assignment full window is reachable",
+            "wide assignment last bit is reachable",
+            "wide assignment shifted high RHS is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "assignment256-native-big",
+        harness: "assignment_native_big_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide assignment full window is reachable",
+            "wide assignment last bit is reachable",
+            "wide assignment shifted high RHS is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "assignment256-big-native",
+        harness: "assignment_big_native_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide assignment full window is reachable",
+            "wide assignment last bit is reachable",
+            "wide assignment shifted high RHS is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "assignment256-big-big",
+        harness: "assignment_big_big_matches_scalar_bits",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide assignment full window is reachable",
+            "wide assignment last bit is reachable",
+            "wide assignment shifted high RHS is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "numeric256-api",
+        harness: "numeric256_equality_and_high_bits_match_scalar",
+        message: "wide numeric semantics mismatch",
+        covers: &[
+            "numeric256 high difference is reachable",
+            "numeric256 high equality is reachable",
+        ],
+    },
     Contract {
         group: "public-big-values",
         name: "conditional-expansion-value-summary",
@@ -3470,13 +3729,24 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
-// Full native logical continuations and the four wide conditional partitions
+// Full logical/conditional continuations and variable-width wide operators
 // exceed the normal60s cap on this toolchain. Keep180s scoped to these names;
 // the separate word64 logical mutation-witness contracts retain60s.
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     matches!(
         contract.name,
-        "public-logical-and-width65"
+        "assignment256-big-native"
+            | "assignment256-big-big"
+            | "bitwise256-and"
+            | "bitwise256-or"
+            | "bitwise256-xor"
+            | "bitwise256-xnor"
+            | "shift256-left"
+            | "shift256-right"
+            | "shift256-arith-left"
+            | "shift256-arith-right-signed"
+            | "shift256-arith-right-unsigned"
+            | "public-logical-and-width65"
             | "public-logical-or-native-continuation"
             | "public-logical-or-width65"
             | "public-conditional-wide-native-native"
@@ -3488,6 +3758,7 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
+    wide_operator_mutations(repo, selected, &mut mutations);
     if let Some(&contract) = selected
         .iter()
         .find(|c| c.name == "public-big-expansion-zero")
@@ -8538,4 +8809,195 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         }
     }
     mutations
+}
+
+// Mutate only the BigUint arm in the selected operation. Model-domain and
+// timeout failures are rejected by the shared runner, never counted as detection.
+fn wide_operator_mutations(repo: &Path, selected: &[&'static Contract], out: &mut Vec<Mutation>) {
+    let core = fs::read_to_string(repo.join(CORE)).unwrap();
+    let op_path = "veryl/crates/analyzer/src/ir/op.rs";
+    let ops = fs::read_to_string(repo.join(op_path)).unwrap();
+    for &contract in selected {
+        let mut add = |name, path, source| {
+            out.push(Mutation {
+                name,
+                contract,
+                path,
+                source,
+            })
+        };
+        match contract.name {
+            "assignment256-high" => {
+                add(
+                    "assignment256-leaks-high-payload",
+                    CORE,
+                    replace_once(
+                        &core,
+                        "(value.payload() & &mask_range)",
+                        "(if value.payload.bits() > 128 { value.payload().clone() } else { value.payload() & &mask_range })",
+                    ),
+                );
+                add(
+                    "assignment256-leaks-high-xz",
+                    CORE,
+                    replace_once(
+                        &core,
+                        "(value.mask_xz() & &mask_range)",
+                        "(if value.mask_xz.bits() > 128 { value.mask_xz().clone() } else { value.mask_xz() & &mask_range })",
+                    ),
+                );
+            }
+            "assignment256-big-big" => {
+                add(
+                    "assignment256-loses-rhs-payload",
+                    CORE,
+                    replace_once(&core, "(value.payload() & &mask_range)", "BigUint::zero()"),
+                );
+                add(
+                    "assignment256-loses-rhs-xz",
+                    CORE,
+                    replace_once(&core, "(value.mask_xz() & &mask_range)", "BigUint::zero()"),
+                );
+            }
+            _ => {}
+        }
+        let binary = ops.find("    pub fn eval_value_binary(").unwrap();
+        let unary = ops.find("    pub fn eval_value_unary(").unwrap();
+        let spec = match contract.name {
+            "bitwise256-and" => Some((
+                binary,
+                "Op::BitAnd =>",
+                "*ret.payload &= ret.mask_xz() ^ mask;",
+                "*ret.payload &= mask;",
+                "bitwise256-and-retains-unknown-payload",
+            )),
+            "bitwise256-or" => Some((
+                binary,
+                "Op::BitOr =>",
+                "*ret.payload &= ret.mask_xz() ^ mask;",
+                "*ret.payload &= mask;",
+                "bitwise256-or-retains-unknown-payload",
+            )),
+            "bitwise256-xor" => Some((
+                binary,
+                "Op::BitXor =>",
+                "*ret.mask_xz = x.mask_xz() | y.mask_xz();",
+                "*ret.mask_xz = x.mask_xz() & y.mask_xz();",
+                "bitwise256-xor-loses-one-sided-unknown",
+            )),
+            "bitwise256-xnor" => Some((
+                binary,
+                "Op::BitXnor =>",
+                "let payload = x.payload() ^ y.payload() ^ mask;",
+                "let payload = x.payload() ^ y.payload();",
+                "bitwise256-xnor-skips-inversion",
+            )),
+            "not256" => Some((
+                unary,
+                "Op::BitNot =>",
+                "*ret.payload &= ret.mask_xz() ^ mask;",
+                "*ret.payload &= mask;",
+                "not256-retains-unknown-payload",
+            )),
+            "shift256-left" => Some((
+                binary,
+                "Op::LogicShiftL =>",
+                "*ret.payload &= mask;",
+                "let _ = &mask;",
+                "shift256-left-leaks-upper-bits",
+            )),
+            "shift256-arith-left" => Some((
+                binary,
+                "Op::ArithShiftL =>",
+                "*ret.mask_xz &= mask;",
+                "let _ = &mask;",
+                "shift256-arith-left-leaks-upper-xz",
+            )),
+            "shift256-right" => Some((
+                binary,
+                "Op::LogicShiftR =>",
+                "*ret.mask_xz >>= y;",
+                "let _ = y;",
+                "shift256-right-leaves-xz-unshifted",
+            )),
+            "shift256-arith-right-unsigned" => Some((
+                binary,
+                "Op::ArithShiftR =>",
+                "let mut ret = x.clone();",
+                "let mut ret = x.clone(); ret.signed = true;",
+                "shift256-arith-right-unsigned-retains-sign",
+            )),
+            "shift256-arith-right-signed" => Some((
+                binary,
+                "Op::ArithShiftR =>",
+                "*ret.mask_xz |= ext_mask_xz;",
+                "let _ = ext_mask_xz;",
+                "shift256-arith-right-loses-xz-fill",
+            )),
+            "reduction256-and" => Some((
+                unary,
+                "Op::BitAnd =>",
+                "ValueU64::new_bit_0x(is_zero, is_x)",
+                "ValueU64::new_bit_0x(false, is_x)",
+                "reduction256-and-loses-zero-dominance",
+            )),
+            "reduction256-nand" => Some((
+                unary,
+                "Op::BitNand =>",
+                "ValueU64::new_bit_1x(is_one, is_x)",
+                "ValueU64::new_bit_0x(is_one, is_x)",
+                "reduction256-nand-skips-inversion",
+            )),
+            "reduction256-or" => Some((
+                unary,
+                "Op::BitOr =>",
+                "ValueU64::new_bit_1x(is_one, is_x)",
+                "ValueU64::new_bit_1x(false, is_x)",
+                "reduction256-or-loses-one-dominance",
+            )),
+            "reduction256-nor" => Some((
+                unary,
+                "Op::BitNor | Op::LogicNot =>",
+                "ValueU64::new_bit_0x(is_zero, is_x)",
+                "ValueU64::new_bit_1x(is_zero, is_x)",
+                "reduction256-nor-skips-inversion",
+            )),
+            "reduction256-logic-not" => Some((
+                unary,
+                "Op::BitNor | Op::LogicNot =>",
+                "ValueU64::new_bit_0x(is_zero, is_x)",
+                "ValueU64::new_bit_1x(is_zero, is_x)",
+                "reduction256-logic-not-skips-inversion",
+            )),
+            "reduction256-xor" => Some((
+                unary,
+                "Op::BitXor =>",
+                "x.payload.count_ones() % 2 == 1",
+                "x.payload.count_ones() % 2 == 0",
+                "reduction256-xor-inverts-parity",
+            )),
+            "reduction256-xnor" => Some((
+                unary,
+                "Op::BitXnor =>",
+                "x.payload.count_ones() % 2 == 0",
+                "x.payload.count_ones() % 2 == 1",
+                "reduction256-xnor-inverts-parity",
+            )),
+            _ => None,
+        };
+        if let Some((start, arm, old, new, name)) = spec {
+            let a = start + ops[start..].find(arm).unwrap();
+            let b = a + ops[a..].find("Value::BigUint(x)").unwrap();
+            let end = b + ops[b..].find(old).unwrap() + old.len();
+            let mut source = ops.clone();
+            source.replace_range(b..end, &replace_once(&ops[b..end], old, new));
+            add(name, op_path, source);
+            if contract.name == "shift256-left" {
+                let mut source = ops.clone();
+                source.replace_range(b..end,&replace_once(&ops[b..end],old,
+                    "if !(width == 128 && y == 128 && x.payload.bits() == 128) { *ret.payload &= mask; }"));
+                add("shift256-left-leaks-bit255", op_path, source);
+            }
+        }
+    }
 }
