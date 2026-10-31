@@ -75,10 +75,17 @@ fn main() {
     let (extended_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
         .into_iter()
         .partition(|m| analyzer::uses_extended_logical_timeout(m.contract));
+    let (big_extended, big): (Vec<_>, Vec<_>) = big
+        .into_iter()
+        .partition(|c| analyzer::uses_extended_logical_timeout(c));
+    let (big_extended_mutations, big_mutations): (Vec<_>, Vec<_>) = big_mutations
+        .into_iter()
+        .partition(|m| analyzer::uses_extended_logical_timeout(m.contract));
     for (timeout, cache_dereferences, contracts, mutations) in [
         ("60s", false, explicit, explicit_mutations),
         ("180s", false, extended, extended_mutations),
         ("60s", true, big, big_mutations),
+        ("180s", true, big_extended, big_extended_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
             continue;

@@ -38,6 +38,7 @@ fn biguint_public_constructor_boundaries() {
             (sign, 0),
             (0, sign),
             (sign, sign),
+            (1, mask ^ 1),
             (1, 1),
             (1, 1u128 << 64),
             (1u128 << 100, 0),

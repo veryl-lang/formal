@@ -1,6 +1,7 @@
 //! Public native resize domains are proved in targets/analyzer/kani/src/resize.rs.
 //! Native sources extending to widths 65..=128 are proved by public_wide_resize.rs
-//! and public_big_values.rs, including signed MSB 1/X/Z. BigUint inputs stay direct.
+//! and public_big_values.rs, including signed MSB 1/X/Z. The latter also proves
+//! BigUint sources65..128 with requests1..128; actual numeric integration remains.
 //! Retain other native/BigUint boundaries and independent reference truth tables.
 //! The BigUint proof assumes numeric APIs; real-library integration remains below.
 
@@ -61,31 +62,36 @@ fn check_width_changes(payload: u128, mask_xz: u128, source_width: usize, width:
     }
 }
 
+// All source65..128 / target1..128 layouts are covered by the numeric-API
+// proofs. Keep actual-library integration at native conversion, wide clipping,
+// identity and signed growth boundaries; both expansion calls remain ordered.
 #[test]
 fn resize_native_biguint_boundaries() {
-    for source_width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
+    for (source_width, width) in [
+        (65, 1),
+        (128, 64),
+        (128, 65),
+        (128, 127),
+        (65, 128),
+        (127, 128),
+        (128, 128),
+    ] {
         let mask = u128::MAX >> (128 - source_width);
         let sign_bit = 1u128 << (source_width - 1);
-        for width in [1, 2, 31, 32, 63, 64, 65, 127, 128] {
-            // Native proofs cover every target width 1..=128 and both flags.
-            if source_width <= 64 {
-                continue;
-            }
-            for (payload, mask_xz) in [
-                (0, 0),
-                (mask, 0),
-                (0, mask),
-                (mask, mask),
-                (sign_bit, 0),
-                (0, sign_bit),
-                (sign_bit, sign_bit),
-                (
-                    0xaaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa & mask,
-                    0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
-                ),
-            ] {
-                check_width_changes(payload, mask_xz, source_width, width);
-            }
+        for (payload, mask_xz) in [
+            (0, 0),
+            (mask, 0),
+            (0, mask),
+            (mask, mask),
+            (sign_bit, 0),
+            (0, sign_bit),
+            (sign_bit, sign_bit),
+            (
+                0xaaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa & mask,
+                0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
+            ),
+        ] {
+            check_width_changes(payload, mask_xz, source_width, width);
         }
     }
 }

@@ -35,6 +35,42 @@ pub fn extended_logic_bit(
     }
 }
 
+/// Plane form of SV-EXTEND for normalized widths1..128. A narrower request
+/// leaves the original value intact. The padding interval is defined with
+/// native bit positions, independently of production BigUint mask operations.
+/// Kani checks every output bit against extended_logic_bit before this model
+/// is used as the summary of an independently verified compiler operation.
+pub fn expanded_planes(
+    input: (u128, u128),
+    source: usize,
+    target: usize,
+    signed: bool,
+    use_sign: bool,
+) -> (u128, u128) {
+    assert!((1..=128).contains(&source) && (1..=128).contains(&target));
+    let source_mask = u128::MAX >> (128 - source);
+    assert!((input.0 | input.1) & !source_mask == 0);
+    if target <= source {
+        return input;
+    }
+    let padding = (u128::MAX << source) & (u128::MAX >> (128 - target));
+    let sign = 1u128 << (source - 1);
+    (
+        input.0
+            | if signed && use_sign && input.0 & sign != 0 {
+                padding
+            } else {
+                0
+            },
+        input.1
+            | if signed && use_sign && input.1 & sign != 0 {
+                padding
+            } else {
+                0
+            },
+    )
+}
+
 pub fn reference_planes(width: usize, bit: impl Fn(usize) -> Logic4) -> (u128, u128) {
     assert!((1..=128).contains(&width));
     let mut payload = 0;

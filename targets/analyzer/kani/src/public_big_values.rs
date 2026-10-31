@@ -10,7 +10,8 @@
 //! Pool capacity permits 63 registrations per trace; capacity and decoder bounds
 //! are asserted, never assumed. Every handle-using proof initializes the pool.
 //! Operation harnesses use unwind3; the 128-bit scalar fold uses unwind129.
-//! Inputs are normalized four-state values; condition/source widths are 65..=128.
+//! Four-state planes are normalized. BigUint widths are65..128; contracts also
+//! admit native sources/conditions1..64 and nonzero resize requests1..128.
 //! Each arbitrary observation position 0..127 quantifies an entire bit plane,
 //! together with bit-length, storage, width, sign and source-preservation checks.
 //! IEEE 1800-2023 11.4.7 (truth), 11.4.11/Table 11-20 (conditional),
@@ -21,7 +22,7 @@ use veryl_formal_semantics::{
     comparison::Operand,
     conditional::conditional_logic_bit,
     logic4::{Logic4, read_logic},
-    resize::extended_logic_bit,
+    resize::{extended_logic_bit, truncated_logic_bit},
     selection::selected_logic_bit,
 };
 
@@ -143,7 +144,11 @@ fn numeric_getter(a: &num_bigint::BigUint) -> u128 {
     read_plane(a)
 }
 fn numeric_clone(a: &num_bigint::BigUint) -> num_bigint::BigUint {
-    plane(read_plane(a))
+    // Registry entries are immutable; assignment replaces the BigUint handle,
+    // so cloning may share an entry while retaining value-copy semantics.
+    let _ = read_plane(a);
+    let raw = a.iter_u64_digits().next().unwrap_or(0);
+    num_bigint::BigUint::new_const(raw as u32)
 }
 // Kani requires early-bound lifetimes matching the numeric trait impls.
 fn numeric_and<'a: 'a, 'b: 'b>(
@@ -664,4 +669,506 @@ fn public_big_selection_matches_reference_semantics() {
         width == 128 && beg == 127 && end == 127 && before.planes == (1u128 << 127, 1u128 << 127),
         "big selection high Z is reachable"
     );
+}
+
+// The wide conditional merge also uses owned-left/borrowed-right OR. Keep this
+// extension separate from the previous stub set and prove its scalar semantics.
+fn numeric_or_right_ref<'a: 'a>(
+    a: num_bigint::BigUint,
+    b: &'a num_bigint::BigUint,
+) -> num_bigint::BigUint {
+    plane(read_plane(&a) | read_plane(b))
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(<num_bigint::BigUint as std::ops::BitOr<&num_bigint::BigUint>>::bitor, numeric_or_right_ref)]
+fn bounded_biguint_wide_api_follows_scalar_bits() {
+    init_numeric();
+    let x: u128 = kani::any();
+    let y: u128 = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let a = plane(x);
+    let b = plane(y);
+    let combined = a.clone() | &b;
+    let xor = &a ^ b.clone();
+    let left = x >> position & 1 != 0;
+    let right = y >> position & 1 != 0;
+    assert!(
+        combined.bit(position as u64) == (left || right)
+            && xor.bit(position as u64) == (left != right)
+            && read_plane(&a) == x
+            && read_plane(&b) == y,
+        "public BigUint semantics mismatch"
+    );
+    kani::cover!(!left && !right, "wide numeric API zero zero is reachable");
+    kani::cover!(!left && right, "wide numeric API zero one is reachable");
+    kani::cover!(
+        left && !right && position == 127,
+        "wide numeric API high one zero is reachable"
+    );
+    kani::cover!(
+        left && right && position == 64,
+        "wide numeric API boundary one one is reachable"
+    );
+}
+
+// IEEE 1800 10.7: all normalized BigUint sources65..128, targets1..128,
+// independent signedness and arbitrary output bit. Clone/truncation precedes
+// the expansion trace, matching the finite comparisons being replaced.
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+fn public_big_truncation_matches_reference_semantics() {
+    init_numeric();
+    let source = usize::from(kani::any::<u8>() & 63) + 65;
+    let target = usize::from(kani::any::<u8>() & 127) + 1;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let (value, before) = big_input(source, position);
+    let mut result = value.clone();
+    result.trunc(target);
+    let width = source.min(target);
+    let expected = truncated_logic_bit(before.planes, width, position);
+    check_result(&result, width, before.signed, position, expected);
+    check_input(&value, before, position);
+    kani::cover!(
+        source == 65 && target == 1 && before.signed && position == 0 && expected == Logic4::X,
+        "big truncation native low X is reachable"
+    );
+    kani::cover!(
+        source == 128 && target == 64 && position == 63 && expected == Logic4::Z,
+        "big truncation native boundary Z is reachable"
+    );
+    kani::cover!(
+        source == 128
+            && target == 65
+            && position == 100
+            && before.planes == (1u128 << 100, 1u128 << 100),
+        "big truncation discarded high Z is reachable"
+    );
+    kani::cover!(
+        source == 128 && target == 127 && position == 126 && expected == Logic4::One,
+        "big truncation wide high one is reachable"
+    );
+    kani::cover!(
+        source == 65 && target == 128 && !before.signed && position == 64 && expected == Logic4::Z,
+        "big truncation no growth is reachable"
+    );
+    kani::cover!(
+        source == 128 && target == 128 && before.signed && position == 127 && expected == Logic4::X,
+        "big truncation maximum identity is reachable"
+    );
+}
+
+// Source65..128 and requests1..128, all normalized planes and both signs.
+// Truncation is separately proved. Retain its preceding clone/call, without
+// duplicating that oracle in both expansion proofs. For true, retain false first.
+fn big_expansion<const USE_SIGN: bool>() {
+    init_numeric();
+    let source = usize::from(kani::any::<u8>() & 63) + 65;
+    let target = usize::from(kani::any::<u8>() & 127) + 1;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let (value, before) = big_input(source, position);
+    let mut truncated = value.clone();
+    truncated.trunc(target);
+    drop(truncated);
+    if USE_SIGN {
+        drop(value.expand(target, false));
+    }
+    let output = value.expand(target, USE_SIGN);
+    let Value::BigUint(big) = output.as_ref() else {
+        panic!("public BigUint semantics mismatch");
+    };
+    let width = source.max(target);
+    let signed = before.signed && (target <= source || USE_SIGN);
+    assert!(
+        big.width as usize == width
+            && big.signed == signed
+            && big.payload.bits() <= width as u64
+            && big.mask_xz.bits() <= width as u64
+            && read_logic(big.payload_u128(), big.mask_xz_u128(), position)
+                == extended_logic_bit(
+                    before.planes,
+                    source,
+                    width,
+                    before.signed,
+                    USE_SIGN,
+                    position
+                ),
+        "public BigUint semantics mismatch"
+    );
+    check_input(&value, before, position);
+    let msb = read_logic(before.planes.0, before.planes.1, source - 1);
+    kani::cover!(
+        source == 128 && target == 1 && before.signed,
+        "big expansion borrowed signed source is reachable"
+    );
+    kani::cover!(
+        source == 65 && target == 128 && !before.signed && msb == Logic4::One && position == 127,
+        "big expansion unsigned zero fill is reachable"
+    );
+    kani::cover!(
+        source == 65 && target == 128 && before.signed && msb == Logic4::Zero && position == 127,
+        "big expansion signed zero fill is reachable"
+    );
+    kani::cover!(
+        source == 65 && target == 128 && before.signed && msb == Logic4::One && position == 127,
+        "big expansion signed one fill is reachable"
+    );
+    kani::cover!(
+        source == 65 && target == 128 && before.signed && msb == Logic4::X && position == 127,
+        "big expansion signed X fill is reachable"
+    );
+    kani::cover!(
+        source == 127 && target == 128 && before.signed && msb == Logic4::Z && position == 127,
+        "big expansion signed Z fill is reachable"
+    );
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+fn public_big_zero_expansion_matches_reference_semantics() {
+    big_expansion::<false>();
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+fn public_big_signed_expansion_matches_reference_semantics() {
+    big_expansion::<true>();
+}
+
+// Complete selection output widths65..128; native output widths0..64 have
+// their own theorem. Arbitrary usize endpoints include full out-of-range reads.
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+fn public_big_wide_selection_matches_reference_semantics() {
+    init_numeric();
+    let source = usize::from(kani::any::<u8>() & 63) + 65;
+    let position = usize::from(kani::any::<u8>() & 127);
+    let (value, before) = big_input(source, position);
+    let beg: usize = kani::any();
+    let end: usize = kani::any();
+    kani::assume(beg >= end);
+    let delta = beg - end;
+    kani::assume((64..128).contains(&delta));
+    let original = value.clone();
+    let result = value.select(beg, end);
+    let Value::BigUint(big) = result else {
+        panic!("public BigUint semantics mismatch");
+    };
+    let result = Value::BigUint(big);
+    let width = delta + 1;
+    let expected = selected_logic_bit(before.planes, source, beg, end, position);
+    check_result(&result, width, false, position, expected);
+    check_input(&value, before, position);
+    check_input(&original, before, position);
+    kani::cover!(
+        source == 65 && beg == 64 && end == 0 && position == 64 && expected == Logic4::Z,
+        "big wide selection full width65 is reachable"
+    );
+    kani::cover!(
+        source == 128 && beg == 127 && end == 0 && position == 127 && expected == Logic4::X,
+        "big wide selection full width128 is reachable"
+    );
+    kani::cover!(
+        source == 128 && beg == 127 && end == 63 && position == 64 && expected == Logic4::Z,
+        "big wide selection word crossing is reachable"
+    );
+    kani::cover!(
+        source == 128 && beg == 128 && end == 1 && position == 127 && expected == Logic4::X,
+        "big wide selection partial overlap is reachable"
+    );
+    kani::cover!(
+        beg == usize::MAX && end == usize::MAX - 127 && position == 127 && expected == Logic4::X,
+        "big wide selection maximum endpoints are reachable"
+    );
+    kani::cover!(
+        source == 65 && beg == 127 && end == 0 && position == 100 && expected == Logic4::X,
+        "big wide selection high padding is reachable"
+    );
+}
+
+// Composition boundary, not an oracle for expand itself: native resize and
+// native-to-wide zero/zero-fill/sign-extension contracts, plus the two public
+// BigUint expansion contracts, prove the same bit model for every source1..128
+// and request1..128. CI requires those components as well as this summary lemma.
+// Only conditional harnesses substitute expand; its own harnesses execute it.
+#[kani::proof]
+#[kani::unwind(3)]
+fn expansion_summary_matches_scalar_bits() {
+    let source = usize::from(kani::any::<u8>() & 127) + 1;
+    let target = usize::from(kani::any::<u8>() & 127) + 1;
+    let mask = u128::MAX >> (128 - source);
+    let input = (kani::any::<u128>() & mask, kani::any::<u128>() & mask);
+    let signed: bool = kani::any();
+    let use_sign: bool = kani::any();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let output =
+        veryl_formal_semantics::resize::expanded_planes(input, source, target, signed, use_sign);
+    assert!(
+        read_logic(output.0, output.1, position)
+            == extended_logic_bit(
+                input,
+                source,
+                source.max(target),
+                signed,
+                use_sign,
+                position
+            ),
+        "public BigUint semantics mismatch"
+    );
+    kani::cover!(
+        source == 1 && target == 128 && signed && use_sign && input == (1, 1) && position == 127,
+        "expansion summary native Z fill is reachable"
+    );
+    kani::cover!(
+        source == 65
+            && target == 128
+            && signed
+            && use_sign
+            && input == (0, 1u128 << 64)
+            && position == 127,
+        "expansion summary BigUint X fill is reachable"
+    );
+    kani::cover!(
+        source == 128 && target == 1 && signed && !use_sign,
+        "expansion summary borrowed sign is reachable"
+    );
+    kani::cover!(
+        source == 64
+            && target == 65
+            && !signed
+            && use_sign
+            && input == (1u128 << 63, 0)
+            && position == 64,
+        "expansion summary unsigned zero fill is reachable"
+    );
+}
+// Conditional observes only as_ref(), not Cow ownership. Represent both borrowed
+// and owned results by an owned value with the same planes, width and sign.
+// This avoids reintroducing storage-path branches into the composed proof.
+fn summarized_expand(value: &Value, target: usize, use_sign: bool) -> std::borrow::Cow<'_, Value> {
+    let source = value.width();
+    assert!(
+        (1..=128).contains(&source) && (65..=128).contains(&target),
+        "BigUint expansion summary domain exceeded"
+    );
+    let input = (value.payload_u128(), value.mask_xz_u128());
+    assert!(
+        (input.0 | input.1) & !(u128::MAX >> (128 - source)) == 0,
+        "BigUint expansion summary domain exceeded"
+    );
+    let planes = veryl_formal_semantics::resize::expanded_planes(
+        input,
+        source,
+        target,
+        value.signed(),
+        use_sign,
+    );
+    let signed = value.signed() && (target <= source || use_sign);
+    std::borrow::Cow::Owned(Value::BigUint(veryl_analyzer::value::ValueBigUint {
+        payload: Box::new(plane(planes.0)),
+        mask_xz: Box::new(plane(planes.1)),
+        width: source.max(target) as u32,
+        signed,
+    }))
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+fn wide_expansion_value_summary_matches_reference_semantics() {
+    init_numeric();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let (value, before) = any_width_input(position);
+    let target = usize::from(kani::any::<u8>() & 63) + 65;
+    let use_sign: bool = kani::any();
+    let output = summarized_expand(&value, target, use_sign);
+    let width = before.width.max(target);
+    check_result(
+        output.as_ref(),
+        width,
+        before.signed && (target <= before.width || use_sign),
+        position,
+        extended_logic_bit(
+            before.planes,
+            before.width,
+            width,
+            before.signed,
+            use_sign,
+            position,
+        ),
+    );
+    check_input(&value, before, position);
+    kani::cover!(
+        before.width == 128 && target == 65 && before.signed && !use_sign,
+        "wide expansion value summary borrowed sign is reachable"
+    );
+    kani::cover!(
+        before.width == 1
+            && target == 128
+            && before.signed
+            && use_sign
+            && before.planes == (1, 1)
+            && position == 127,
+        "wide expansion value summary native Z is reachable"
+    );
+    kani::cover!(
+        before.width == 65
+            && target == 128
+            && before.signed
+            && use_sign
+            && before.planes == (0, 1u128 << 64)
+            && position == 127,
+        "wide expansion value summary BigUint X is reachable"
+    );
+    kani::cover!(
+        before.width == 1
+            && target == 65
+            && !before.signed
+            && use_sign
+            && before.planes == (1, 0)
+            && position == 64,
+        "wide expansion value summary unsigned zero is reachable"
+    );
+}
+
+fn any_width_input(position: usize) -> (Value, Operand) {
+    if kani::any() {
+        big_input(usize::from(kani::any::<u8>() & 63) + 65, position)
+    } else {
+        native_input(usize::from(kani::any::<u8>() & 63) + 1, position)
+    }
+}
+// Four branch-storage partitions cover all nonzero branch widths1..128 with
+// wide results65..128. Each admits every condition width1..128, all four-state
+// planes, independent source signs and caller sign. Unsized sentinels stay native.
+fn wide_conditional<const A_BIG: bool, const B_BIG: bool>() {
+    init_numeric();
+    let position = usize::from(kani::any::<u8>() & 127);
+    let (c, cr) = any_width_input(position);
+    let (a, ar) = if A_BIG {
+        big_input(usize::from(kani::any::<u8>() & 63) + 65, position)
+    } else {
+        native_input(usize::from(kani::any::<u8>() & 63) + 1, position)
+    };
+    let (b, br) = if B_BIG {
+        big_input(usize::from(kani::any::<u8>() & 63) + 65, position)
+    } else {
+        native_input(usize::from(kani::any::<u8>() & 63) + 1, position)
+    };
+    let context = if !A_BIG && !B_BIG {
+        usize::from(kani::any::<u8>() & 63) + 65
+    } else {
+        usize::from(kani::any::<u8>()).min(128)
+    };
+    let signed: bool = kani::any();
+    let width = context.max(ar.width).max(br.width);
+    let expected = conditional_logic_bit(
+        truth(cr.planes),
+        (ar.planes, ar.width, ar.signed),
+        (br.planes, br.width, br.signed),
+        width,
+        signed,
+        position,
+    );
+    let result = c.conditional(&a, &b, context, signed);
+    let Value::BigUint(big) = result else {
+        panic!("public BigUint semantics mismatch");
+    };
+    let result = Value::BigUint(big);
+    check_result(&result, width, signed, position, expected);
+    check_input(&c, cr, position);
+    check_input(&a, ar, position);
+    check_input(&b, br, position);
+    kani::cover!(
+        truth(cr.planes) == Logic4::Zero,
+        "wide conditional known zero is reachable"
+    );
+    kani::cover!(
+        cr.width == 128 && cr.planes == (1u128 << 127, 0),
+        "wide conditional high known one is reachable"
+    );
+    kani::cover!(
+        cr.width == 128 && cr.planes == (0, 1u128 << 100),
+        "wide conditional high unknown is reachable"
+    );
+    let am = u128::MAX >> (128 - ar.width);
+    let bm = u128::MAX >> (128 - br.width);
+    kani::cover!(
+        truth(cr.planes) == Logic4::X
+            && ar.planes == (am, am)
+            && br.planes == (bm, bm)
+            && ar.signed
+            && br.signed
+            && signed
+            && position == width - 1
+            && expected == Logic4::X,
+        "wide conditional common Z becomes X is reachable"
+    );
+    kani::cover!(
+        ar.signed != br.signed && !signed && cr.signed && context == 128,
+        "wide conditional mixed branch signs are reachable"
+    );
+    kani::cover!(
+        context == if !A_BIG && !B_BIG { 65 } else { 0 }
+            && ar.width == if A_BIG { 65 } else { 1 }
+            && br.width == if B_BIG { 128 } else { 64 },
+        "wide conditional natural context is reachable"
+    );
+    kani::cover!(
+        context == 128 && signed && cr.width == 1 && truth(cr.planes) == Logic4::One,
+        "wide conditional maximum context is reachable"
+    );
+    kani::cover!(
+        position == 127
+            && width == 128
+            && expected == Logic4::One
+            && truth(cr.planes) == Logic4::One,
+        "wide conditional upper one observation is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+#[kani::stub(<num_bigint::BigUint as std::ops::BitOr<&num_bigint::BigUint>>::bitor, numeric_or_right_ref)]
+#[kani::stub(veryl_analyzer::value::Value::expand, summarized_expand)]
+fn public_wide_conditional_native_native_matches_reference_semantics() {
+    wide_conditional::<false, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+#[kani::stub(<num_bigint::BigUint as std::ops::BitOr<&num_bigint::BigUint>>::bitor, numeric_or_right_ref)]
+#[kani::stub(veryl_analyzer::value::Value::expand, summarized_expand)]
+fn public_wide_conditional_native_big_matches_reference_semantics() {
+    wide_conditional::<false, true>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+#[kani::stub(<num_bigint::BigUint as std::ops::BitOr<&num_bigint::BigUint>>::bitor, numeric_or_right_ref)]
+#[kani::stub(veryl_analyzer::value::Value::expand, summarized_expand)]
+fn public_wide_conditional_big_native_matches_reference_semantics() {
+    wide_conditional::<true, false>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric_biguint)]
+#[kani::stub(veryl_analyzer::value::ValueBigUint::gen_mask, enumerated_mask)]
+#[kani::stub(<num_bigint::BigUint as std::ops::BitOr<&num_bigint::BigUint>>::bitor, numeric_or_right_ref)]
+#[kani::stub(veryl_analyzer::value::Value::expand, summarized_expand)]
+fn public_wide_conditional_big_big_matches_reference_semantics() {
+    wide_conditional::<true, true>();
 }

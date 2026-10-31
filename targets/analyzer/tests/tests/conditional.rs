@@ -1,6 +1,6 @@
 //! Public native dispatch is proved in targets/analyzer/kani/src/conditional.rs.
-//! public_big_values.rs adds conditions of widths 65..=128 with native results.
-//! Retain BigUint branches/results and unsized-literal paths plus model checks.
+//! public_big_values.rs adds all nonzero widths1..128 and contexts0..128.
+//! Retain numeric integration, unsized-literal paths and independent model checks.
 //! Public constructors and actual BigUint truth remain checked in big_helpers.rs.
 
 use veryl_analyzer::value::Value;
@@ -49,20 +49,11 @@ fn check(condition: Operand, a: Operand, b: Operand, context_width: usize, signe
     }
 }
 
-// The public proof includes all normalized native conditions and branches
-// and context requests through 64; public_big_values.rs covers conditions65..128.
-// BigUint branches and wider context requests remain direct.
-fn covered_native_layout(c: Operand, a: Operand, b: Operand, context: usize) -> bool {
-    fn normalized(x: Operand, limit: usize) -> bool {
-        (1..=limit).contains(&x.width)
-            && (x.planes.0 | x.planes.1) & !(u128::MAX >> (128 - x.width)) == 0
-    }
-    normalized(c, 128) && normalized(a, 64) && normalized(b, 64) && context <= 64
-}
-
+// Kani covers all nonzero condition/branch widths1..128 and contexts0..128,
+// using numeric API contracts. Retain real-library integration for all branch
+// storage layouts, both source signs, caller signs and ambiguous conditions.
 #[test]
 fn conditional_native_biguint_boundaries() {
-    let widths = [1, 2, 31, 32, 63, 64, 65, 127, 128];
     fn patterns(width: usize) -> [(u128, u128); 6] {
         let mask = u128::MAX >> (128 - width);
         let sign = 1u128 << (width - 1);
@@ -75,47 +66,45 @@ fn conditional_native_biguint_boundaries() {
             (sign, sign),
         ]
     }
-    for width in widths {
-        for (a_width, b_width) in [(width, width), (width, 1), (1, width)] {
-            for a in patterns(a_width) {
-                for b in patterns(b_width) {
-                    for (c, c_width) in [
-                        ((0, 0), 1),
-                        ((1, 0), 1),
-                        ((0, 1), 1),
-                        ((1, 1), 1),
-                        ((1, 2), 2),
-                        ((1, 1), 128),
-                        ((1u128 << 100, 0), 128),
-                        ((0, 1u128 << 100), 128),
-                    ] {
-                        for c_signed in [false, true] {
-                            for a_signed in [false, true] {
-                                for b_signed in [false, true] {
-                                    let c = Operand {
-                                        planes: c,
-                                        width: c_width,
-                                        signed: c_signed,
-                                    };
-                                    let a = Operand {
-                                        planes: a,
-                                        width: a_width,
-                                        signed: a_signed,
-                                    };
-                                    let b = Operand {
-                                        planes: b,
-                                        width: b_width,
-                                        signed: b_signed,
-                                    };
-                                    for signed in [false, true] {
-                                        for context in [0, 1, width, 128] {
-                                            if covered_native_layout(c, a, b, context) {
-                                                continue;
-                                            }
-                                            check(c, a, b, context, signed);
-                                        }
-                                    }
-                                }
+    for (aw, bw, context) in [
+        (1, 1, 65),
+        (64, 64, 128),
+        (1, 65, 0),
+        (65, 1, 0),
+        (65, 128, 0),
+        (128, 65, 128),
+    ] {
+        for (ai, bi) in [(0, 0), (1, 0), (0, 1), (2, 3), (3, 3), (4, 5)] {
+            for (planes, width) in [
+                ((0, 0), 1),
+                ((1, 0), 1),
+                ((0, 1), 1),
+                ((1, 1), 1),
+                ((1, 2), 2),
+                ((1, 1), 128),
+                ((1u128 << 100, 0), 128),
+                ((0, 1u128 << 100), 128),
+            ] {
+                for cs in [false, true] {
+                    for as_ in [false, true] {
+                        for bs in [false, true] {
+                            let c = Operand {
+                                planes,
+                                width,
+                                signed: cs,
+                            };
+                            let a = Operand {
+                                planes: patterns(aw)[ai],
+                                width: aw,
+                                signed: as_,
+                            };
+                            let b = Operand {
+                                planes: patterns(bw)[bi],
+                                width: bw,
+                                signed: bs,
+                            };
+                            for signed in [false, true] {
+                                check(c, a, b, context, signed);
                             }
                         }
                     }

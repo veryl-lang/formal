@@ -1,6 +1,6 @@
 //! Public native selection domains are proved in targets/analyzer/kani/src/selection.rs.
-//! public_big_values.rs proves BigUint inputs65..128 with results0..64.
-//! Retain wider BigUint results and independent model checks.
+//! public_big_values.rs proves BigUint inputs65..128 with results0..128.
+//! Retain numeric integration and independent model checks.
 //! The BigUint proof assumes numeric APIs; real-library integration remains below.
 
 use veryl_analyzer::value::Value;
@@ -33,9 +33,18 @@ fn check_selection(payload: u128, mask_xz: u128, width: usize, beg: usize, end: 
     }
 }
 
+// The proofs cover BigUint sources65..128 with result widths0..128. Retain
+// real numeric integration for wide results, including overlap and missing X.
 #[test]
 fn selection_native_biguint_boundaries() {
-    for width in [65, 127, 128] {
+    for (width, beg, end) in [
+        (65, 64, 0),
+        (128, 127, 0),
+        (128, 127, 63),
+        (128, 128, 1),
+        (65, 127, 0),
+        (128, usize::MAX, usize::MAX - 127),
+    ] {
         let mask = u128::MAX >> (128 - width);
         for (payload, mask_xz) in [
             (0, 0),
@@ -47,30 +56,7 @@ fn selection_native_biguint_boundaries() {
                 0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
             ),
         ] {
-            for (beg, end) in [
-                (0, 0),
-                (width - 1, 0),
-                (width - 1, width - 1),
-                (width, width),
-                (width + 3, width),
-                (width + 2, width - 1),
-                (63, 63),
-                (64, 63),
-                (64, 64),
-                (65, 64),
-                (127, 64),
-                (usize::MAX, usize::MAX),
-                (usize::MAX, usize::MAX - 3),
-                (0, 1),
-                (0, usize::MAX),
-            ] {
-                // The public proof quantifies arbitrary endpoints for native results,
-                // including reversed, partial overlap and usize::MAX cases.
-                if beg < end || beg - end < 64 {
-                    continue;
-                }
-                check_selection(payload, mask_xz, width, beg, end);
-            }
+            check_selection(payload, mask_xz, width, beg, end);
         }
     }
 }

@@ -88,6 +88,10 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 "public-logical-and-width65"
                     | "public-logical-or-native-continuation"
                     | "public-logical-or-width65"
+                    | "public-conditional-wide-native-native"
+                    | "public-conditional-wide-native-big"
+                    | "public-conditional-wide-big-native"
+                    | "public-conditional-wide-big-big"
             )
         );
     }
@@ -158,14 +162,38 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     | "public-native-sequences"
                     | "public-big-values"
             ) {
-                let expected_suite =
-                    if contract.name.contains("shift") || contract.name.contains("big-amount") {
-                        "shifts"
-                    } else {
-                        "storage"
-                    };
+                let expected_suite = if contract.group == "public-big-values" {
+                    "big-values"
+                } else if contract.name.contains("shift") || contract.name.contains("big-amount") {
+                    "shifts"
+                } else {
+                    "storage"
+                };
                 assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
+                    "conditional-expansion-value-summary" => {
+                        "wide expansion value summary borrowed sign is reachable"
+                    }
+                    "conditional-expansion-summary" => {
+                        "expansion summary native Z fill is reachable"
+                    }
+                    "big-numeric-wide-api" => "wide numeric API zero zero is reachable",
+                    "public-big-truncation" => "big truncation native low X is reachable",
+                    "public-big-expansion-zero" => {
+                        "big expansion borrowed signed source is reachable"
+                    }
+                    "public-big-expansion" => "big expansion borrowed signed source is reachable",
+                    "public-big-selection-wide" => "big wide selection full width65 is reachable",
+                    "public-conditional-wide-native-native" => {
+                        "wide conditional known zero is reachable"
+                    }
+                    "public-conditional-wide-native-big" => {
+                        "wide conditional known zero is reachable"
+                    }
+                    "public-conditional-wide-big-native" => {
+                        "wide conditional known zero is reachable"
+                    }
+                    "public-conditional-wide-big-big" => "wide conditional known zero is reachable",
                     "big-numeric-api" => "big numeric API word crossing is reachable",
                     "big-numeric-bridge" => "big numeric bridge inline word is reachable",
                     "big-truth-reference" => "big truth reference X is reachable",
@@ -615,7 +643,29 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     // These disjoint boundaries complete the existing1..3 matrix through width4.
     assert!(contracts.contains("public-less-equal-left-width4"));
     assert!(contracts.contains("public-less-equal-right-width4"));
-    assert_eq!(proof_shards, 9);
+    // Conditional summaries are valid only together with the full expansion
+    // domain partition and both independent summary-conformance theorems.
+    for name in [
+        "public-resize-native",
+        "public-native-zero-extension-wide",
+        "public-native-zero-fill-extension-wide",
+        "public-native-sign-extension-wide",
+        "public-big-expansion-zero",
+        "public-big-expansion",
+        "conditional-expansion-summary",
+        "conditional-expansion-value-summary",
+        "big-numeric-wide-api",
+        "public-conditional-wide-native-native",
+        "public-conditional-wide-native-big",
+        "public-conditional-wide-big-native",
+        "public-conditional-wide-big-big",
+    ] {
+        assert!(
+            contracts.contains(name),
+            "missing conditional composition dependency: {name}"
+        );
+    }
+    assert_eq!(proof_shards, 10);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1006,7 +1056,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 24);
+    assert_eq!(all.len(), 25);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1029,7 +1079,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 10);
+    assert_eq!(rows("value").len(), 11);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
