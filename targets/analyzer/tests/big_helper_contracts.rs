@@ -1,7 +1,14 @@
 //! Exhaustive finite mask comparison and retained public constructor boundaries.
 use std::{fs, path::Path};
 use veryl_formal_runner::{Contract, Mutation};
-pub static NATIVE: [Contract; 3] = [
+pub static NATIVE: [Contract; 4] = [
+    Contract {
+        name: "big-addition-boundaries",
+        group: "big-helpers",
+        harness: "biguint_addition_word_boundaries",
+        message: "public BigUint helper semantics mismatch",
+        covers: &[],
+    },
     Contract {
         name: "big-mask-cache-histories",
         group: "big-helpers",

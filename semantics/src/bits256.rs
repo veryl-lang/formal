@@ -28,6 +28,19 @@ impl Bits256 {
             128 - u64::from(self.lo.leading_zeros())
         }
     }
+    /// Return the low 256 bits and the carry beyond bit255.
+    pub fn overflowing_add(self, b: Self) -> (Self, bool) {
+        let (lo, carry) = self.lo.overflowing_add(b.lo);
+        let (upper, overflow) = self.hi.overflowing_add(b.hi);
+        let (hi, extra) = upper.overflowing_add(u128::from(carry));
+        (Self { lo, hi }, overflow || extra)
+    }
+    /// Model unbounded BigUint addition only when the exact sum fits this domain.
+    pub fn checked_add(self, b: Self) -> Self {
+        let (sum, overflow) = self.overflowing_add(b);
+        assert!(!overflow, "256-bit numeric model overflow");
+        sum
+    }
     pub fn and(self, b: Self) -> Self {
         Self {
             lo: self.lo & b.lo,

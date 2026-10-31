@@ -147,3 +147,57 @@ fn biguint_mask_cache_width_histories() {
         check(&mut cache, width);
     }
 }
+
+// Finite bridge to actual BigUint addition, including the carry beyond the
+// bounded256-bit model. The oracle is a scalar carry chain over native halves.
+#[test]
+fn biguint_addition_word_boundaries() {
+    fn number(n: u128) -> ValueBigUint {
+        let Value::BigUint(v) = Value::from_u128(n, 0, 128, false) else {
+            panic!("public BigUint helper semantics mismatch")
+        };
+        v
+    }
+    let words = [
+        0u128,
+        1,
+        u128::MAX,
+        1u128 << 127,
+        0xaaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa,
+    ];
+    for al in words {
+        for ah in words {
+            for bl in words {
+                for bh in words {
+                    let a = number(al).payload.as_ref() | (number(ah).payload.as_ref() << 128usize);
+                    let b = number(bl).payload.as_ref() | (number(bh).payload.as_ref() << 128usize);
+                    let sum = &a + &b;
+                    let mut carry = false;
+                    for p in 0..256 {
+                        let x = if p < 128 {
+                            al >> p & 1 != 0
+                        } else {
+                            ah >> (p - 128) & 1 != 0
+                        };
+                        let y = if p < 128 {
+                            bl >> p & 1 != 0
+                        } else {
+                            bh >> (p - 128) & 1 != 0
+                        };
+                        let expected = x ^ y ^ carry;
+                        let next = (x && y) || (x && carry) || (y && carry);
+                        assert!(
+                            sum.bit(p as u64) == expected,
+                            "public BigUint helper semantics mismatch"
+                        );
+                        carry = next;
+                    }
+                    assert!(
+                        sum.bit(256) == carry && sum.bits() <= 257,
+                        "public BigUint helper semantics mismatch"
+                    );
+                }
+            }
+        }
+    }
+}

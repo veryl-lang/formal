@@ -2,6 +2,8 @@
 use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
+#[path = "followup.rs"]
+mod followup;
 const CORE: &str = "veryl/crates/analyzer/src/value.rs";
 
 const PUBLIC_ASSIGNMENT_COVERS: [&str; 22] = [
@@ -245,7 +247,299 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 276] = [
+pub static CONTRACTS: [Contract; 301] = [
+    Contract {
+        group: "public-big-values",
+        name: "numeric256-add-api",
+        harness: "numeric256_addition_api_preserves_high_half",
+        message: "wide numeric addition API mismatch",
+        covers: &[
+            "addition API carry into high half is reachable",
+            "addition API bit255 is reachable",
+            "addition API zero sum is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "numeric256-add",
+        harness: "numeric256_addition_matches_scalar_carry",
+        message: "wide numeric addition mismatch",
+        covers: &[
+            "numeric addition carry into bit128 is reachable",
+            "numeric addition carry beyond bit255 is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "equality256-eq",
+        harness: "wide_equality_eq_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide equality upper unknown is reachable",
+            "wide equality known equal is reachable",
+            "wide equality mixed sign is reachable",
+            "wide equality widens boolean result is reachable",
+            "wide equality narrow result keeps full comparison is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "equality256-ne",
+        harness: "wide_equality_ne_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide equality upper unknown is reachable",
+            "wide equality known equal is reachable",
+            "wide equality mixed sign is reachable",
+            "wide equality widens boolean result is reachable",
+            "wide equality narrow result keeps full comparison is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "equality256-wild-eq",
+        harness: "wide_equality_wild_eq_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide equality upper unknown is reachable",
+            "wide equality known equal is reachable",
+            "wide equality mixed sign is reachable",
+            "wide equality widens boolean result is reachable",
+            "wide equality narrow result keeps full comparison is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "equality256-wild-ne",
+        harness: "wide_equality_wild_ne_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide equality upper unknown is reachable",
+            "wide equality known equal is reachable",
+            "wide equality mixed sign is reachable",
+            "wide equality widens boolean result is reachable",
+            "wide equality narrow result keeps full comparison is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "arithmetic256-add",
+        harness: "wide_arithmetic_add_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide arithmetic carry boundary is reachable",
+            "wide arithmetic upper unknown is reachable",
+            "wide arithmetic signed lower boundary is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "arithmetic256-sub",
+        harness: "wide_arithmetic_sub_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide arithmetic carry boundary is reachable",
+            "wide arithmetic upper unknown is reachable",
+            "wide arithmetic signed lower boundary is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "arithmetic256-neg",
+        harness: "wide_arithmetic_neg_matches_scalar",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "wide arithmetic carry boundary is reachable",
+            "wide arithmetic upper unknown is reachable",
+            "wide arithmetic signed lower boundary is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-and",
+        harness: "wide_preparation_and_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-or",
+        harness: "wide_preparation_or_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-xor",
+        harness: "wide_preparation_xor_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-xnor",
+        harness: "wide_preparation_xnor_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-not",
+        harness: "wide_preparation_not_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-left",
+        harness: "wide_preparation_left_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring unknown wide amount is reachable",
+            "wiring known wide amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-right",
+        harness: "wide_preparation_right_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring unknown wide amount is reachable",
+            "wiring known wide amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-arith-left",
+        harness: "wide_preparation_arith_left_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring unknown wide amount is reachable",
+            "wiring known wide amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-arith-right",
+        harness: "wide_preparation_arith_right_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring unknown wide amount is reachable",
+            "wiring known wide amount is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-eq",
+        harness: "wide_preparation_eq_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+            "wiring comparison ignores outer sign",
+            "wiring comparison separates result width",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-ne",
+        harness: "wide_preparation_ne_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+            "wiring comparison ignores outer sign",
+            "wiring comparison separates result width",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-wild-eq",
+        harness: "wide_preparation_wild_eq_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+            "wiring comparison ignores outer sign",
+            "wiring comparison separates result width",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-wild-ne",
+        harness: "wide_preparation_wild_ne_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+            "wiring comparison ignores outer sign",
+            "wiring comparison separates result width",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-add",
+        harness: "wide_preparation_add_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-sub",
+        harness: "wide_preparation_sub_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+            "wiring mixed storage and signs are reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "wiring256-neg",
+        harness: "wide_preparation_neg_wiring",
+        message: "wide preparation wiring mismatch",
+        covers: &[
+            "wiring native signed source reaches wide context",
+            "wiring BigUint source reaches wide context",
+        ],
+    },
     Contract {
         group: "public-big-values",
         name: "reduction256-and",
@@ -3702,6 +3996,11 @@ fn mutate_method(source: &str, name: &str, old: &str, new: &str) -> String {
 // Conditional cover statements for other generic instantiations remain in
 // Kani's output. They are diagnostic only unless listed in Contract::covers.
 pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
+    "wiring mixed storage and signs are reachable",
+    "wiring unknown wide amount is reachable",
+    "wiring known wide amount is reachable",
+    "wiring comparison ignores outer sign",
+    "wiring comparison separates result width",
     "nonlinear fixed width natural call is reachable",
     "nonlinear fixed width widened call is reachable",
     "public less equal width4 narrow RHS is reachable",
@@ -3735,7 +4034,14 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     matches!(
         contract.name,
-        "assignment256-big-native"
+        "equality256-eq"
+            | "equality256-ne"
+            | "equality256-wild-eq"
+            | "equality256-wild-ne"
+            | "arithmetic256-add"
+            | "arithmetic256-sub"
+            | "arithmetic256-neg"
+            | "assignment256-big-native"
             | "assignment256-big-big"
             | "bitwise256-and"
             | "bitwise256-or"
@@ -3759,6 +4065,7 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
     wide_operator_mutations(repo, selected, &mut mutations);
+    mutations.extend(followup::mutations(repo, selected));
     if let Some(&contract) = selected
         .iter()
         .find(|c| c.name == "public-big-expansion-zero")

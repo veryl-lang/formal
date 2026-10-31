@@ -2,7 +2,12 @@
 //! equality/inequality and all ordering pairs for widths 1..=4 are
 //! proved in public_comparison.rs.
 //! Keep every production call on the shared cache before later observations;
-//! retain all other comparison checks and independent reference anchors.
+//! retain all ordering checks and independent reference anchors. Prepared BigUint
+//! equality kernels and original argument wiring are proved in
+//! public_big_ops/followup.rs; retain actual-library boundary value comparisons.
+#[path = "../wide_cases.rs"]
+mod wide_cases;
+
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::{Comparison, Operand, compared_logic};
@@ -58,7 +63,25 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
                 prefix_matches && native_sources && proved_prefix.get(calls) == Some(&(op, width));
             prefix_matches = covered;
             calls += 1;
-            if covered {
+            let equality = matches!(
+                kind,
+                Comparison::Equal
+                    | Comparison::NotEqual
+                    | Comparison::WildcardEqual
+                    | Comparison::WildcardNotEqual
+            );
+            let wide = equality
+                && x.width.max(y.width) >= 65
+                && (1..=128).contains(&width)
+                && wide_cases::normalized(x)
+                && wide_cases::normalized(y);
+            if wide {
+                wide_cases::shape(&result, width, false);
+            }
+            // Ordering calls and unproved domains retain their value assertions.
+            if covered
+                || (wide && !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)))
+            {
                 continue;
             }
             let expected = *expected.get_or_insert_with(|| compared_logic(x, y, kind));

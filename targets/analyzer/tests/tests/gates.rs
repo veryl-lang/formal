@@ -1,8 +1,12 @@
 //! Exhaustive normalized native traces are proved in public_gates.rs at widths
 //! 1..=64, including the complete operator/cache history and source preservation.
 //! BigUint bitwise/NOT/reduction operators are also proved in public_big_ops.rs
-//! under numeric/cache and context-expansion contracts. Retain finite actual
+//! under numeric/cache contracts; followup.rs proves preparation wiring.
+//! Retain finite actual
 //! library/cache histories, narrowing casts and independent scalar anchors.
+#[path = "../wide_cases.rs"]
+mod wide_cases;
+
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -60,7 +64,19 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
                     .is_some_and(|&(expected, _)| op == expected);
             prefix_matches = covered;
             calls += 1;
-            if covered {
+            let wide = (65..=128).contains(&width)
+                && x.width <= width
+                && y.width <= width
+                && wide_cases::normalized(x)
+                && wide_cases::normalized(y);
+            if wide {
+                wide_cases::shape(&result, width, false);
+            }
+            // Preserve all calls/cache history and all logical-operation checks.
+            // The joint proofs replace these bitwise value comparisons only.
+            if covered
+                || (wide && !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)))
+            {
                 continue;
             }
             let expected = reference_planes(width, |position| {
@@ -118,6 +134,13 @@ fn check_unary(x: Operand, widths: &[usize]) {
     for &width in widths {
         for use_sign in [false, true] {
             let result = Op::BitNot.eval_value_unary(&input, width, use_sign, &mut cache);
+            let wide = (65..=128).contains(&width) && x.width <= width && wide_cases::normalized(x);
+            if wide {
+                wide_cases::shape(&result, width, x.signed && (width == x.width || use_sign));
+            }
+            if wide && !wide_cases::boundary(x.width) {
+                continue;
+            }
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| {

@@ -85,7 +85,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             analyzer::uses_extended_logical_timeout(contract),
             matches!(
                 contract.name,
-                "assignment256-big-native"
+                "equality256-eq"
+                    | "equality256-ne"
+                    | "equality256-wild-eq"
+                    | "equality256-wild-ne"
+                    | "arithmetic256-add"
+                    | "arithmetic256-sub"
+                    | "arithmetic256-neg"
+                    | "assignment256-big-native"
                     | "assignment256-big-big"
                     | "bitwise256-and"
                     | "bitwise256-or"
@@ -174,7 +181,13 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     | "public-big-values"
             ) {
                 let expected_suite = if contract.group == "public-big-values" {
-                    if contract.name.contains("256") {
+                    if contract.name.starts_with("wiring256-")
+                        || contract.name.starts_with("equality256-")
+                        || contract.name.starts_with("arithmetic256-")
+                        || contract.name.starts_with("numeric256-add")
+                    {
+                        "big-context-arithmetic"
+                    } else if contract.name.contains("256") {
                         "big-operators"
                     } else {
                         "big-values"
@@ -186,6 +199,32 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 };
                 assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
+                    "numeric256-add-api" => "addition API carry into high half is reachable",
+                    "numeric256-add" => "numeric addition carry into bit128 is reachable",
+                    "equality256-eq" => "wide equality upper unknown is reachable",
+                    "equality256-ne" => "wide equality upper unknown is reachable",
+                    "equality256-wild-eq" => "wide equality upper unknown is reachable",
+                    "equality256-wild-ne" => "wide equality upper unknown is reachable",
+                    "arithmetic256-add" => "wide arithmetic carry boundary is reachable",
+                    "arithmetic256-sub" => "wide arithmetic carry boundary is reachable",
+                    "arithmetic256-neg" => "wide arithmetic carry boundary is reachable",
+                    "wiring256-and" => "wiring native signed source reaches wide context",
+                    "wiring256-or" => "wiring native signed source reaches wide context",
+                    "wiring256-xor" => "wiring native signed source reaches wide context",
+                    "wiring256-xnor" => "wiring native signed source reaches wide context",
+                    "wiring256-not" => "wiring native signed source reaches wide context",
+                    "wiring256-left" => "wiring native signed source reaches wide context",
+                    "wiring256-right" => "wiring native signed source reaches wide context",
+                    "wiring256-arith-left" => "wiring native signed source reaches wide context",
+                    "wiring256-arith-right" => "wiring native signed source reaches wide context",
+                    "wiring256-eq" => "wiring native signed source reaches wide context",
+                    "wiring256-ne" => "wiring native signed source reaches wide context",
+                    "wiring256-wild-eq" => "wiring native signed source reaches wide context",
+                    "wiring256-wild-ne" => "wiring native signed source reaches wide context",
+                    "wiring256-add" => "wiring native signed source reaches wide context",
+                    "wiring256-sub" => "wiring native signed source reaches wide context",
+                    "wiring256-neg" => "wiring native signed source reaches wide context",
+
                     "reduction256-and" => "wide reduction maximum widths are reachable",
                     "reduction256-nand" => "wide reduction maximum widths are reachable",
                     "reduction256-or" => "wide reduction maximum widths are reachable",
@@ -328,7 +367,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                         "public logical NOT widened X and Z is reachable",
                         "public logical NOT widened one dominates X and Z is reachable",
                     ],
-                    "assignment256-big-native"
+                    "equality256-eq"
+                    | "equality256-ne"
+                    | "equality256-wild-eq"
+                    | "equality256-wild-ne"
+                    | "arithmetic256-add"
+                    | "arithmetic256-sub"
+                    | "arithmetic256-neg"
+                    | "assignment256-big-native"
                     | "assignment256-big-big"
                     | "bitwise256-and"
                     | "bitwise256-or"
@@ -718,7 +764,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 11);
+    assert_eq!(proof_shards, 12);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1109,7 +1155,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 26);
+    assert_eq!(all.len(), 27);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1132,7 +1178,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 12);
+    assert_eq!(rows("value").len(), 13);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

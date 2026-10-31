@@ -1,7 +1,7 @@
 //! Bounded numeric API: operands/results 1..128, intermediates up to 256 bits.
 //! Actual assignment and Op arms execute under numeric and mask-cache APIs.
-//! Bitwise/shift kernels quantify prepared operands. Source-context integration
-//! also relies on existing expansion proofs and retained native traces.
+//! Bitwise/shift kernels quantify prepared operands. followup.rs checks original
+//! preparation argument wiring separately; expansion has independent contracts.
 //! Numeric domain/overflow/path failures are distinct from semantic mismatches.
 //! Real-library constructors, masks/cache and operation traces remain native.
 //! This is not a proof of num-bigint allocation or arbitrary HashMap states.
@@ -211,8 +211,53 @@ fn right_ref_u32<'a: 'a>(a: &'a num_bigint::BigUint, b: u32) -> num_bigint::BigU
 fn right_assign_u32(a: &mut num_bigint::BigUint, b: u32) {
     *a = put(get(a).shr(b as usize));
 }
+fn add_oo(a: num_bigint::BigUint, b: num_bigint::BigUint) -> num_bigint::BigUint {
+    put(get(&a).checked_add(get(&b)))
+}
+fn add_ro<'a: 'a>(a: &'a num_bigint::BigUint, b: num_bigint::BigUint) -> num_bigint::BigUint {
+    put(get(a).checked_add(get(&b)))
+}
+fn add_or<'a: 'a>(a: num_bigint::BigUint, b: &'a num_bigint::BigUint) -> num_bigint::BigUint {
+    put(get(&a).checked_add(get(b)))
+}
+fn add_rr<'a: 'a, 'b: 'b>(
+    a: &'a num_bigint::BigUint,
+    b: &'b num_bigint::BigUint,
+) -> num_bigint::BigUint {
+    put(get(a).checked_add(get(b)))
+}
+fn add_assign_o(a: &mut num_bigint::BigUint, b: num_bigint::BigUint) {
+    *a = put(get(a).checked_add(get(&b)));
+}
+fn add_assign_r<'a: 'a>(a: &mut num_bigint::BigUint, b: &'a num_bigint::BigUint) {
+    *a = put(get(a).checked_add(get(b)));
+}
 kani::stub_set!(
     numeric256,
+    stub(
+        <num_bigint::BigUint as std::ops::Add<num_bigint::BigUint>>::add,
+        add_oo
+    ),
+    stub(
+        <&num_bigint::BigUint as std::ops::Add<num_bigint::BigUint>>::add,
+        add_ro
+    ),
+    stub(
+        <num_bigint::BigUint as std::ops::Add<&num_bigint::BigUint>>::add,
+        add_or
+    ),
+    stub(
+        <&num_bigint::BigUint as std::ops::Add<&num_bigint::BigUint>>::add,
+        add_rr
+    ),
+    stub(
+        <num_bigint::BigUint as std::ops::AddAssign<num_bigint::BigUint>>::add_assign,
+        add_assign_o
+    ),
+    stub(
+        <num_bigint::BigUint as std::ops::AddAssign<&num_bigint::BigUint>>::add_assign,
+        add_assign_r
+    ),
     stub(
         <num_bigint::BigUint as std::clone::Clone>::clone,
         clone_number
@@ -660,9 +705,9 @@ fn assignment_high_intermediate_matches_scalar_bits() {
 // pointwise operation: the existing expansion proofs map every normalized
 // source width1..128 into the prepared 65..128 domain quantified here. Both
 // prepared operands have arbitrary four-state planes and independent flags.
-// Equal-width calls after preparation are mechanized here; argument wiring
-// from original mixed-width operands is not quantified by this kernel proof.
-// Those actual integration traces remain native.
+// Equal-width calls after preparation are mechanized here. followup.rs checks
+// original mixed-width argument wiring under numeric erasure; expansion has
+// independent value contracts. Actual-library integration traces remain native.
 fn bitwise<const K: u8>() {
     use veryl_formal_semantics::{
         gates::{self, BitOp},
@@ -739,8 +784,8 @@ fn bit_not() {
 }
 // IEEE 1800-2023 11.4.10,11.8.2. As with bitwise, quantify every prepared
 // widths 65..128 value and compose the independently proved nonnarrowing source
-// expansion (widths 1..128). Original context argument wiring stays a native
-// integration check. Effective expression sign equals prepared source sign.
+// expansion (widths 1..128). followup.rs checks original context arguments
+// separately. Effective expression sign equals prepared source sign.
 // Amount widths 1..128 have arbitrary planes/sign and saturate at usize::MAX.
 // Arithmetic right is partitioned by effective sign; the union retains all
 // values, widths and amounts while avoiding one oversized solver instance.
@@ -972,3 +1017,5 @@ fn wide_reduction_xnor_matches_scalar_bits() {
 fn wide_reduction_logic_not_matches_scalar_bits() {
     reduction::<6>();
 }
+
+mod followup;

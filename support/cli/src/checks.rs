@@ -156,6 +156,36 @@ pub const SHARDS: &[Shard] = &[
     // Keep the numeric API proofs and mutations together, independently of
     // storage geometry and real-library getter contracts.
     Shard::value(
+        "big-context-arithmetic",
+        &[
+            "numeric256-add",
+            "numeric256-add-api",
+            "equality256-eq",
+            "equality256-ne",
+            "equality256-wild-eq",
+            "equality256-wild-ne",
+            "arithmetic256-add",
+            "arithmetic256-sub",
+            "arithmetic256-neg",
+            "wiring256-and",
+            "wiring256-or",
+            "wiring256-xor",
+            "wiring256-xnor",
+            "wiring256-not",
+            "wiring256-left",
+            "wiring256-right",
+            "wiring256-arith-left",
+            "wiring256-arith-right",
+            "wiring256-eq",
+            "wiring256-ne",
+            "wiring256-wild-eq",
+            "wiring256-wild-ne",
+            "wiring256-add",
+            "wiring256-sub",
+            "wiring256-neg",
+        ],
+    ),
+    Shard::value(
         "big-operators",
         &[
             "numeric256-shifts",
