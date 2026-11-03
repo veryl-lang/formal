@@ -1,0 +1,40 @@
+{
+  "families": [
+    {
+      "id": "store",
+      "title": "Store integrity, metadata & keys",
+      "operators": "",
+      "scope": "Blob repair, dependency invalidation, and key boundaries",
+      "bounds": "8 payload lengths; all 64 forward DAGs on 4 nodes; selected key partitions",
+      "native": "",
+      "big": "",
+      "direct": "Individual-bit corruptions; persistence and independent transitive closure",
+      "remaining": "No hash-collision, concurrency/crash consistency, general dependency discovery, or arbitrary-project theorem",
+      "assumptions": [
+        "CLI warm/cold output checks are a separate opt-in ordinary regression, not one of these three registered contracts."
+      ],
+      "scopeDocs": [
+        {
+          "path": "targets/cache/tests/tests/store.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/cache/tests/tests/store.rs",
+        "targets/cache/tests/tests/cli.rs",
+        "targets/cache/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "blob-integrity",
+          "metadata",
+          "keys"
+        ]
+      }
+    }
+  ]
+}

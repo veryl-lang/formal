@@ -20,6 +20,7 @@ veryl-formal-runner = { path = "../../../support" }
 [target.'cfg(kani)'.dependencies]
 # Match the conversion signature used by the fail-closed native proof guard.
 num-bigint = "0.5.1"
+num-traits = "0.2.19"
 
 [package.metadata.kani.flags]
 unstable = ["stubbing"]

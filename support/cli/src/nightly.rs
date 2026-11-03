@@ -157,6 +157,13 @@ pub fn checkout(root: &Path, candidate: &str, commands: &mut impl Commands) -> R
         )?;
         commands.run(&veryl, "git", &["checkout", "--detach", candidate])?;
     }
+    // Align initialized nested repositories without initializing optional ones.
+    commands.run(&veryl, "git", &["submodule", "sync", "--recursive"])?;
+    commands.run(
+        &veryl,
+        "git",
+        &["submodule", "update", "--checkout", "--recursive"],
+    )?;
     verify_clean(root, candidate, commands)
 }
 
@@ -178,6 +185,8 @@ pub fn issue_body(
         Replay from a clone with the same verification revision:\n\n\
         ```sh\ngit checkout --detach {formal_sha}\ngit submodule update --init --recursive\n\
         git -C veryl fetch origin {candidate}\ngit -C veryl checkout --detach {candidate}\n\
+        git -C veryl submodule sync --recursive\n\
+        git -C veryl submodule update --checkout --recursive\n\
         gh run download {} --name {artifact} --dir support/ci-inputs\n\
         cargo run --locked --manifest-path support/cli/Cargo.toml -- apply-locks {candidate} {lock_digest}\n\
         # Run the failed jobs' commands from .github/workflows/verify.yml.\n```\n{ISSUE_END}\n",

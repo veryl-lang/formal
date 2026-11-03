@@ -1,5 +1,13 @@
-//! Public native bitwise/NOT prefixes are proved in targets/analyzer/kani/src/public_gates.rs.
-//! Execute every call to preserve history for widened, logical and reduction results.
+//! Exhaustive normalized native traces are proved in public_gates.rs at widths
+//! 1..=64, including the complete operator/cache history and source preservation.
+//! BigUint bitwise/NOT/reduction operators are also proved in public_big_ops.rs
+//! under numeric/cache contracts; followup.rs proves preparation wiring.
+//! logical.rs covers mixed-storage &&/|| with observed zero/result extension.
+//! Retain finite actual
+//! library/cache histories, narrowing casts and independent scalar anchors.
+#[path = "../wide_cases.rs"]
+mod wide_cases;
+
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::comparison::Operand;
@@ -23,6 +31,9 @@ const REDUCTIONS: [(Op, Reduction); 6] = [
 ];
 
 fn planes(value: &Value) -> (u128, u128) {
+    if let Value::BigUint(v) = value {
+        assert!(v.payload.bits() <= v.width as u64 && v.mask_xz.bits() <= v.width as u64);
+    }
     (value.payload_u128(), value.mask_xz_u128())
 }
 
@@ -43,13 +54,29 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
             let covered = prefix_matches
                 && normalized_native(x)
                 && normalized_native(y)
-                && width == x.width.max(y.width)
+                && calls < 8
+                && if calls < 4 {
+                    width == x.width.max(y.width)
+                } else {
+                    (x.width.max(y.width)..=64).contains(&width)
+                }
                 && BINARY
-                    .get(calls)
+                    .get(calls % 4)
                     .is_some_and(|&(expected, _)| op == expected);
             prefix_matches = covered;
             calls += 1;
-            if covered {
+            let wide = (65..=128).contains(&width)
+                && x.width <= width
+                && y.width <= width
+                && wide_cases::normalized(x)
+                && wide_cases::normalized(y);
+            if wide {
+                wide_cases::shape(&result, width, false);
+            }
+            // Preserve all calls/cache history and boundary value comparisons.
+            if covered
+                || (wide && !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)))
+            {
                 continue;
             }
             let expected = reference_planes(width, |position| {
@@ -70,13 +97,25 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
         }
     }
     for (op, kind) in [(Op::LogicAnd, BitOp::And), (Op::LogicOr, BitOp::Or)] {
-        let expected = gates::binary(
-            gates::logical_truth(x.planes, x.width),
-            gates::logical_truth(y.planes, y.width),
-            kind,
-        );
+        let mut expected = None;
         for width in [1, 8, 65] {
             let result = op.eval_value_binary(&lhs, &rhs, width, signed, &mut cache);
+            let wide = x.width.max(y.width) >= 65
+                && wide_cases::normalized(x)
+                && wide_cases::normalized(y);
+            if wide {
+                wide_cases::shape(&result, width, false);
+                if !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)) {
+                    continue;
+                }
+            }
+            let expected = *expected.get_or_insert_with(|| {
+                gates::binary(
+                    gates::logical_truth(x.planes, x.width),
+                    gates::logical_truth(y.planes, y.width),
+                    kind,
+                )
+            });
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| if position == 0 {
@@ -102,16 +141,16 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
 }
 
 fn check_unary(x: Operand, widths: &[usize]) {
-    let covered_not = normalized_native(x)
-        && widths.len() == 2
-        && widths[0] == x.width
-        && (x.width..=64).contains(&widths[1]);
     let input = Value::from_u128(x.planes.0, x.planes.1, x.width, x.signed);
     let mut cache = MaskCache::default();
     for &width in widths {
         for use_sign in [false, true] {
             let result = Op::BitNot.eval_value_unary(&input, width, use_sign, &mut cache);
-            if covered_not {
+            let wide = (65..=128).contains(&width) && x.width <= width && wide_cases::normalized(x);
+            if wide {
+                wide_cases::shape(&result, width, x.signed && (width == x.width || use_sign));
+            }
+            if wide && !wide_cases::boundary(x.width) {
                 continue;
             }
             assert_eq!(
@@ -156,36 +195,6 @@ fn check_unary(x: Operand, widths: &[usize]) {
         (planes(&input), input.width(), input.signed()),
         (x.planes, x.width, x.signed)
     );
-}
-
-#[test]
-fn gates_exhaustive_four_state_small_widths() {
-    for x_width in 1..=3 {
-        let mask = (1u128 << x_width) - 1;
-        for state in 0..(1u128 << (2 * x_width)) {
-            for x_signed in [false, true] {
-                let x = Operand {
-                    planes: (state & mask, state >> x_width),
-                    width: x_width,
-                    signed: x_signed,
-                };
-                check_unary(x, &[x_width, x_width + 2]);
-                for y_width in 1..=3 {
-                    let mask = (1u128 << y_width) - 1;
-                    for state in 0..(1u128 << (2 * y_width)) {
-                        for y_signed in [false, true] {
-                            let y = Operand {
-                                planes: (state & mask, state >> y_width),
-                                width: y_width,
-                                signed: y_signed,
-                            };
-                            check_binary(x, y, &[x_width.max(y_width), x_width.max(y_width) + 2]);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[test]

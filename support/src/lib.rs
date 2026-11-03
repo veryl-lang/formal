@@ -18,6 +18,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+pub mod evidence;
 pub mod summary;
 use summary::{Phase, Status, Summary};
 
@@ -189,6 +190,8 @@ pub enum Backend<'a> {
         /// Inapplicable cover diagnostics recognized during mutation runs.
         /// These never satisfy or waive the contract's required witnesses.
         auxiliary_covers: &'a [&'a str],
+        /// Cache repeated symbolic dereferences without disabling any checks.
+        cache_dereferences: bool,
     },
     NativeTests {
         package: &'a str,
@@ -238,11 +241,20 @@ impl Backend<'_> {
     fn run(self, manifest: &Path, target: &Path, contract: &Contract, phase: Phase) -> Output {
         match self {
             Self::Kani { harness_timeout } => {
-                run_proof(manifest, target, contract, harness_timeout, false)
+                run_proof(manifest, target, contract, harness_timeout, false, false)
             }
             Self::KaniWithExplicitCovers {
-                harness_timeout, ..
-            } => run_proof(manifest, target, contract, harness_timeout, true),
+                harness_timeout,
+                cache_dereferences,
+                ..
+            } => run_proof(
+                manifest,
+                target,
+                contract,
+                harness_timeout,
+                true,
+                cache_dereferences,
+            ),
             Self::NativeTests {
                 package,
                 test_target,
@@ -326,6 +338,7 @@ fn proof_command(
     contract: &Contract,
     harness_timeout: &str,
     explicit_covers: bool,
+    cache_dereferences: bool,
 ) -> Command {
     let mut command = Command::new("cargo");
     command
@@ -345,6 +358,9 @@ fn proof_command(
     if explicit_covers {
         command.arg("--no-assertion-reach-checks");
     }
+    if cache_dereferences {
+        command.args(["--cbmc-args", "--symex-cache-dereferences"]);
+    }
     command
 }
 
@@ -354,10 +370,18 @@ fn run_proof(
     contract: &Contract,
     harness_timeout: &str,
     explicit_covers: bool,
+    cache_dereferences: bool,
 ) -> Output {
-    proof_command(manifest, target, contract, harness_timeout, explicit_covers)
-        .output()
-        .expect("failed to launch cargo kani")
+    proof_command(
+        manifest,
+        target,
+        contract,
+        harness_timeout,
+        explicit_covers,
+        cache_dereferences,
+    )
+    .output()
+    .expect("failed to launch cargo kani")
 }
 
 fn copy_file(source: &Path, destination: &Path) {
@@ -558,6 +582,13 @@ impl Runner<'_> {
             mutation_passes: Some(0),
             ..Summary::default()
         };
+        let journal = logs.join("results.tsv");
+        fs::write(&journal, evidence::HEADER).unwrap();
+        fs::write(
+            logs.join("identity.json"),
+            std::env::var("FORMAL_EVIDENCE").unwrap_or_else(|_| "{}".into()),
+        )
+        .unwrap();
         let summary_path = logs.join("summary.txt");
         summary.write(&summary_path).unwrap();
         let mut positives = 0;
@@ -569,11 +600,23 @@ impl Runner<'_> {
                 summary.active_harness = contract.harness.into();
                 summary.positive_passes = Some(positives);
                 summary.write(&summary_path).unwrap();
+                evidence::record(&journal, contract, Phase::Positive, "", "running", 0, None)
+                    .unwrap();
                 let start = Instant::now();
                 let output = backend.run(self.manifest, &build_target, contract, Phase::Positive);
                 let log = output_text(&output);
                 fs::write(logs.join(format!("{}.log", contract.name)), &log).unwrap();
                 let accepted = backend.positive(output.status.success(), &log, contract);
+                evidence::record(
+                    &journal,
+                    contract,
+                    Phase::Positive,
+                    "",
+                    evidence::outcome(accepted, output.status.code(), &log),
+                    start.elapsed().as_millis(),
+                    output.status.code(),
+                )
+                .unwrap();
                 if !accepted {
                     summary.status = Status::Failed;
                     summary.exit_code = format!("{:?}", output.status.code());
@@ -645,6 +688,16 @@ impl Runner<'_> {
                 summary.active_mutation = mutant.name.into();
                 summary.mutation_passes = Some(negatives);
                 summary.write(&summary_path).unwrap();
+                evidence::record(
+                    &journal,
+                    mutant.contract,
+                    Phase::Mutation,
+                    mutant.name,
+                    "running",
+                    0,
+                    None,
+                )
+                .unwrap();
                 let start = Instant::now();
                 let output = backend.run(
                     &scratch.0.join(relative_manifest),
@@ -661,6 +714,16 @@ impl Runner<'_> {
                     fs::write(logs.join(format!("{}.log", mutant.name)), &log).unwrap();
                 }
                 let accepted = unchanged && backend.mutation(&output, &log, mutant.contract);
+                evidence::record(
+                    &journal,
+                    mutant.contract,
+                    Phase::Mutation,
+                    mutant.name,
+                    evidence::outcome(accepted, output.status.code(), &log),
+                    start.elapsed().as_millis(),
+                    output.status.code(),
+                )
+                .unwrap();
                 if !accepted {
                     summary.status = Status::Failed;
                     summary.exit_code = format!("{:?}", output.status.code());
@@ -712,8 +775,8 @@ mod tests {
     fn explicit_cover_profile_only_changes_reachability_diagnostics() {
         let manifest = Path::new("proof/Cargo.toml");
         let target = Path::new("proof/target");
-        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false);
-        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true);
+        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false, false);
+        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true, false);
         assert_eq!(legacy.get_program(), explicit.get_program());
         assert!(legacy.get_envs().eq(explicit.get_envs()));
         let legacy_args: Vec<_> = legacy.get_args().collect();
@@ -732,6 +795,33 @@ mod tests {
     }
 
     #[test]
+    fn cached_dereferences_preserve_the_verification_profile() {
+        let plain = proof_command(
+            Path::new("p/Cargo.toml"),
+            Path::new("p/target"),
+            &CONTRACTS[0],
+            "180s",
+            true,
+            false,
+        );
+        let cached = proof_command(
+            Path::new("p/Cargo.toml"),
+            Path::new("p/target"),
+            &CONTRACTS[0],
+            "180s",
+            true,
+            true,
+        );
+        let plain_args: Vec<_> = plain.get_args().collect();
+        let cached_args: Vec<_> = cached.get_args().collect();
+        assert_eq!(&cached_args[..plain_args.len()], plain_args.as_slice());
+        assert_eq!(
+            &cached_args[plain_args.len()..],
+            ["--cbmc-args", "--symex-cache-dereferences"]
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "explicit-cover backend requires named reachability witnesses")]
     fn explicit_cover_profile_rejects_missing_witnesses_before_running_tools() {
         Runner {
@@ -745,6 +835,7 @@ mod tests {
             Backend::KaniWithExplicitCovers {
                 harness_timeout: "60s",
                 auxiliary_covers: &["auxiliary diagnostic"],
+                cache_dereferences: false,
             },
             Mode::Positive,
             &[&CONTRACTS[1]],
@@ -888,6 +979,7 @@ mod tests {
         let backend = Backend::KaniWithExplicitCovers {
             harness_timeout: "60s",
             auxiliary_covers: &["auxiliary diagnostic"],
+            cache_dereferences: false,
         };
         let only_auxiliary = "Check 1:\n - Status: SATISFIED\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- SUCCESSFUL";
         assert!(!backend.positive(true, only_auxiliary, &CONTRACTS[0]));
@@ -1146,6 +1238,26 @@ fn check() {
         assert_eq!(summary.positive_passes, Some(1));
         assert_eq!(summary.mutation_passes, Some(1));
         assert_eq!(summary.active_mutation, "original-control");
+        let evidence = fs::read_to_string(run.join("results.tsv")).unwrap();
+        let outcomes: Vec<_> = evidence
+            .lines()
+            .skip(1)
+            .map(|line| {
+                let fields: Vec<_> = line.split('\t').collect();
+                (fields[0], fields[3], fields[4])
+            })
+            .collect();
+        assert_eq!(
+            outcomes,
+            vec![
+                ("positive", "", "running"),
+                ("positive", "", "passed"),
+                ("mutation", "changed", "running"),
+                ("mutation", "changed", "passed"),
+                ("mutation", "original-control", "running"),
+                ("mutation", "original-control", "failed"),
+            ]
+        );
         assert_eq!(summary.exit_code, "Some(0)");
         assert_ne!(summary.build_target, summary.mutation_build_target);
         assert!(

@@ -1,6 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 use std::{env, path::PathBuf};
-use veryl_formal_ci::{Commands, Environment, Process, Result, checks, locks, nightly, report};
+use veryl_formal_ci::{
+    Commands, Environment, Process, Result, checks, dashboard, locks, nightly, report,
+};
 
 #[derive(Parser)]
 #[command(
@@ -48,6 +50,13 @@ enum Operation {
     },
     /// Summarize checker results and failure diagnostics.
     Report,
+    /// Build the static dashboard from live catalogs and optional exported results.
+    Dashboard {
+        #[arg(long, default_value = "support/dashboard/dist")]
+        output: PathBuf,
+        #[arg(long)]
+        evidence: Option<PathBuf>,
+    },
     /// Advance a verified pointer or report an upstream failure.
     Finalize,
     /// Check formatting and test the CI host tools.
@@ -88,8 +97,14 @@ fn run(cli: Cli) -> Result<()> {
             nightly::verify_clean(&root, &candidate, &mut commands)
         }
         Operation::Report => report::write(&root, &env),
+        Operation::Dashboard { output, evidence } => {
+            dashboard::build(&root, &env, &output, evidence.as_deref())
+        }
         Operation::Finalize => nightly::finalize(&root, &env, &mut commands),
-        Operation::Bootstrap => checks::bootstrap(&root, &mut executor),
+        Operation::Bootstrap => {
+            checks::bootstrap(&root, &mut executor)?;
+            dashboard::build(&root, &env, &root.join("support/dashboard/dist"), None)
+        }
         Operation::Plan(Verification { selection, mode }) => checks::describe(
             &checks::plan(&selection.check, &selection.suite, mode)?,
             &env,
@@ -101,7 +116,15 @@ fn run(cli: Cli) -> Result<()> {
             &mut executor,
         ),
         Operation::Run(Verification { selection, mode }) => {
-            let plan = checks::plan(&selection.check, &selection.suite, mode)?;
+            let mut plan = checks::plan(&selection.check, &selection.suite, mode)?;
+            let mut evidence_env = env.clone();
+            evidence_env.insert("FORMAL_CHECK".into(), selection.check.clone());
+            evidence_env.insert("FORMAL_SUITE".into(), selection.suite.clone());
+            let provenance = serde_json::to_string(&dashboard::identity(&root, &evidence_env)?)?;
+            for step in &mut plan.steps {
+                step.env
+                    .insert("FORMAL_EVIDENCE".into(), provenance.clone());
+            }
             let candidate = match env.get("VERYL_CANDIDATE") {
                 Some(candidate) => candidate.clone(),
                 None => commands.run(&root, "git", &["rev-parse", "HEAD:veryl"])?,

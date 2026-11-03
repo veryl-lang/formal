@@ -1,0 +1,67 @@
+{
+  "families": [
+    {
+      "id": "source-gates",
+      "title": "Combinational technology mapping",
+      "operators": "",
+      "scope": "Source-to-gate results vs independent widened arithmetic",
+      "bounds": "Widths 1–4; equal-width signed/unsigned two-state pairs",
+      "native": "",
+      "big": "",
+      "direct": "All input pairs through the default synthesis route",
+      "remaining": "Mixed widths, division, X/Z, arbitrary widths, and sequential behavior are out of scope",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/synthesizer/tests/tests/source.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/synthesizer/tests/tests/source.rs",
+        "targets/synthesizer/source_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "source-techmap"
+        ]
+      }
+    },
+    {
+      "id": "sequential",
+      "title": "FF/reset & masked RAM",
+      "operators": "",
+      "scope": "Plain/mapped reconstruction against independent state updates",
+      "bounds": "2-entry × 2-bit RAM; 4 reset kinds; 16 seeds; selected 128-step streams",
+      "native": "",
+      "big": "",
+      "direct": "Prior FF/RAM reads, mask retention, and reset preserving RAM",
+      "remaining": "No general RAM technology, X/Z, arbitrary histories, or FF function-side-effect guarantee",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/synthesizer/tests/tests/sequential.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/synthesizer/tests/tests/sequential.rs",
+        "targets/synthesizer/tests/tests/common/clock.rs",
+        "targets/synthesizer/sequential_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "sequential-techmap"
+        ]
+      }
+    }
+  ]
+}

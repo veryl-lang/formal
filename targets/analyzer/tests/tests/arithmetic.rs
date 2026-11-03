@@ -1,9 +1,14 @@
 //! The complete small binary/unary arithmetic traces are proved in Kani at
 //! normalized widths 1..=3 and natural/natural+2 contexts. Natural unary calls
 //! also cover every native width, and four binary word64 calls have a proof.
-//! Execute every remaining boundary call to preserve cache history; retain
-//! wider/BigUint, sentinel and independent reference anchors.
+//! Execute every boundary call to preserve cache history. BigUint kernels and
+//! original preparation are proved in public_big_ops/{followup,plus}.rs.
+//! Keep actual numeric-library boundary values,
+//! sentinel behavior, and all other domains as executable comparisons.
 //! X/Z unary plus uses the documented Table 11-6 identity interpretation.
+#[path = "../wide_cases.rs"]
+mod wide_cases;
+
 use veryl_analyzer::ir::Op;
 use veryl_analyzer::value::{MaskCache, Value};
 use veryl_formal_semantics::arithmetic::{Arithmetic, arithmetic_bit, arithmetic_planes};
@@ -43,8 +48,7 @@ fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
         && ((a.planes.0 | a.planes.1 | b.planes.0 | b.planes.1) >> 64) == 0;
     for &width in widths {
         for signed in [false, true] {
-            let ap = prepared(a, width, signed);
-            let bp = prepared(b, width, signed);
+            let mut reference_sizing = None;
             for (op, kind) in [(Op::Add, Arithmetic::Add), (Op::Sub, Arithmetic::Subtract)] {
                 let result = op.eval_value_binary(&x, &y, width, signed, &mut cache);
                 let covered = prefix_matches
@@ -58,9 +62,22 @@ fn check_binary(a: Operand, b: Operand, widths: &[usize]) {
                         });
                 prefix_matches = covered;
                 calls += 1;
-                if covered {
+                let wide = (65..=128).contains(&width)
+                    && a.width <= width
+                    && b.width <= width
+                    && wide_cases::normalized(a)
+                    && wide_cases::normalized(b);
+                if wide {
+                    wide_cases::shape(&result, width, signed);
+                }
+                if covered
+                    || (wide && !(wide_cases::boundary(a.width) && wide_cases::boundary(b.width)))
+                {
                     continue;
                 }
+                let (ap, bp) = *reference_sizing.get_or_insert_with(|| {
+                    (prepared(a, width, signed), prepared(b, width, signed))
+                });
                 assert_eq!(
                     (result.payload_u128(), result.mask_xz_u128()),
                     arithmetic_planes(ap, bp, width, kind),
@@ -101,7 +118,7 @@ fn check_unary(a: Operand, widths: &[usize]) {
     ];
     for &width in widths {
         for signed in [false, true] {
-            let ap = prepared(a, width, signed);
+            let mut reference_sizing = None;
             for (op, kind) in [(Op::Add, Arithmetic::Plus), (Op::Sub, Arithmetic::Negate)] {
                 let result = op.eval_value_unary(&x, width, signed, &mut cache);
                 let covered = prefix_matches
@@ -116,9 +133,16 @@ fn check_unary(a: Operand, widths: &[usize]) {
                         });
                 prefix_matches = covered;
                 calls += 1;
-                if covered {
+                let wide =
+                    (65..=128).contains(&width) && a.width <= width && wide_cases::normalized(a);
+                if wide {
+                    wide_cases::shape(&result, width, a.signed && (width == a.width || signed));
+                }
+                // Boundary values, interpretation anchors, and sentinel cases stay executable.
+                if covered || (wide && !wide_cases::boundary(a.width)) {
                     continue;
                 }
+                let ap = *reference_sizing.get_or_insert_with(|| prepared(a, width, signed));
                 assert_eq!(
                     (result.payload_u128(), result.mask_xz_u128()),
                     arithmetic_planes(ap, (0, 0), width, kind),

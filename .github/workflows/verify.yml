@@ -61,6 +61,13 @@ jobs:
           support/cli -> target
     - name: Build and test the host CLI
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- bootstrap
+    - name: Upload dashboard inventory
+      uses: actions/upload-artifact@v4
+      with:
+        name: formal-dashboard-inventory-${{ github.run_attempt }}
+        path: support/dashboard/dist/
+        if-no-files-found: error
+        retention-days: 14
     - name: Resolve the pinned or upstream target once
       id: select
       run: cargo run --locked --manifest-path support/cli/Cargo.toml --bin formal-ci -- prepare
@@ -154,6 +161,14 @@ jobs:
         path: |
           **/target/contract-logs/**
           support/target/ci-report.md
+          support/target/dashboard-evidence.json
+        if-no-files-found: warn
+        retention-days: 14
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: formal-evidence-${{ matrix.check }}-${{ matrix.suite }}-${{ github.run_attempt }}
+        path: support/target/dashboard-evidence.json
         if-no-files-found: warn
         retention-days: 14
     - uses: actions/upload-artifact@v4
@@ -162,6 +177,50 @@ jobs:
         name: formal-fixtures-${{ matrix.check }}-${{ matrix.suite }}-${{ github.run_attempt }}
         path: '**/target/fixtures/**'
         if-no-files-found: ignore
+        retention-days: 14
+  dashboard:
+    needs: [prepare, contracts]
+    if: always() && needs.prepare.result == 'success' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ needs.prepare.outputs.formal_sha }}
+        submodules: true
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: formal-ci
+        workspaces: |
+          support/cli -> target
+    - uses: actions/download-artifact@v4
+      if: needs.prepare.outputs.update == 'true'
+      with:
+        name: ${{ needs.prepare.outputs.lock_artifact }}
+        path: support/ci-inputs
+    - name: Select the verified candidate
+      env:
+        VERYL_CANDIDATE: ${{ needs.prepare.outputs.candidate }}
+        FORMAL_LOCK_DIGEST: ${{ needs.prepare.outputs.lock_digest }}
+        FORMAL_UPDATE: ${{ needs.prepare.outputs.update }}
+      run: |
+        cargo run --locked --manifest-path support/cli/Cargo.toml -- checkout "$VERYL_CANDIDATE"
+        if [ "$FORMAL_UPDATE" = true ]; then
+          cargo run --locked --manifest-path support/cli/Cargo.toml -- apply-locks "$VERYL_CANDIDATE" "$FORMAL_LOCK_DIGEST"
+        fi
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: formal-evidence-*-${{ github.run_attempt }}
+        path: support/target/dashboard-input
+    - name: Build verification dashboard
+      env:
+        FORMAL_CONTRACTS_RESULT: ${{ needs.contracts.result }}
+      run: cargo run --locked --manifest-path support/cli/Cargo.toml -- dashboard --evidence support/target/dashboard-input
+    - uses: actions/upload-artifact@v4
+      with:
+        name: formal-dashboard-${{ github.run_attempt }}
+        path: support/dashboard/dist/
+        if-no-files-found: error
         retention-days: 14
   update-upstream:
     needs:

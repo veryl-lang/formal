@@ -308,7 +308,7 @@ fn workflow_requires_all_checks_and_post_verification_integrity() {
                 .filter(|s| !s.starts_with(' '))
                 .and_then(|s| s.strip_suffix(':'))
         })
-        .filter(|name| !matches!(*name, "prepare" | "update-upstream"))
+        .filter(|name| !matches!(*name, "prepare" | "update-upstream" | "dashboard"))
         .collect();
     assert_eq!(names, CHECKS.into_iter().collect());
     assert!(workflow.contains("matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}"));
@@ -325,7 +325,7 @@ fn workflow_requires_all_checks_and_post_verification_integrity() {
         workflow
             .matches("uses: actions/download-artifact@v4")
             .count(),
-        2
+        4
     );
     assert!(workflow.contains("-- prepare-locks"));
     assert!(workflow.contains("-- apply-locks"));
@@ -333,11 +333,14 @@ fn workflow_requires_all_checks_and_post_verification_integrity() {
         workflow
             .matches("name: ${{ needs.prepare.outputs.lock_artifact }}")
             .count(),
-        2
+        3
     );
     assert!(workflow.contains("lock_artifact: formal-candidate-locks-${{ github.run_attempt }}"));
     assert!(workflow.contains("FORMAL_LOCK_DIGEST: ${{ needs.prepare.outputs.lock_digest }}"));
     assert!(workflow.contains("if: needs.contracts.result == 'success'"));
     assert!(!workflow.contains("workflow_call"));
     assert!(!workflow.contains("cargo test"));
+    assert!(workflow.contains("  dashboard:\n    needs: [prepare, contracts]"));
+    assert!(workflow.contains("pattern: formal-evidence-*-${{ github.run_attempt }}"));
+    assert!(workflow.contains("path: support/dashboard/dist/"));
 }

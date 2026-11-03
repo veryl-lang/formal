@@ -1,0 +1,1538 @@
+{
+  "families": [
+    {
+      "id": "arithmetic",
+      "title": "Wide add/subtract",
+      "operators": "",
+      "scope": "Modular arithmetic with guarded alias snapshots",
+      "bounds": "Kani: 3 words, byte offset 1; arbitrary binary operands",
+      "native": "",
+      "big": "",
+      "direct": "Broader finite lengths, patterns, and aliases",
+      "remaining": "No arbitrary lengths, partial overlap, or simultaneous alias of both operands",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/arithmetic.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/arithmetic.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wide-add",
+          "wide-sub",
+          "wide-add-left-alias",
+          "wide-add-right-alias",
+          "wide-sub-left-alias",
+          "wide-sub-right-alias"
+        ],
+        "cbmc": [],
+        "direct": [
+          "wide-arithmetic"
+        ]
+      }
+    },
+    {
+      "id": "bitwise",
+      "title": "Wide bitwise operators",
+      "operators": "",
+      "scope": "Binary storage truth tables, aliasing, and guards",
+      "bounds": "Kani: 0–4 words; source offsets 0–7; destination offset 1",
+      "native": "",
+      "big": "",
+      "direct": "Up to 8 words; selected patterns and misaligned offsets",
+      "remaining": "Partial overlap, logical-width masking, and X/Z plane handling are out of scope",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/bitwise.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/bitwise.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wide-band",
+          "wide-bor",
+          "wide-bxor",
+          "wide-bxor-not",
+          "wide-band-not",
+          "wide-bnot"
+        ],
+        "cbmc": [],
+        "direct": [
+          "wide-band",
+          "wide-bor",
+          "wide-bxor",
+          "wide-bxor-not",
+          "wide-band-not",
+          "wide-bnot"
+        ]
+      }
+    },
+    {
+      "id": "memory",
+      "title": "Mask, copy & resize",
+      "operators": "",
+      "scope": "Binary unsafe helpers with valid storage extents",
+      "bounds": "Kani: 0–4 words; mask width u16; resize source 0–256 bits",
+      "native": "",
+      "big": "",
+      "direct": "Broader finite lengths; dirty padding, guards, and exact-alias resize",
+      "remaining": "No arbitrary partial overlap, four-state handling, or source lowering",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/memory.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/memory.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wide-mask",
+          "wide-copy",
+          "wide-resize"
+        ],
+        "cbmc": [],
+        "direct": [
+          "wide-mask",
+          "wide-copy",
+          "wide-resize",
+          "wide-resize-alias"
+        ]
+      }
+    },
+    {
+      "id": "shift",
+      "title": "Logical shifts",
+      "operators": "",
+      "scope": "Full-storage zero-fill shifts",
+      "bounds": "Kani: 3 words at byte offset 1; arbitrary u64 amount",
+      "native": "",
+      "big": "",
+      "direct": "Finite widths, boundary amounts, padding, and alias checks",
+      "remaining": "No variable-length symbolic proof, partial overlap, or source amount decoding",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/shift.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/shift.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wide-shl",
+          "wide-lshr",
+          "wide-shl-inplace",
+          "wide-lshr-inplace"
+        ],
+        "cbmc": [],
+        "direct": [
+          "wide-shl",
+          "wide-lshr"
+        ]
+      }
+    },
+    {
+      "id": "signed-shift",
+      "title": "Arithmetic right shift",
+      "operators": "",
+      "scope": "Signed storage fill and defensive empty metadata",
+      "bounds": "Kani: 192 bits; amount 0–8, or any u64 for nonnegative inputs",
+      "native": "",
+      "big": "",
+      "direct": "Broader finite signed widths and prepared logical-width masks",
+      "remaining": "Negative inputs shifted by 9+ are not generally proved; caller preparation is separate",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/signed_shift.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/signed_shift.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wide-ashr-small",
+          "wide-ashr-small-inplace",
+          "wide-ashr-nonnegative",
+          "wide-ashr-nonnegative-inplace",
+          "wide-ashr-empty"
+        ],
+        "cbmc": [],
+        "direct": [
+          "wide-ashr",
+          "wide-ashr-prepared",
+          "wide-ashr-empty"
+        ]
+      }
+    },
+    {
+      "id": "commit",
+      "title": "Write-log commit",
+      "operators": "",
+      "scope": "Byte replacement, record ordering, and change events",
+      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes",
+      "native": "",
+      "big": "",
+      "direct": "Finite mixed histories, invalid spans, live prefixes, and byte marking",
+      "remaining": "No general FF scheduler or source-level NBA theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/commit.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/commit.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/tests/tests/wide_memory/commit.rs",
+        "semantics/src/write_log.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "commit-narrow",
+          "commit-wide3",
+          "commit-wide7",
+          "commit-wide15",
+          "commit-wide17",
+          "commit-wide56",
+          "commit-narrow-order",
+          "commit-wide-order",
+          "commit-mixed-order"
+        ],
+        "cbmc": [],
+        "direct": [
+          "commit-bounds",
+          "commit-mixed",
+          "commit-history",
+          "commit-marking"
+        ]
+      }
+    },
+    {
+      "id": "window",
+      "title": "Packed storage windows",
+      "operators": "",
+      "scope": "Clipped direct writes and no-op preservation",
+      "bounds": "Kani tuples: (192,63,129), (192,64,64), (130,129,u32::MAX)",
+      "native": "",
+      "big": "",
+      "direct": "Broader finite windows, heap cases, and shared-allocation overlap snapshots",
+      "remaining": "No arbitrary nonempty window or partial-overlap symbolic proof",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/tests/tests/wide_memory/window.rs",
+        "semantics/src/write_log.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "window-cross",
+          "window-cross-alias",
+          "window-aligned",
+          "window-aligned-alias",
+          "window-clipped",
+          "window-clipped-alias",
+          "window-noop"
+        ],
+        "cbmc": [],
+        "direct": [
+          "window-small",
+          "window-boundaries",
+          "window-overlap"
+        ]
+      }
+    },
+    {
+      "id": "window-log",
+      "title": "Window write-log records",
+      "operators": "",
+      "scope": "Direct/log-only writes and record preservation",
+      "bounds": "Kani: first record; width 192, offset 64, window 64",
+      "native": "",
+      "big": "",
+      "direct": "Finite append/growth histories and prefilled no-op buffers",
+      "remaining": "Multiple-record/reallocation behavior and commit are not covered by these Kani proofs",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_log.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/simulator/tests/tests/wide_memory.rs",
+          "label": "Shared native suite"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_log.rs",
+        "targets/simulator/tests/tests/wide_memory.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/tests/tests/wide_memory/window_log.rs",
+        "semantics/src/write_log.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "log-only",
+          "log-only-alias",
+          "log-direct",
+          "log-direct-alias",
+          "log-noop"
+        ],
+        "cbmc": [],
+        "direct": [
+          "log-records",
+          "log-history",
+          "log-noop"
+        ]
+      }
+    },
+    {
+      "id": "comb-four-state-array",
+      "title": "Combinational four-state arrays",
+      "operators": "",
+      "scope": "Array allocation and dynamic reads",
+      "bounds": "(width,length): (129,3), (232,16), (512,3)",
+      "native": "",
+      "big": "",
+      "direct": "Known/X/Z patterns; independent layout and payload/mask planes",
+      "remaining": "No arbitrary rank; fallback configuration does not imply a compiled store",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/comb_array.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/comb_array.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "comb-array-interpreter",
+          "comb-array-cranelift-reader"
+        ]
+      }
+    },
+    {
+      "id": "constant-edge-diagnostics",
+      "title": "Constant-select diagnostics",
+      "operators": "",
+      "scope": "Rejected negative loop-expanded selectors",
+      "bounds": "Fixed negative-source fixtures at widths 8/129",
+      "native": "",
+      "big": "",
+      "direct": "Require expected diagnostics; rejected programs are not executed",
+      "remaining": "Diagnostics do not establish runtime selector behavior",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/constant_edges.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/constant_edges.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "edge-negative-diagnostics"
+        ]
+      }
+    },
+    {
+      "id": "constant-packed-edge",
+      "title": "Constant X/Z & clipped selects",
+      "operators": "",
+      "scope": "Accepted constant X/Z and lower-overlap reads/writes",
+      "bounds": "Selected widths 8/64/65/128/129/512; route-specific subsets",
+      "native": "",
+      "big": "",
+      "direct": "Independent bit clipping; >128-bit four-state writes use fallback",
+      "remaining": "No arbitrary selector lowering; two-state literal-mask removal is an execution convention",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/constant_edges.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/constant_edges.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "edge-read-interpreter",
+          "edge-read-cranelift",
+          "edge-write-interpreter",
+          "edge-write-cranelift",
+          "edge-write-fallback"
+        ]
+      }
+    },
+    {
+      "id": "constant-packed-select",
+      "title": "Expanded constant selects",
+      "operators": "",
+      "scope": "Loop-expanded constant reads and writes",
+      "bounds": "Selected widths 8/64/65/128/129/512; route-specific subsets",
+      "native": "",
+      "big": "",
+      "direct": "Two-/four-state fixtures; wide two-state compiled vs four-state fallback writes",
+      "remaining": "No arbitrary source or runtime selector theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/constant_select.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/constant_select.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "const-read-interpreter",
+          "const-read-cranelift",
+          "const-write-interpreter",
+          "const-write-cranelift",
+          "const-write-wide-cranelift",
+          "const-write-wide-fallback"
+        ]
+      }
+    },
+    {
+      "id": "constant-select-diagnostics",
+      "title": "Constant-selection diagnostics",
+      "operators": "",
+      "scope": "Direct-source selection diagnostics",
+      "bounds": "Fixed rejected-source corpus",
+      "native": "",
+      "big": "",
+      "direct": "Require the expected diagnostic path",
+      "remaining": "Rejected sources do not establish runtime selection semantics",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/constant_select.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/constant_select.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "const-select-diagnostics"
+        ]
+      }
+    },
+    {
+      "id": "event-gate",
+      "title": "Idle gate wakeup",
+      "operators": "",
+      "scope": "Idle holds and wakeups with gating enabled/disabled",
+      "bounds": "64 held registers; widths 16/65; default/forced placement",
+      "native": "",
+      "big": "",
+      "direct": "Fresh-process policy settings; actual route and commit observations",
+      "remaining": "No general scheduler or arbitrary event-history theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/idle.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/idle.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "idle-interpreter",
+          "idle-cranelift",
+          "idle-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "event-gate-cycle",
+      "title": "Gate policy transitions",
+      "operators": "",
+      "scope": "Re-arm, period doubling, auto-off, skip reset",
+      "bounds": "64 held registers; width 16; selected transition histories",
+      "native": "",
+      "big": "",
+      "direct": "Enabled/disabled policy runs against an independent state model",
+      "remaining": "Planning is distinct from executed skipping; histories are finite",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/gate_cycle.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/gate_cycle.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "gate-cycle-interpreter",
+          "gate-cycle-cranelift",
+          "gate-cycle-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "event-gate-external-write",
+      "title": "External-write invalidation",
+      "operators": "",
+      "scope": "External FF writes wake gated consumers",
+      "bounds": "64 held registers; width 16; selected writes",
+      "native": "",
+      "big": "",
+      "direct": "API/raw-write behavior and actual compiled-dispatch observations",
+      "remaining": "No arbitrary external write history or scheduling guarantee",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/external_write.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/external_write.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "external-interpreter",
+          "external-cranelift",
+          "external-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "event-state",
+      "title": "Multiple clocks & resets",
+      "operators": "",
+      "scope": "Prior-event state across two clock domains",
+      "bounds": "4 registers × 4 bits; 64 histories; both event orders",
+      "native": "",
+      "big": "",
+      "direct": "Both placements; synchronous/asynchronous high/low resets",
+      "remaining": "No arbitrary history, concurrency, metastability, or CDC theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/events.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/events.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "event-interpreter",
+          "event-cranelift",
+          "event-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "external-wide",
+      "title": "Wide external FF writes",
+      "operators": "",
+      "scope": "API/raw stores, gate wakeup, and four-state planning",
+      "bounds": "65-bit registers; selected indices and known/X/Z patterns",
+      "native": "",
+      "big": "",
+      "direct": "Two-state execution; four-state statement-gate planning",
+      "remaining": "Four-state policy planning is not proof of executed gate skipping",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/external_wide.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/external_wide.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "external-wide-interpreter",
+          "external-wide-cranelift",
+          "external-wide-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "ff-refinement",
+      "title": "FF placement refinement",
+      "operators": "",
+      "scope": "Default/forced placement, old-value reads, and resets",
+      "bounds": "Widths 8/64/65/128/448/512; selected histories",
+      "native": "",
+      "big": "",
+      "direct": "Independent state arithmetic and backend-route witnesses",
+      "remaining": "No arbitrary source lowering or scheduling theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/refinement.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/refinement.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "refine-interpreter",
+          "refine-cranelift",
+          "refine-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "four-state",
+      "title": "Native four-state FFs",
+      "operators": "",
+      "scope": "Storage, bitwise results, enables, and FF holds",
+      "bounds": "Widths 1/8/16/32/64; selected 0/1/X/Z patterns",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter and strict Cranelift; scalar Logic4 expectations",
+      "remaining": "No arbitrary four-state execution or input-history proof",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "four-state-interpreter",
+          "four-state-cranelift"
+        ]
+      }
+    },
+    {
+      "id": "wide-four-state",
+      "title": "Wide four-state FFs",
+      "operators": "",
+      "scope": "Wide Value storage and prior-state behavior",
+      "bounds": "Widths 65/128; selected 0/1/X/Z patterns",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter and strict Cranelift; scalar Logic4 expectations",
+      "remaining": "No arbitrary four-state vectors or histories",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "wide-four-interpreter",
+          "wide-four-cranelift"
+        ]
+      }
+    },
+    {
+      "id": "flat-four-state",
+      "title": "Flat four-state FFs",
+      "operators": "",
+      "scope": "Flat wide storage and bitwise FF updates",
+      "bounds": "Widths 129/256/512; selected 0/1/X/Z patterns",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter and strict Cranelift; scalar Logic4 expectations",
+      "remaining": "No arbitrary widths, input patterns, or histories",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/four_state.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "flat-four-interpreter",
+          "flat-four-cranelift"
+        ]
+      }
+    },
+    {
+      "id": "four-state-array",
+      "title": "Wide four-state arrays",
+      "operators": "",
+      "scope": "Array allocation and static/dynamic stores",
+      "bounds": "Widths 129/256/512; explicit fixtures and selected indices",
+      "native": "",
+      "big": "",
+      "direct": "Strict compiled static stores; dynamic wide stores explicitly fall back",
+      "remaining": "Fallback does not establish compiled execution of dynamic stores",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/four_state_array.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/four_state_array.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "array-four-interpreter-static",
+          "array-four-cranelift-static",
+          "array-four-interpreter-dynamic",
+          "array-four-cranelift-fallback"
+        ]
+      }
+    },
+    {
+      "id": "four-state-partial",
+      "title": "Partial four-state FF writes",
+      "operators": "",
+      "scope": "Static/dynamic clipped per-bit replacement",
+      "bounds": "Widths 65/128; selected starts and X/Z patterns",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter and Cranelift vs independent replacement",
+      "remaining": "No general write-lowering or scheduling theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/four_state_partial.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/four_state_partial.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "partial-four-interpreter",
+          "partial-four-cranelift"
+        ]
+      }
+    },
+    {
+      "id": "gate-max",
+      "title": "Maximum gate period",
+      "operators": "",
+      "scope": "Gate period growth and saturation boundary",
+      "bounds": "16-bit held data; selected runs through period 65536",
+      "native": "",
+      "big": "",
+      "direct": "State/commit checks with policy enabled/disabled and both placements",
+      "remaining": "No arbitrary long-run or policy-history proof",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/gate_cycle.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/gate_cycle.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "gate-max-interpreter",
+          "gate-max-cranelift",
+          "gate-max-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "multidim-array-index",
+      "title": "Multidimensional array indices",
+      "operators": "",
+      "scope": "Per-axis bounds before flattening",
+      "bounds": "4 declared shapes; 2-state 16/129 bits; 4-state up to 512",
+      "native": "",
+      "big": "",
+      "direct": "Independent coordinates; strict compiled and explicit fallback routes",
+      "remaining": "No arbitrary rank/extents; wide four-state routes are fallback where declared",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/multidim_array.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/multidim_array.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "multi-interpreter",
+          "multi-cranelift",
+          "multi-aot-c",
+          "multi-four-interpreter",
+          "multi-four-cranelift",
+          "multi-four-fallback"
+        ]
+      }
+    },
+    {
+      "id": "optimization",
+      "title": "Version split & comb fusion",
+      "operators": "",
+      "scope": "Original/transformed execution vs explicit state arithmetic",
+      "bounds": "4-bit inputs and 2-bit selectors; exhaustive values in a fixed history",
+      "native": "",
+      "big": "",
+      "direct": "Pass switches fixed per process; counters require actual transformations",
+      "remaining": "Other passes, X/Z, arbitrary circuits, and exhaustive histories are out of scope",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/optimization.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/optimization.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/optimization_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "opt-interpreter",
+          "opt-cranelift",
+          "opt-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "packed-dimension",
+      "title": "Packed multidimensional prefixes",
+      "operators": "",
+      "scope": "Prefix selection with independent physical-bit enumeration",
+      "bounds": "Shapes [3,16], [2,3,16], [4,2,8], [2,3,65]",
+      "native": "",
+      "big": "",
+      "direct": "Per-axis validity; signed/unsigned indices; explicit wide-write fallback",
+      "remaining": "No arbitrary rank or general ranged-selection theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_dimensions.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/packed_dimensions.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "packdim-read-interpreter",
+          "packdim-read-cranelift",
+          "packdim-write-interpreter",
+          "packdim-write-cranelift",
+          "packdim-write-wide-two",
+          "packdim-write-wide-fallback"
+        ]
+      }
+    },
+    {
+      "id": "packed-range",
+      "title": "Innermost packed ranges",
+      "operators": "",
+      "scope": "Row-local clipping before physical mapping",
+      "bounds": "Shapes [3,8], [2,3,16], [2,3,65] at declared selection axes",
+      "native": "",
+      "big": "",
+      "direct": "Reads/writes include selected aliased-RHS blocking assignments",
+      "remaining": "FF/NBA updates and non-innermost ranges are separate domains",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_ranges.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/packed_ranges.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "packrange-read-interpreter",
+          "packrange-read-cranelift",
+          "packrange-write-interpreter",
+          "packrange-write-cranelift",
+          "packrange-write-wide-two",
+          "packrange-write-wide-fallback"
+        ]
+      }
+    },
+    {
+      "id": "packed-read-boundary",
+      "title": "Dynamic packed reads",
+      "operators": "",
+      "scope": "Missing-bit defaults and retained X/Z source bits",
+      "bounds": "Selected widths 8/64/65/128/129/512; 1/4/64-bit indices",
+      "native": "",
+      "big": "",
+      "direct": "Four-state missing bits yield X; two-state outputs default to zero",
+      "remaining": "No general selector-decoding theorem; wide array reads may use fallback",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_read.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/packed_read.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "read-scalar-interpreter",
+          "read-scalar-cranelift",
+          "read-array-interpreter",
+          "read-array-cranelift",
+          "read-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "packed-select-forms",
+      "title": "Descending & stepped writes",
+      "operators": "",
+      "scope": "Clipped local source/destination bit replacement",
+      "bounds": "Selected widths 8/64/65/128/129/512; windows 3/8; 16-bit indices",
+      "native": "",
+      "big": "",
+      "direct": "Scalar/array writes with strict compiled or explicit fallback routes",
+      "remaining": "Partial overlaps do not permit writes outside logical storage",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/select_forms.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/select_forms.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "forms-scalar-interpreter",
+          "forms-scalar-cranelift",
+          "forms-scalar-fallback",
+          "forms-array-interpreter",
+          "forms-array-cranelift",
+          "forms-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "packed-stride-range",
+      "title": "Non-innermost packed ranges",
+      "operators": "",
+      "scope": "Extent-scaled ranges and selected multi-axis suffixes",
+      "bounds": "4 shapes: [3,4,3], [2,3,4,5], [2,3,65], [2,3,2,17]",
+      "native": "",
+      "big": "",
+      "direct": "Independent physical-bit enumeration and row-local clipping",
+      "remaining": "No arbitrary rank/stride; wide four-state stores use declared fallback routes",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_stride_ranges.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/packed_stride_ranges.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "packstride-read-interpreter",
+          "packstride-read-cranelift",
+          "packstride-write-interpreter",
+          "packstride-write-cranelift",
+          "packstride-write-wide-two",
+          "packstride-write-wide-four-fallback"
+        ]
+      }
+    },
+    {
+      "id": "pass-shapes",
+      "title": "Dead-let & bit-lane passes",
+      "operators": "",
+      "scope": "Output equivalence with each pass enabled/disabled",
+      "bounds": "8-bit operands; selected boundary patterns; three backends",
+      "native": "",
+      "big": "",
+      "direct": "Fresh processes and diagnostics witness a real transformation",
+      "remaining": "No arbitrary symbolic inputs, pass sequences, or other-pass guarantee",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/pass_shapes.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/pass_shapes.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/optimization_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dead-let",
+          "lane-merge"
+        ]
+      }
+    },
+    {
+      "id": "signed-array-index",
+      "title": "Signed array indices",
+      "operators": "",
+      "scope": "Negative and out-of-range indices preserve storage",
+      "bounds": "6 index/length shapes; 2-state 16/129 bits; 4-state up to 512",
+      "native": "",
+      "big": "",
+      "direct": "Independent per-axis validity and explicit fallback for wide four-state stores",
+      "remaining": "No arbitrary array extent, selector, or input-history theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/signed_array.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/signed_array.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "signed-interpreter",
+          "signed-cranelift",
+          "signed-aot-c",
+          "signed-four-interpreter",
+          "signed-four-cranelift",
+          "signed-four-fallback"
+        ]
+      }
+    },
+    {
+      "id": "signed-packed-select",
+      "title": "Signed packed writes",
+      "operators": "",
+      "scope": "Mathematical positions before logical clipping",
+      "bounds": "Selected widths 8/64/65/128/129/512; 1/4/16-bit indices",
+      "native": "",
+      "big": "",
+      "direct": "Negative lower bounds; scalar and array route-specific fixtures",
+      "remaining": "No arbitrary selector lowering or partial-overlap guarantee",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/signed_select.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/signed_select.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "signedsel-scalar-interpreter",
+          "signedsel-scalar-cranelift",
+          "signedsel-scalar-wide-cranelift",
+          "signedsel-array-interpreter",
+          "signedsel-array-cranelift",
+          "signedsel-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "unknown-array-write",
+      "title": "Unknown array indices",
+      "operators": "",
+      "scope": "X/Z write indices must not alias element zero",
+      "bounds": "Selected widths 8/64/65/128/129/256/512",
+      "native": "",
+      "big": "",
+      "direct": "Independent state preservation; compiled up to 64 bits, declared fallback above",
+      "remaining": "No arbitrary selector or unknown-input execution theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/unknown_write.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/unknown_write.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "unknown-write-interpreter",
+          "unknown-write-cranelift",
+          "unknown-write-fallback"
+        ]
+      }
+    },
+    {
+      "id": "unknown-packed-select",
+      "title": "Unknown packed-write indices",
+      "operators": "",
+      "scope": "Per-bit writes preserve unrelated storage",
+      "bounds": "Selected widths 8/64/65/128/129/512; 1/16-bit indices; windows 1/8",
+      "native": "",
+      "big": "",
+      "direct": "Explicit X/Z indices; scalar/array compiled and fallback routes",
+      "remaining": "No general selector decoding or arbitrary X/Z vector theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/unknown_select.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/unknown_select.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "select-scalar-interpreter",
+          "select-scalar-cranelift",
+          "select-scalar-fallback",
+          "select-array-interpreter",
+          "select-array-cranelift",
+          "select-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "wide-packed-index",
+      "title": "Wide packed-index arithmetic",
+      "operators": "",
+      "scope": "Large selector values must not wrap into valid writes",
+      "bounds": "32/64-bit indices; selected storage widths 8–512 bits",
+      "native": "",
+      "big": "",
+      "direct": "Signed/unsigned scalar/array cases against independent positions",
+      "remaining": "No arbitrary index expression; backend domains are fixture-specific",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/wide_select.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/wide_select.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "wideidx-scalar-interpreter",
+          "wideidx-scalar-cranelift",
+          "wideidx-scalar-fallback",
+          "wideidx-array-interpreter",
+          "wideidx-array-cranelift",
+          "wideidx-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "wide-packed-read",
+      "title": "Wide packed-read results",
+      "operators": "",
+      "scope": "Source-bit origins with separate result/storage widths",
+      "bounds": "Selected storage/result windows through 512 bits",
+      "native": "",
+      "big": "",
+      "direct": "Independent physical origins; scalar/array compiled and fallback routes",
+      "remaining": "No arbitrary source/result widths or selector theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_read_wide.rs",
+          "label": "Finite comparisons"
+        },
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/packed_read.rs",
+          "label": "Shared read domain"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/packed_read_wide.rs",
+        "targets/simulator/tests/tests/ff_pipeline/packed_read.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "wide-read-scalar-interpreter",
+          "wide-read-scalar-cranelift",
+          "wide-read-array-interpreter",
+          "wide-read-array-cranelift",
+          "wide-read-array-fallback"
+        ]
+      }
+    },
+    {
+      "id": "ff-pipeline",
+      "title": "Source-to-FF pipeline",
+      "operators": "",
+      "scope": "Committed storage and actual write-log replay",
+      "bounds": "Widths 16/64/65/128/448/512; static/dynamic writes; 18 cycles",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter, Cranelift, and AOT-C vs independent old-state expectations",
+      "remaining": "No whole-backend, arbitrary-source, or general scheduling theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline.rs",
+          "label": "Finite comparisons"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "ff-interpreter",
+          "ff-cranelift",
+          "ff-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "generated-c",
+      "title": "Generated C expressions",
+      "operators": "",
+      "scope": "Symbolic checks of actual emit_expr output",
+      "bounds": "Unsigned 8/32/64; signed 8→16/32→64; fixed cast/store family",
+      "native": "",
+      "big": "",
+      "direct": "CBMC safety/unwinding checks and separate reachability covers",
+      "remaining": "No arbitrary AOT function, strict-aliasing theorem, wide vectors, FF logs, or source lowering",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/cbmc/tests/generated_c.rs",
+          "label": "CBMC"
+        }
+      ],
+      "files": [
+        "targets/simulator/cbmc/tests/generated_c.rs",
+        "targets/simulator/cbmc/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [
+          "c-cast-store",
+          "c-signed-tree-8",
+          "c-signed-tree-32",
+          "c-add-8",
+          "c-add-32",
+          "c-add-64",
+          "c-xor-8",
+          "c-xor-32",
+          "c-xor-64",
+          "c-shift-8",
+          "c-shift-32",
+          "c-shift-64"
+        ],
+        "direct": []
+      }
+    }
+  ]
+}

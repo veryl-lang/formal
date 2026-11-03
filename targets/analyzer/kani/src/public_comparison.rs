@@ -3,7 +3,7 @@
 //! Inequality continues that prefix at all native widths. Wildcard equality and
 //! inequality continue it for source widths 1..=3. Signed and unsigned expression
 //! contexts partition every source sign pair; widths and state domains are unchanged.
-//! Less-than and less-equal cover small widths; greater comparisons stay direct.
+//! All four ordering operators continue the prefix for source widths 1..=3.
 //! Full u128 getters,
 //! native storage, unsigned result metadata, constructors and source preservation
 //! are checked. IEEE 1800 11.4.4/11.4.5/11.4.6 are modeled independently in comparison.
@@ -484,12 +484,22 @@ fn evaluate_comparison_trace<const MODE: u8>(
         let _ = native_result(Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache));
         let _ = native_result(Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache));
     }
+    if MODE > 5 {
+        let _ = native_result(Op::LessEq.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::LessEq.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
+    if MODE > 6 {
+        let _ = native_result(Op::Greater.eval_value_binary(&a, &b, 1, signed, &mut cache));
+        let _ = native_result(Op::Greater.eval_value_binary(&a, &b, 8, signed, &mut cache));
+    }
     let kind = match MODE {
         1 => Comparison::NotEqual,
         2 => Comparison::WildcardEqual,
         3 => Comparison::WildcardNotEqual,
         4 => Comparison::Less,
         5 => Comparison::LessEqual,
+        6 => Comparison::Greater,
+        7 => Comparison::GreaterEqual,
         _ => unreachable!(),
     };
     let expected = compared_logic(ar, br, kind);
@@ -499,6 +509,8 @@ fn evaluate_comparison_trace<const MODE: u8>(
         3 => Op::NeWildcard.eval_value_binary(&a, &b, 1, signed, &mut cache),
         4 => Op::Less.eval_value_binary(&a, &b, 1, signed, &mut cache),
         5 => Op::LessEq.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        6 => Op::Greater.eval_value_binary(&a, &b, 1, signed, &mut cache),
+        7 => Op::GreaterEq.eval_value_binary(&a, &b, 1, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 1, expected);
@@ -508,6 +520,8 @@ fn evaluate_comparison_trace<const MODE: u8>(
         3 => Op::NeWildcard.eval_value_binary(&a, &b, 8, signed, &mut cache),
         4 => Op::Less.eval_value_binary(&a, &b, 8, signed, &mut cache),
         5 => Op::LessEq.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        6 => Op::Greater.eval_value_binary(&a, &b, 8, signed, &mut cache),
+        7 => Op::GreaterEq.eval_value_binary(&a, &b, 8, signed, &mut cache),
         _ => unreachable!(),
     };
     assert_result(output, 8, expected);
@@ -600,4 +614,659 @@ fn public_small_less_equal_width_3_by_2_matches_reference() {
 #[kani::use_stub_set(small_native_comparison)]
 fn public_small_less_equal_width_3_by_3_matches_reference() {
     public_small_less_equal_pair::<3, 3>();
+}
+
+// Greater observes widths 1 then 8 after the complete LessEq prefix.
+fn public_small_greater_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<6>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_1_by_1_matches_reference() {
+    public_small_greater_pair::<1, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_1_by_2_matches_reference() {
+    public_small_greater_pair::<1, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_1_by_3_matches_reference() {
+    public_small_greater_pair::<1, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_2_by_1_matches_reference() {
+    public_small_greater_pair::<2, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_2_by_2_matches_reference() {
+    public_small_greater_pair::<2, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_2_by_3_matches_reference() {
+    public_small_greater_pair::<2, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_3_by_1_matches_reference() {
+    public_small_greater_pair::<3, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_3_by_2_matches_reference() {
+    public_small_greater_pair::<3, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_width_3_by_3_matches_reference() {
+    public_small_greater_pair::<3, 3>();
+}
+
+// GreaterEq observes widths 1 then 8 after the complete Greater prefix.
+fn public_small_greater_equal_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<7>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_1_matches_reference() {
+    public_small_greater_equal_pair::<1, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_2_matches_reference() {
+    public_small_greater_equal_pair::<1, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_1_by_3_matches_reference() {
+    public_small_greater_equal_pair::<1, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_1_matches_reference() {
+    public_small_greater_equal_pair::<2, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_2_matches_reference() {
+    public_small_greater_equal_pair::<2, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_2_by_3_matches_reference() {
+    public_small_greater_equal_pair::<2, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_1_matches_reference() {
+    public_small_greater_equal_pair::<3, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_2_matches_reference() {
+    public_small_greater_equal_pair::<3, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::use_stub_set(small_native_comparison)]
+fn public_small_greater_equal_width_3_by_3_matches_reference() {
+    public_small_greater_equal_pair::<3, 3>();
+}
+
+// Together with the nine existing width pairs1..3, these two disjoint domains
+// cover all independent widths1..4 and all four-state planes/source signs.
+// LEFT_FOUR: (4,1..4); otherwise (1..3,4). Their common width is always4.
+// Eq/Ne/EqWildcard/NeWildcard/Less pairs1 then8 precede LessEq on one cache.
+fn public_less_equal_width4_boundary<const LEFT_FOUR: bool>() {
+    let left_width = if LEFT_FOUR {
+        4
+    } else {
+        u32::from((kani::any::<u8>() & 3).min(2)) + 1
+    };
+    let right_width = if LEFT_FOUR {
+        u32::from(kani::any::<u8>() & 3) + 1
+    } else {
+        4
+    };
+    let (a, ar) = public_input_at_width::<true>(left_width);
+    let (b, br) = public_input_at_width::<true>(right_width);
+    assert!(
+        a.width.max(b.width) == 4,
+        "public comparison semantics mismatch"
+    );
+    let (ar, br, expected) = evaluate_comparison_trace::<5>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    if LEFT_FOUR {
+        kani::cover!(
+            br.width == 1,
+            "public less equal width4 narrow RHS is reachable"
+        );
+        kani::cover!(
+            br.width == 4,
+            "public less equal width4 equal widths are reachable"
+        );
+    } else {
+        kani::cover!(
+            ar.width == 1,
+            "public less equal width4 narrow LHS is reachable"
+        );
+        kani::cover!(
+            ar.width == 3,
+            "public less equal width4 three bit LHS is reachable"
+        );
+    }
+}
+
+fn reject_boundary_biguint_getter(_: &num_bigint::BigUint) -> u128 {
+    panic!("public comparison semantics mismatch");
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_less_equal_left_width4_matches_reference() {
+    public_less_equal_width4_boundary::<true>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_less_equal_right_width4_matches_reference() {
+    public_less_equal_width4_boundary::<false>();
+}
+
+// Constant pairs add exactly the seven missing width-four boundaries. Together
+// with the existing1..3 matrix, all independent widths1..4 and source signs are
+// covered without assumptions. Each retains the complete LessEq prefix/cache.
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_1_by_4_matches_reference() {
+    public_small_greater_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_2_by_4_matches_reference() {
+    public_small_greater_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_3_by_4_matches_reference() {
+    public_small_greater_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_1_matches_reference() {
+    public_small_greater_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_2_matches_reference() {
+    public_small_greater_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_3_matches_reference() {
+    public_small_greater_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_width_4_by_4_matches_reference() {
+    public_small_greater_pair::<4, 4>();
+}
+
+// Add the seven width-four boundaries for GreaterEq after the complete Greater
+// prefix. The existing nine pairs1..3 and these pairs cover all widths1..4,
+// normalized four-state planes and independent source signs without assumptions.
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_1_by_4_matches_reference() {
+    public_small_greater_equal_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_2_by_4_matches_reference() {
+    public_small_greater_equal_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_3_by_4_matches_reference() {
+    public_small_greater_equal_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_4_by_1_matches_reference() {
+    public_small_greater_equal_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_4_by_2_matches_reference() {
+    public_small_greater_equal_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_4_by_3_matches_reference() {
+    public_small_greater_equal_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_greater_equal_width_4_by_4_matches_reference() {
+    public_small_greater_equal_pair::<4, 4>();
+}
+
+// The existing signed/unsigned partitions cover all widths1..3. Seven constant
+// boundary pairs complete all independent widths1..4, normalized four-state
+// planes and source signs. Eq/Ne/EqWildcard/NeWildcard pairs1 then8 execute on
+// the same fresh cache before Less results1 then8 (IEEE 1800 11.4.4).
+fn public_small_less_width4_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<4>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_1_by_4_matches_reference() {
+    public_small_less_width4_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_2_by_4_matches_reference() {
+    public_small_less_width4_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_3_by_4_matches_reference() {
+    public_small_less_width4_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_1_matches_reference() {
+    public_small_less_width4_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_2_matches_reference() {
+    public_small_less_width4_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_3_matches_reference() {
+    public_small_less_width4_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_less_width_4_by_4_matches_reference() {
+    public_small_less_width4_pair::<4, 4>();
+}
+
+// IEEE 1800 11.4.5/11.4.6: only RHS X/Z bits are wildcards. A significant
+// known mismatch dominates an otherwise ambiguous LHS X/Z. The existing1..3
+// theorem and these seven disjoint width-four pairs cover all independent
+// widths1..4, four-state planes and source signs. Eq/Ne pairs1 then8 execute on
+// the same cache before wildcard equality results1 then8; no assumptions.
+fn public_small_wildcard_equal_width4_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<2>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    kani::cover!(
+        br.planes.1 & !br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard equality RHS X matches"
+    );
+    kani::cover!(
+        br.planes.1 & br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard equality RHS Z matches"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard equality LHS X remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 & ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard equality LHS Z remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 != 0 && br.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard equality known mismatch dominates LHS unknown"
+    );
+    kani::cover!(
+        br.planes.1 != 0 && ar.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard equality known mismatch survives RHS wildcard"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_1_by_4_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_2_by_4_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_3_by_4_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_4_by_1_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_4_by_2_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_4_by_3_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_equal_width_4_by_4_matches_reference() {
+    public_small_wildcard_equal_width4_pair::<4, 4>();
+}
+
+// IEEE 1800 11.4.5/11.4.6: wildcard inequality negates only known equality
+// results; ambiguous LHS X/Z remains X. RHS wildcards and known mismatch
+// priority stay asymmetric. The existing1..3 partitions and seven constant
+// boundaries cover independent widths1..4 and source signs without assumptions.
+// Eq/Ne/EqWildcard pairs1 then8 share one cache before NeWildcard results1 then8.
+fn public_small_wildcard_not_equal_width4_pair<const LEFT: u32, const RIGHT: u32>() {
+    let (a, ar) = public_input_at_width::<true>(LEFT);
+    let (b, br) = public_input_at_width::<true>(RIGHT);
+    let (ar, br, expected) = evaluate_comparison_trace::<3>(a, ar, b, br);
+    cover_unsigned_signs(ar, br);
+    cover_signed_signs(ar, br);
+    kani::cover!(
+        expected == Logic4::X,
+        "public comparison X result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::One,
+        "public comparison true result is reachable"
+    );
+    kani::cover!(
+        expected == Logic4::Zero,
+        "public comparison false result is reachable"
+    );
+    kani::cover!(
+        br.planes.1 & !br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard inequality RHS X matches"
+    );
+    kani::cover!(
+        br.planes.1 & br.planes.0 != 0 && ar.planes.1 == 0 && expected == Logic4::Zero,
+        "public width4 wildcard inequality RHS Z matches"
+    );
+    kani::cover!(
+        ar.planes.1 & !ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard inequality LHS X remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 & ar.planes.0 != 0 && br.planes.1 == 0 && expected == Logic4::X,
+        "public width4 wildcard inequality LHS Z remains significant"
+    );
+    kani::cover!(
+        ar.planes.1 != 0 && br.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard inequality known mismatch dominates LHS unknown"
+    );
+    kani::cover!(
+        br.planes.1 != 0 && ar.planes.1 == 0 && expected == Logic4::One,
+        "public width4 wildcard inequality known mismatch survives RHS wildcard"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_1_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<1, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_2_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<2, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_3_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<3, 4>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_1_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 1>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_2_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 2>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_3_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 3>();
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+#[kani::use_stub_set(small_native_comparison)]
+#[kani::stub(veryl_analyzer::value::biguint_to_u128, reject_boundary_biguint_getter)]
+fn public_small_wildcard_not_equal_width_4_by_4_matches_reference() {
+    public_small_wildcard_not_equal_width4_pair::<4, 4>();
 }

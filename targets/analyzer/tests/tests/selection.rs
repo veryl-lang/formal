@@ -1,5 +1,7 @@
 //! Public native selection domains are proved in targets/analyzer/kani/src/selection.rs.
-//! Retain BigUint cases and independent model checks; native endpoints are quantified.
+//! public_big_values.rs proves BigUint inputs65..128 with results0..128.
+//! Retain numeric integration and independent model checks.
+//! The BigUint proof assumes numeric APIs; real-library integration remains below.
 
 use veryl_analyzer::value::Value;
 use veryl_formal_semantics::logic4::Logic4;
@@ -31,9 +33,18 @@ fn check_selection(payload: u128, mask_xz: u128, width: usize, beg: usize, end: 
     }
 }
 
+// The proofs cover BigUint sources65..128 with result widths0..128. Retain
+// real numeric integration for wide results, including overlap and missing X.
 #[test]
 fn selection_native_biguint_boundaries() {
-    for width in [65, 127, 128] {
+    for (width, beg, end) in [
+        (65, 64, 0),
+        (128, 127, 0),
+        (128, 127, 63),
+        (128, 128, 1),
+        (65, 127, 0),
+        (128, usize::MAX, usize::MAX - 127),
+    ] {
         let mask = u128::MAX >> (128 - width);
         for (payload, mask_xz) in [
             (0, 0),
@@ -45,25 +56,7 @@ fn selection_native_biguint_boundaries() {
                 0x5555_5555_5555_5555_5555_5555_5555_5555 & mask,
             ),
         ] {
-            for (beg, end) in [
-                (0, 0),
-                (width - 1, 0),
-                (width - 1, width - 1),
-                (width, width),
-                (width + 3, width),
-                (width + 2, width - 1),
-                (63, 63),
-                (64, 63),
-                (64, 64),
-                (65, 64),
-                (127, 64),
-                (usize::MAX, usize::MAX),
-                (usize::MAX, usize::MAX - 3),
-                (0, 1),
-                (0, usize::MAX),
-            ] {
-                check_selection(payload, mask_xz, width, beg, end);
-            }
+            check_selection(payload, mask_xz, width, beg, end);
         }
     }
 }
@@ -93,5 +86,32 @@ fn selection_reference_truth_table_and_missing_bits() {
             selected_logic_bit((payload, mask_xz), 1, usize::MAX, usize::MAX, 0),
             Logic4::X
         );
+    }
+}
+
+// The universal endpoint proof assumes the numeric API. Retain real-library
+// integration at both u64 word boundaries and missing-bit reads.
+#[test]
+fn big_selection_numeric_integration() {
+    for (payload, xz) in [
+        (0, 0),
+        (u128::MAX, 0),
+        (0, u128::MAX),
+        (u128::MAX, u128::MAX),
+        (
+            0xaaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa_aaaa,
+            0x5555_5555_5555_5555_5555_5555_5555_5555,
+        ),
+    ] {
+        for (beg, end) in [
+            (63, 63),
+            (64, 63),
+            (65, 64),
+            (127, 64),
+            (128, 127),
+            (usize::MAX, usize::MAX),
+        ] {
+            check_selection(payload, xz, 128, beg, end);
+        }
     }
 }

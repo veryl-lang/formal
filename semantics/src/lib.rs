@@ -38,3 +38,5 @@ pub mod scalar;
 pub mod bitvector;
 
 pub mod expressions;
+
+pub mod bits256;
