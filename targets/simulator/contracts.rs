@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 48] = [
+pub static KANI: [Contract; 49] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -328,6 +328,22 @@ pub static KANI: [Contract; 48] = [
         "log-direct-alias",
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
+    ),
+    window_log_contract(
+        "log-full-pool-growth",
+        "window_log_full_pool_growth_matches_reference",
+        &[
+            "first old record byte is reachable",
+            "last old record byte is reachable",
+            "one-byte old record is reachable",
+            "full-length old record is reachable",
+            "nonzero old history is reachable",
+            "maximum safe full pool base is reachable",
+            "full pool direct alias is reachable",
+            "full pool log-only alias is reachable",
+            "full pool direct external is reachable",
+            "full pool log-only external is reachable",
+        ],
     ),
     window_log_contract(
         "log-append-growth",
@@ -1299,6 +1315,38 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             "push_wide",
             "self.wide_count += 1;",
             "self.wide_count += 1; self.narrow_count = 0;",
+        ),
+        (
+            "window-log-full-pool-count-stalls",
+            "log-full-pool-growth",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "if self.wide_count < 64 { self.wide_count += 1; }",
+        ),
+        (
+            "window-log-full-pool-reuses-first-slot",
+            "log-full-pool-growth",
+            "",
+            "push_wide",
+            "let idx = self.wide_count as usize;",
+            "let idx = if self.wide_count >= 64 { 0 } else { self.wide_count as usize };",
+        ),
+        (
+            "window-log-full-pool-growth-drops-history",
+            "log-full-pool-growth",
+            "",
+            "grow_wide_to",
+            "wide[..live].copy_from_slice(&self._wide_owner[..live]);",
+            "if live >= 64 { wide[..live].fill(WriteLogWideEntry::default()); } else { wide[..live].copy_from_slice(&self._wide_owner[..live]); }",
+        ),
+        (
+            "window-log-full-pool-clears-narrow-count",
+            "log-full-pool-growth",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "self.wide_count += 1; if self.wide_count > 64 { self.narrow_count = 0; }",
         ),
         (
             "window-log-chunk-skips-byte",

@@ -30,6 +30,12 @@ fn main() {
     } else {
         contracts::mutations(repo, &selected, true)
     };
+    let (history, selected): (Vec<_>, Vec<_>) = selected
+        .into_iter()
+        .partition(|c| c.name == "log-full-pool-growth");
+    let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations
+        .into_iter()
+        .partition(|m| m.contract.name == "log-full-pool-growth");
     let (full, ordinary): (Vec<_>, Vec<_>) = selected
         .into_iter()
         .partition(|c| c.group == "signed-shift-full");
@@ -60,6 +66,20 @@ fn main() {
             options.mode,
             &ordinary,
             &ordinary_mutations,
+        );
+    }
+    // Explicit covers avoid redundant per-assertion queries over 64 symbolic records.
+    if !history.is_empty() && (options.mode != Mode::Mutation || !history_mutations.is_empty()) {
+        runner.run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "180s",
+                cache_dereferences: true,
+                restrict_vtable: false,
+                auxiliary_covers: &[],
+            },
+            options.mode,
+            &history,
+            &history_mutations,
         );
     }
     // The bit-fill loop has up to192 iterations. Explicit covers and pointer

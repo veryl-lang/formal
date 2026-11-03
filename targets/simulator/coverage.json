@@ -335,13 +335,14 @@
       "title": "Window write-log records",
       "operators": "",
       "scope": "Direct/log-only writes and record preservation",
-      "bounds": "Kani: first record and two-record growth; width 192, 64-bit windows",
+      "bounds": "Kani: first record, two-record growth, and full 64-record pool growth; 192-bit destination",
       "native": "",
       "big": "",
       "direct": "Finite append/growth histories and prefilled no-op buffers",
-      "remaining": "Arbitrary histories, general chunk splitting and growth capacities remain finite comparisons; commit has separate contracts",
+      "remaining": "Other capacities/counts, arbitrary histories and chunk splitting remain finite comparisons; commit has separate contracts",
       "assumptions": [
-        "Append/growth: initially one wide slot and one live narrow record; two 64-bit writes at bit offsets 64 and 128 in a 192-bit destination, arbitrary bytes and base <= u32::MAX - 23; direct/log-only and separate/exact-alias modes. The second append executes real allocation/growth and preserves both record pools. No arbitrary sequence or source-level NBA theorem."
+        "Append/growth: initially one wide slot and one live narrow record; two 64-bit writes at bit offsets 64 and 128 in a 192-bit destination, arbitrary bytes and base <= u32::MAX - 23; direct/log-only and separate/exact-alias modes. The second append executes real allocation/growth and preserves both record pools. No arbitrary sequence or source-level NBA theorem.",
+        "Full pool: capacity/count 64, arbitrary offsets, lengths 1–56 and all payload bytes, default padding; one live narrow record. One aligned 64-bit window append triggers real reallocation and preserves all old records. Both direct/log-only and disjoint/exact-alias modes are covered. Word-based input generation assumes a little-endian 64-bit target; it spans all payload byte patterns."
       ],
       "scopeDocs": [
         {
@@ -359,7 +360,8 @@
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/window_log.rs",
         "semantics/src/write_log.rs",
-        "targets/simulator/contracts.rs"
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/window_log_pool.rs"
       ],
       "clauses": [],
       "reviewed": true,
@@ -370,7 +372,8 @@
           "log-direct",
           "log-direct-alias",
           "log-noop",
-          "log-append-growth"
+          "log-append-growth",
+          "log-full-pool-growth"
         ],
         "cbmc": [],
         "direct": [
