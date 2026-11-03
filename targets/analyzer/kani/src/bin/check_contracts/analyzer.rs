@@ -1,6 +1,8 @@
 //! Analyzer-specific contracts and production mutations.
 #[path = "analyzer/expression_context.rs"]
 mod expression_context;
+#[path = "analyzer/metadata.rs"]
+mod metadata;
 use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
@@ -249,7 +251,39 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 476] = [
+pub static CONTRACTS: [Contract; 478] = [
+    Contract {
+        group: "expression-context",
+        name: "resolved-type-copy-update",
+        harness: "metadata::resolved_type_clone_update_matches_reference",
+        message: "resolved type semantics mismatch",
+        covers: &[
+            "cloned concrete width can grow",
+            "cloned concrete width can shrink",
+            "empty deferred clone can change width",
+            "signed positive logic metadata is reachable",
+            "unsigned bit metadata is reachable",
+            "maximum source width can narrow",
+            "minimum source width can widen",
+            "native boundary updates are reachable",
+        ],
+    },
+    Contract {
+        group: "expression-context",
+        name: "literal-metadata-copy",
+        harness: "metadata::literal_metadata_clone_matches_reference",
+        message: "metadata clone semantics mismatch",
+        covers: &[
+            "true classification cache is invalidated",
+            "false classification cache is invalidated",
+            "absent classification cache is reachable",
+            "independent type and value signs are reachable",
+            "unknown metadata payload is reachable",
+            "high impedance metadata payload is reachable",
+            "narrower stored context is reachable",
+            "wider stored context is reachable",
+        ],
+    },
     Contract {
         group: "expression-context",
         name: "literal-leaf-context",
@@ -6691,6 +6725,7 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
     mutations.extend(expression_context::mutations(repo, selected));
+    mutations.extend(metadata::mutations(repo, selected));
     wide_operator_mutations(repo, selected, &mut mutations);
     mutations.extend(followup::mutations(repo, selected));
     if let Some(&contract) = selected

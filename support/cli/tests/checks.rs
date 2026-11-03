@@ -1804,21 +1804,23 @@ fn simulator_kernel_shards_select_known_contracts_and_partition_proofs() {
 }
 
 #[test]
-fn literal_leaf_registry_uses_the_proof_diagnostics() {
+fn literal_and_metadata_registry_use_the_proof_diagnostics() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
         .unwrap();
-    let source =
-        fs::read_to_string(root.join("targets/analyzer/kani/src/expression_context.rs")).unwrap();
-    let contract = analyzer::CONTRACTS
-        .iter()
-        .find(|c| c.name == "literal-leaf-context")
-        .unwrap();
-    for message in std::iter::once(contract.message).chain(contract.covers.iter().copied()) {
-        assert!(
-            source.contains(&format!("{message:?}")),
-            "missing proof diagnostic: {message}"
-        );
+    for (name, file) in [
+        ("literal-leaf-context", "expression_context.rs"),
+        ("resolved-type-copy-update", "metadata.rs"),
+        ("literal-metadata-copy", "metadata.rs"),
+    ] {
+        let source = fs::read_to_string(root.join("targets/analyzer/kani/src").join(file)).unwrap();
+        let contract = analyzer::CONTRACTS.iter().find(|c| c.name == name).unwrap();
+        for message in std::iter::once(contract.message).chain(contract.covers.iter().copied()) {
+            assert!(
+                source.contains(&format!("{message:?}")),
+                "missing proof diagnostic for {name}: {message}"
+            );
+        }
     }
 }

@@ -66,3 +66,6 @@ mod public_big_ops;
 
 #[cfg(kani)]
 mod expression_context;
+
+#[cfg(kani)]
+mod metadata;
