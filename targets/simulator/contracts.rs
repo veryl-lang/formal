@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 47] = [
+pub static KANI: [Contract; 48] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -328,6 +328,18 @@ pub static KANI: [Contract; 47] = [
         "log-direct-alias",
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
+    ),
+    window_log_contract(
+        "log-append-growth",
+        "window_log_append_growth_matches_reference",
+        &[
+            "window log direct alias append is reachable",
+            "window log log-only alias append is reachable",
+            "window log direct external append is reachable",
+            "window log log-only external append is reachable",
+            "window log highest append base is reachable",
+            "window log nonidentity append is reachable",
+        ],
     ),
     window_log_contract(
         "log-noop",
@@ -1258,7 +1270,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         ),
         (
             "window-log-loses-append-count",
-            "",
+            "log-append-growth",
             "log-history",
             "push_wide",
             "self.wide_count += 1;",
@@ -1266,7 +1278,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         ),
         (
             "window-log-overwrites-entry-zero",
-            "",
+            "log-append-growth",
             "log-history",
             "push_wide",
             "let idx = self.wide_count as usize;",
@@ -1274,7 +1286,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         ),
         (
             "window-log-growth-drops-history",
-            "",
+            "log-append-growth",
             "log-history",
             "grow_wide_to",
             "wide[..live].copy_from_slice(&self._wide_owner[..live]);",
@@ -1282,7 +1294,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         ),
         (
             "window-log-clears-narrow-count",
-            "",
+            "log-append-growth",
             "log-history",
             "push_wide",
             "self.wide_count += 1;",

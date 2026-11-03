@@ -1,10 +1,11 @@
 //! First record in an empty real default buffer for width 192, amount 64, and
 //! window width 64. Splits direct/log-only and separate/exact alias modes. The
 //! no-op family admits symbolic metadata and null pointers. Multiple records, live
-//! reallocation, general merged windows, and commit are outside these proofs.
+//! reallocation, general merged windows, and commit are outside these first-record proofs.
+//! The final harness separately checks two appends with real growth from capacity1.
 
 use veryl_formal_semantics::words;
-use veryl_simulator::wide_ops;
+use veryl_simulator::{ir::WriteLogBuffer, wide_ops};
 
 #[kani::proof]
 #[kani::unwind(65)]
@@ -155,5 +156,125 @@ fn window_log_empty_noop_matches_reference() {
     kani::cover!(
         amount == u64::MAX && width > 0,
         "window log maximum amount is reachable"
+    );
+}
+
+// Two complete word-sized writes at bits64 and128 of a192-bit destination.
+// Capacity1 forces the second append to grow; a live narrow record must survive.
+// All bytes, base offsets through u32::MAX-23, direct/log-only and separate/exact
+// alias modes are symbolic. No arbitrary history, chunk splitting or commit claim.
+#[kani::proof]
+#[kani::unwind(65)]
+fn window_log_append_growth_matches_reference() {
+    let mut destination: [u8; 26] = kani::any();
+    let before = destination;
+    let source: [u8; 9] = kani::any();
+    let source_before = source;
+    let direct: bool = kani::any();
+    let alias: bool = kani::any();
+    let base: u32 = kani::any();
+    kani::assume(base <= u32::MAX - 23);
+    let narrow: u64 = kani::any();
+    let mut log = WriteLogBuffer::with_capacity(1, 1);
+    unsafe {
+        (log.grow_push_narrow)(&mut log, 3, narrow, 8);
+    }
+    for step in 0..2 {
+        let current = destination;
+        let amount = 64u64 + 64 * step as u64;
+        let expected = if alias { &current[1..9] } else { &source[1..] };
+        unsafe {
+            let dst = destination.as_mut_ptr().add(1);
+            let src = if alias {
+                dst as *const u8
+            } else {
+                source.as_ptr().add(1)
+            };
+            wide_ops::wide_window_store(
+                &mut log,
+                dst,
+                src,
+                amount,
+                64 | (192u64 << 32),
+                u64::from(base) | ((direct as u64) << 32),
+            );
+        }
+        assert!(
+            log.wide_count() == step + 1 && log.narrow_count() == 1,
+            "simulator window log semantics mismatch"
+        );
+        let observed = usize::from(kani::any::<u8>() & 7);
+        let entry = &log.wide_entries_slice()[step as usize];
+        assert!(
+            entry.offset == base + 8 + 8 * step
+                && entry.native_bytes == 8
+                && entry.payload[observed] == expected[observed],
+            "simulator window log semantics mismatch"
+        );
+    }
+    let i = usize::from(kani::any::<u8>() & 7);
+    let expected = if alias {
+        before[i + 1]
+    } else {
+        source_before[i + 1]
+    };
+    assert!(
+        log.wide_capacity() > 1,
+        "simulator window log semantics mismatch"
+    );
+    for index in 0..2 {
+        let entry = &log.wide_entries_slice()[index];
+        assert!(
+            entry.offset == base + 8 + 8 * index as u32
+                && entry.native_bytes == 8
+                && entry.payload[i] == expected,
+            "simulator window log semantics mismatch"
+        );
+    }
+    let entry = &log.narrow_entries_slice()[0];
+    assert!(
+        entry.offset == 3
+            && entry.width_class == 8
+            && entry.mask_xz == 0
+            && entry.payload == narrow,
+        "simulator window log semantics mismatch"
+    );
+    let byte = usize::from(kani::any::<u8>() % 26);
+    let expected_dst = if direct && (9..25).contains(&byte) {
+        if alias {
+            before[(byte - 9) % 8 + 1]
+        } else {
+            source_before[(byte - 9) % 8 + 1]
+        }
+    } else {
+        before[byte]
+    };
+    assert!(
+        destination[byte] == expected_dst && source == source_before,
+        "simulator window log semantics mismatch"
+    );
+    kani::cover!(
+        direct && alias,
+        "window log direct alias append is reachable"
+    );
+    kani::cover!(
+        !direct && alias,
+        "window log log-only alias append is reachable"
+    );
+    kani::cover!(
+        direct && !alias,
+        "window log direct external append is reachable"
+    );
+    kani::cover!(
+        !direct && !alias,
+        "window log log-only external append is reachable"
+    );
+    kani::cover!(
+        base == u32::MAX - 23,
+        "window log highest append base is reachable"
+    );
+    kani::cover!(
+        source[1] != before[9],
+        "window log nonidentity append is reachable"
     );
 }
