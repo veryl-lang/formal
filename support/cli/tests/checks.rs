@@ -67,6 +67,159 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .parent()
         .unwrap();
     let all: Vec<_> = analyzer::CONTRACTS.iter().collect();
+    // Only named arithmetic-partition diagnostics may be ignored during mutations.
+    // Required positive witnesses still come from each contract's own cover list.
+    let special_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("special256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let special_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("special "))
+        .collect();
+    assert_eq!(special_diagnostics, special_covers);
+    let division_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("division256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let division_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("division class "))
+        .collect();
+    assert_eq!(division_diagnostics, division_covers);
+    let multiplication_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("multiply256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let multiplication_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("multiplication class "))
+        .collect();
+    assert_eq!(multiplication_diagnostics, multiplication_covers);
+    let opposite_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("opposite256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let opposite_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("opposite class "))
+        .collect();
+    assert_eq!(opposite_diagnostics, opposite_covers);
+    let signed_small_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("signedsmall256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let signed_small_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("small signed class "))
+        .collect();
+    assert_eq!(signed_small_covers, signed_small_diagnostics);
+    let signed_power_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("signedpow256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let signed_power_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("power signed class "))
+        .collect();
+    assert_eq!(signed_power_covers, signed_power_diagnostics);
+    let ones_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("ones256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let ones_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("ones class "))
+        .collect();
+    assert_eq!(ones_covers, ones_diagnostics);
+    let ones_power_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("powerones256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let ones_power_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("ones power class "))
+        .collect();
+    assert_eq!(ones_power_covers, ones_power_diagnostics);
+    let hot_power_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("powerhot256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let hot_power_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("single hot power class "))
+        .collect();
+    assert_eq!(hot_power_covers, hot_power_diagnostics);
+    let unitq_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("unitq256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let unitq_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("unit quotient class "))
+        .collect();
+    assert_eq!(unitq_covers, unitq_diagnostics);
+    let powerq_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("powerq256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let powerq_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("power quotient class "))
+        .collect();
+    assert_eq!(powerq_covers, powerq_diagnostics);
+    let signedq_covers: BTreeSet<_> = all
+        .iter()
+        .filter(|c| c.name.starts_with("signedq256-") && !c.name.ends_with("-api"))
+        .flat_map(|c| c.covers.iter().copied())
+        .collect();
+    let signedq_diagnostics: BTreeSet<_> = analyzer::AUXILIARY_CONDITIONAL_COVERS
+        .iter()
+        .copied()
+        .filter(|c| c.starts_with("signed quotient class "))
+        .collect();
+    assert_eq!(signedq_covers, signedq_diagnostics);
+    let signed_context_budget: BTreeSet<_> = all
+        .iter()
+        .filter(|c| analyzer::uses_signed_quotient_context_timeout(c))
+        .map(|c| c.name)
+        .collect();
+    let expected_signed_context_budget: BTreeSet<_> = [
+        "signedq256-div-positive-positive-context",
+        "signedq256-div-positive-negative-context",
+        "signedq256-div-negative-positive-context",
+        "signedq256-div-negative-negative-context",
+        "signedq256-rem-positive-positive-context",
+        "signedq256-rem-positive-negative-context",
+        "signedq256-rem-negative-positive-context",
+        "signedq256-rem-negative-negative-context",
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(signed_context_budget, expected_signed_context_budget);
+
     // Conditional diagnostics belong only to their matching public boundary proofs.
     // They must never become mandatory witnesses for unrelated contracts.
     for contract in &all {
@@ -83,34 +236,84 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     for contract in &all {
         assert_eq!(
             analyzer::uses_extended_logical_timeout(contract),
-            matches!(
-                contract.name,
-                "equality256-eq"
-                    | "equality256-ne"
-                    | "equality256-wild-eq"
-                    | "equality256-wild-ne"
-                    | "arithmetic256-add"
-                    | "arithmetic256-sub"
-                    | "arithmetic256-neg"
-                    | "assignment256-big-native"
-                    | "assignment256-big-big"
-                    | "bitwise256-and"
-                    | "bitwise256-or"
-                    | "bitwise256-xor"
-                    | "bitwise256-xnor"
-                    | "shift256-left"
-                    | "shift256-right"
-                    | "shift256-arith-left"
-                    | "shift256-arith-right-signed"
-                    | "shift256-arith-right-unsigned"
-                    | "public-logical-and-width65"
-                    | "public-logical-or-native-continuation"
-                    | "public-logical-or-width65"
-                    | "public-conditional-wide-native-native"
-                    | "public-conditional-wide-native-big"
-                    | "public-conditional-wide-big-native"
-                    | "public-conditional-wide-big-big"
-            )
+            contract.name.starts_with("signedq256-")
+                || contract.name.starts_with("powerq256-")
+                || contract.name.starts_with("unitq256-")
+                || contract.name.starts_with("powerhot256-")
+                || contract.name.starts_with("powerones256-")
+                || contract.name.starts_with("ones256-")
+                || contract.name.starts_with("signedpow256-")
+                || contract.name.starts_with("signedsmall256-")
+                || contract.name.starts_with("opposite256-")
+                || contract.name.starts_with("multiply256-")
+                || contract.name.starts_with("division256-")
+                || contract.name.starts_with("special256-")
+                || matches!(
+                    contract.name,
+                    "unit256-div-one-reference"
+                        | "identity256-mul-right"
+                        | "identity256-mul-right-context"
+                        | "identity256-mul-left"
+                        | "identity256-mul-left-context"
+                        | "identity256-div-one"
+                        | "identity256-div-one-context"
+                        | "identity256-rem-one"
+                        | "identity256-rem-one-context"
+                        | "power256-unknown"
+                        | "power256-unknown-context"
+                        | "power256-negative"
+                        | "power256-negative-context"
+                        | "power256-zero"
+                        | "power256-zero-context"
+                        | "exception256-mul-context"
+                        | "exception256-div-context"
+                        | "exception256-rem-context"
+                        | "logical256-and-native-big"
+                        | "logical256-and-big-native"
+                        | "logical256-and-big-big"
+                        | "logical256-or-native-big"
+                        | "logical256-or-big-native"
+                        | "logical256-or-big-big"
+                        | "conversion256-bigint"
+                        | "numeric256-order-api"
+                        | "ordering256-less-unsigned"
+                        | "ordering256-less-signed"
+                        | "ordering256-less-unknown"
+                        | "ordering256-less-eq-unsigned"
+                        | "ordering256-less-eq-signed"
+                        | "ordering256-less-eq-unknown"
+                        | "ordering256-greater-unsigned"
+                        | "ordering256-greater-signed"
+                        | "ordering256-greater-unknown"
+                        | "ordering256-greater-eq-unsigned"
+                        | "ordering256-greater-eq-signed"
+                        | "ordering256-greater-eq-unknown"
+                        | "equality256-eq"
+                        | "equality256-ne"
+                        | "equality256-wild-eq"
+                        | "equality256-wild-ne"
+                        | "arithmetic256-add"
+                        | "arithmetic256-sub"
+                        | "arithmetic256-neg"
+                        | "assignment256-big-native"
+                        | "assignment256-big-big"
+                        | "bitwise256-and"
+                        | "bitwise256-or"
+                        | "bitwise256-xor"
+                        | "bitwise256-xnor"
+                        | "shift256-left"
+                        | "shift256-right"
+                        | "shift256-arith-left"
+                        | "shift256-arith-right-signed"
+                        | "shift256-arith-right-unsigned"
+                        | "public-logical-and-width65"
+                        | "public-logical-or-native-continuation"
+                        | "public-logical-or-width65"
+                        | "public-conditional-wide-native-native"
+                        | "public-conditional-wide-native-big"
+                        | "public-conditional-wide-big-native"
+                        | "public-conditional-wide-big-big"
+                )
         );
     }
     // Kani's default harness filter is a substring match.
@@ -181,7 +384,67 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     | "public-big-values"
             ) {
                 let expected_suite = if contract.group == "public-big-values" {
-                    if contract.name.starts_with("wiring256-")
+                    if contract.name.starts_with("signedq256-") {
+                        if contract.name.starts_with("signedq256-rem") {
+                            "big-signed-remainder-power-quotient"
+                        } else {
+                            "big-signed-division-power-quotient"
+                        }
+                    } else if contract.name.starts_with("powerq256-") {
+                        "big-power-quotient"
+                    } else if contract.name.starts_with("unitq256-") {
+                        "big-unit-quotient"
+                    } else if contract.name.starts_with("powerhot256-") {
+                        "big-single-hot-power"
+                    } else if contract.name.starts_with("powerones256-") {
+                        "big-all-ones-power"
+                    } else if contract.name.starts_with("ones256-") {
+                        "big-all-ones-multiplication"
+                    } else if contract.name.starts_with("signedpow256-") {
+                        "big-signed-power-two-division"
+                    } else if contract.name.starts_with("signedsmall256-") {
+                        "big-signed-smaller-division"
+                    } else if contract.name.starts_with("opposite256-") {
+                        "big-opposite-division"
+                    } else if contract.name.starts_with("multiply256-") {
+                        "big-power-two-multiplication"
+                    } else if contract.name.starts_with("division256-") {
+                        if contract.name.starts_with("division256-self-")
+                            || contract.name == "division256-byte-api"
+                        {
+                            "big-self-division"
+                        } else {
+                            "big-unsigned-division-classes"
+                        }
+                    } else if contract.name.starts_with("special256-") {
+                        if contract.name.starts_with("special256-power-") {
+                            "big-positive-power"
+                        } else {
+                            "big-division-identities"
+                        }
+                    } else if contract.name.starts_with("identity256-")
+                        || contract.name.starts_with("unit256-")
+                    {
+                        "big-unit-identities"
+                    } else if contract.name.starts_with("power256-") {
+                        "big-power-special"
+                    } else if contract.name.starts_with("exception256-") {
+                        "big-nonlinear-exceptions"
+                    } else if contract.name.starts_with("logical256-") {
+                        "big-logical"
+                    } else if contract.name.starts_with("ordering256-")
+                        || contract.name == "numeric256-order-api"
+                        || contract.name == "conversion256-bigint"
+                        || [
+                            "wiring256-less",
+                            "wiring256-less-eq",
+                            "wiring256-greater",
+                            "wiring256-greater-eq",
+                        ]
+                        .contains(&contract.name)
+                    {
+                        "big-ordering"
+                    } else if contract.name.starts_with("wiring256-")
                         || contract.name.starts_with("equality256-")
                         || contract.name.starts_with("arithmetic256-")
                         || contract.name.starts_with("numeric256-add")
@@ -199,6 +462,285 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 };
                 assert_eq!(shard.suite, expected_suite);
                 let witness = match contract.name {
+                    "signedq256-byte-api" => "signed quotient API positive positive is reachable",
+                    "signedq256-quotient-word-api" => {
+                        "signed quotient word unit width is reachable"
+                    }
+                    "signedq256-remainder-word-api" => {
+                        "signed quotient word unit width is reachable"
+                    }
+                    "signedq256-domain-api" => "signed quotient domain native native is reachable",
+                    "signedq256-div-positive" => {
+                        "signed quotient class minimum nonpower divisor is reachable"
+                    }
+                    "signedq256-div-negative" => {
+                        "signed quotient class minimum nonpower divisor is reachable"
+                    }
+                    "signedq256-rem-positive" => {
+                        "signed quotient class minimum nonpower divisor is reachable"
+                    }
+                    "signedq256-rem-negative" => {
+                        "signed quotient class minimum nonpower divisor is reachable"
+                    }
+                    "signedq256-div-positive-positive-context" => {
+                        "signed quotient class positive positive context is reachable"
+                    }
+                    "signedq256-div-positive-negative-context" => {
+                        "signed quotient class positive negative context is reachable"
+                    }
+                    "signedq256-div-negative-positive-context" => {
+                        "signed quotient class negative positive context is reachable"
+                    }
+                    "signedq256-div-negative-negative-context" => {
+                        "signed quotient class negative negative context is reachable"
+                    }
+                    "signedq256-rem-positive-positive-context" => {
+                        "signed quotient class positive positive context is reachable"
+                    }
+                    "signedq256-rem-positive-negative-context" => {
+                        "signed quotient class positive negative context is reachable"
+                    }
+                    "signedq256-rem-negative-positive-context" => {
+                        "signed quotient class negative positive context is reachable"
+                    }
+                    "signedq256-rem-negative-negative-context" => {
+                        "signed quotient class negative negative context is reachable"
+                    }
+                    "powerq256-byte-api" => "power quotient API unit quotient is reachable",
+                    "powerq256-product-api" => "power quotient product unit quotient is reachable",
+                    "powerq256-euclidean-api" => "power quotient Euclidean unit width is reachable",
+                    "powerq256-domain-api" => "power quotient domain native native is reachable",
+                    "powerq256-div" => "power quotient class minimum nonunit quotient is reachable",
+                    "powerq256-div-context" => "power quotient class original context is reachable",
+                    "powerq256-rem" => "power quotient class minimum nonunit quotient is reachable",
+                    "powerq256-rem-context" => "power quotient class original context is reachable",
+                    "unitq256-byte-api" => "unit quotient API unit divisor is reachable",
+                    "unitq256-euclidean-api" => "unit quotient Euclidean unit width is reachable",
+                    "unitq256-domain-api" => "unit quotient domain native native is reachable",
+                    "unitq256-div" => "unit quotient class minimum width is reachable",
+                    "unitq256-div-context" => "unit quotient class original context is reachable",
+                    "unitq256-rem" => "unit quotient class minimum width is reachable",
+                    "unitq256-rem-context" => "unit quotient class original context is reachable",
+                    "powerhot256-expansion-api" => "single hot membership unit width is reachable",
+                    "powerhot256-byte-api" => "single hot power API zero exponent is reachable",
+                    "powerhot256-coordinates-api" => {
+                        "single hot power coordinates unit width is reachable"
+                    }
+                    "powerhot256-successor-api" => {
+                        "single hot power recurrence unit base is reachable"
+                    }
+                    "powerhot256-domain-api" => {
+                        "single hot power domain native native is reachable"
+                    }
+                    "powerhot256-prepared-signed" => {
+                        "single hot power class minimum signed width is reachable"
+                    }
+                    "powerhot256-prepared-unsigned" => {
+                        "single hot power class maximum unsigned width is reachable"
+                    }
+                    "powerhot256-context-signed" => {
+                        "single hot power class signed original context is reachable"
+                    }
+                    "powerhot256-context-unsigned" => {
+                        "single hot power class unsigned original context is reachable"
+                    }
+                    "powerones256-byte-api" => "ones power API zero exponent is reachable",
+                    "powerones256-successor-api" => "ones power recurrence unit width is reachable",
+                    "powerones256-domain-api" => "ones power domain native native is reachable",
+                    "powerones256-prepared" => "ones power class minimum signed base is reachable",
+                    "powerones256-context" => "ones power class original context is reachable",
+                    "ones256-byte-api" => "ones API unit factor is reachable",
+                    "ones256-inverse-api" => "ones inverse unit width is reachable",
+                    "ones256-word-api" => "ones word minimum width is reachable",
+                    "ones256-right-domain-api" => "ones domain native native is reachable",
+                    "ones256-left-domain-api" => "ones domain native native is reachable",
+                    "ones256-right" => "ones class minimum signed width is reachable",
+                    "ones256-right-context" => "ones class original context is reachable",
+                    "ones256-left" => "ones class minimum signed width is reachable",
+                    "ones256-left-context" => "ones class original context is reachable",
+                    "signedpow256-byte-api" => "power signed API zero dividend is reachable",
+                    "signedpow256-coordinates-api" => {
+                        "power signed coordinates unit divisor is reachable"
+                    }
+                    "signedpow256-word-api" => "power signed word minimum width is reachable",
+                    "signedpow256-domain-api" => "power signed domain native native is reachable",
+                    "signedpow256-div" => "power signed class minimum nonunit divisor is reachable",
+                    "signedpow256-div-nonnegative-context" => {
+                        "power signed class nonnegative context is reachable"
+                    }
+                    "signedpow256-div-negative-context" => {
+                        "power signed class negative context is reachable"
+                    }
+                    "signedpow256-rem" => "power signed class minimum nonunit divisor is reachable",
+                    "signedpow256-rem-nonnegative-context" => {
+                        "power signed class nonnegative context is reachable"
+                    }
+                    "signedpow256-rem-negative-context" => {
+                        "power signed class negative context is reachable"
+                    }
+                    "signedsmall256-conversion-api" => {
+                        "small signed conversion minimum width is reachable"
+                    }
+                    "signedsmall256-byte-api" => "small signed API zero dividend is reachable",
+                    "signedsmall256-word-api" => "small signed word minimum width is reachable",
+                    "signedsmall256-domain-api" => "small signed domain native native is reachable",
+                    "signedsmall256-div" => "small signed class minimum positive pair is reachable",
+                    "signedsmall256-div-nonnegative-context" => {
+                        "small signed class nonnegative context is reachable"
+                    }
+                    "signedsmall256-div-negative-context" => {
+                        "small signed class negative context is reachable"
+                    }
+                    "signedsmall256-rem" => "small signed class minimum positive pair is reachable",
+                    "signedsmall256-rem-nonnegative-context" => {
+                        "small signed class nonnegative context is reachable"
+                    }
+                    "signedsmall256-rem-negative-context" => {
+                        "small signed class negative context is reachable"
+                    }
+                    "opposite256-conversion-api" => {
+                        "opposite conversion minimum width is reachable"
+                    }
+                    "opposite256-byte-api" => "opposite API positive dividend is reachable",
+                    "opposite256-context-domain-api" => {
+                        "opposite class minimum positive dividend is reachable"
+                    }
+                    "opposite256-div" => "opposite class minimum positive dividend is reachable",
+                    "opposite256-div-positive-context" => {
+                        "opposite class positive context is reachable"
+                    }
+                    "opposite256-div-negative-context" => {
+                        "opposite class negative context is reachable"
+                    }
+                    "opposite256-rem" => "opposite class minimum positive dividend is reachable",
+                    "opposite256-rem-positive-context" => {
+                        "opposite class positive context is reachable"
+                    }
+                    "opposite256-rem-negative-context" => {
+                        "opposite class negative context is reachable"
+                    }
+                    "multiply256-byte-api" => "multiplication API zero number is reachable",
+                    "multiply256-coordinates-api" => "multiplication API factor one is reachable",
+                    "multiply256-right" => "multiplication class minimum signed width is reachable",
+                    "multiply256-right-context" => {
+                        "multiplication class minimum signed width is reachable"
+                    }
+                    "multiply256-left" => "multiplication class minimum signed width is reachable",
+                    "multiply256-left-context" => {
+                        "multiplication class minimum signed width is reachable"
+                    }
+                    "division256-self-signed-domain-api" => {
+                        "division class native native sources is reachable"
+                    }
+                    "division256-byte-api" => "division API equal words are reachable",
+                    "division256-pow2-api" => "division API zero shift is reachable",
+                    "division256-self-div-unsigned" => "division class minimum width is reachable",
+                    "division256-self-div-unsigned-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-self-div-signed" => "division class minimum width is reachable",
+                    "division256-self-div-signed-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-self-rem-unsigned" => "division class minimum width is reachable",
+                    "division256-self-rem-unsigned-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-self-rem-signed" => "division class minimum width is reachable",
+                    "division256-self-rem-signed-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-smaller-div" => "division class minimum width is reachable",
+                    "division256-smaller-div-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-smaller-rem" => "division class minimum width is reachable",
+                    "division256-smaller-rem-context" => {
+                        "division class minimum width is reachable"
+                    }
+                    "division256-pow2-div" => "division class minimum width is reachable",
+                    "division256-pow2-div-context" => "division class minimum width is reachable",
+                    "division256-pow2-rem" => "division class minimum width is reachable",
+                    "division256-pow2-rem-context" => "division class minimum width is reachable",
+                    "special256-signed-api" => "special API zero over upper divisor is reachable",
+                    "special256-power-api" => "special API bit128 modulus is reachable",
+                    "special256-signed-div-unit" => "special minimum width is reachable",
+                    "special256-signed-div-unit-context" => "special minimum width is reachable",
+                    "special256-signed-rem-unit" => "special minimum width is reachable",
+                    "special256-signed-rem-unit-context" => "special minimum width is reachable",
+                    "special256-zero-div" => "special minimum width is reachable",
+                    "special256-zero-div-context" => "special minimum width is reachable",
+                    "special256-zero-rem" => "special minimum width is reachable",
+                    "special256-zero-rem-context" => "special minimum width is reachable",
+                    "special256-power-one" => "special minimum width is reachable",
+                    "special256-power-one-context" => "special minimum width is reachable",
+                    "special256-power-unit-base" => "special minimum width is reachable",
+                    "special256-power-unit-base-context" => "special minimum width is reachable",
+
+                    "unit256-div-one-reference" => "unit division reference upper bit is reachable",
+                    "unit256-api" => "unit API bit255 is reachable",
+                    "identity256-mul-right"
+                    | "identity256-mul-right-context"
+                    | "identity256-mul-left"
+                    | "identity256-mul-left-context"
+                    | "identity256-div-one"
+                    | "identity256-div-one-context"
+                    | "identity256-rem-one"
+                    | "identity256-rem-one-context" => "unit identity upper bit is reachable",
+
+                    "power256-zero-api" => "power bridge negative zero is reachable",
+                    "power256-unknown"
+                    | "power256-unknown-context"
+                    | "power256-negative"
+                    | "power256-negative-context"
+                    | "power256-zero"
+                    | "power256-zero-context" => {
+                        "wide power exponent wider than result is reachable"
+                    }
+
+                    "exception256-mul"
+                    | "exception256-mul-context"
+                    | "exception256-div"
+                    | "exception256-div-context"
+                    | "exception256-rem"
+                    | "exception256-rem-context" => "wide exception only lhs unknown is reachable",
+
+                    "arithmetic256-plus" => "wide plus upper X is reachable",
+                    "wiring256-plus" => "wide plus X sign extension is reachable",
+                    "logical256-truth-reference" => {
+                        "logical truth full zero extension is reachable"
+                    }
+                    "logical256-and-native-big"
+                    | "logical256-and-big-native"
+                    | "logical256-and-big-big"
+                    | "logical256-or-native-big"
+                    | "logical256-or-big-native"
+                    | "logical256-or-big-big" => "wide logical unknown is reachable",
+
+                    "conversion256-bigint" => "wide signed conversion minimum is reachable",
+                    "numeric256-order-api" => "ordering API high half difference is reachable",
+                    "ordering256-less-unsigned"
+                    | "ordering256-less-signed"
+                    | "ordering256-less-unknown"
+                    | "ordering256-less-eq-unsigned"
+                    | "ordering256-less-eq-signed"
+                    | "ordering256-less-eq-unknown"
+                    | "ordering256-greater-unsigned"
+                    | "ordering256-greater-signed"
+                    | "ordering256-greater-unknown"
+                    | "ordering256-greater-eq-unsigned"
+                    | "ordering256-greater-eq-signed"
+                    | "ordering256-greater-eq-unknown" => {
+                        if contract.name.ends_with("-unknown") {
+                            "wide ordering upper unknown is reachable"
+                        } else {
+                            "wide ordering known true is reachable"
+                        }
+                    }
+                    "wiring256-less"
+                    | "wiring256-less-eq"
+                    | "wiring256-greater"
+                    | "wiring256-greater-eq" => "wiring ordering signed operands are reachable",
                     "numeric256-add-api" => "addition API carry into high half is reachable",
                     "numeric256-add" => "numeric addition carry into bit128 is reachable",
                     "equality256-eq" => "wide equality upper unknown is reachable",
@@ -764,7 +1306,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 12);
+    assert_eq!(proof_shards, 32);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1155,7 +1697,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 27);
+    assert_eq!(all.len(), 47);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1178,7 +1720,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 13);
+    assert_eq!(rows("value").len(), 33);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

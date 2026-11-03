@@ -2,9 +2,9 @@
 //! equality/inequality and all ordering pairs for widths 1..=4 are
 //! proved in public_comparison.rs.
 //! Keep every production call on the shared cache before later observations;
-//! retain all ordering checks and independent reference anchors. Prepared BigUint
-//! equality kernels and original argument wiring are proved in
-//! public_big_ops/followup.rs; retain actual-library boundary value comparisons.
+//! retain native ordering checks and independent reference anchors. Prepared
+//! BigUint comparison kernels and original argument wiring are proved in
+//! public_big_ops/{followup,ordering}.rs. Retain actual-library boundary values.
 #[path = "../wide_cases.rs"]
 mod wide_cases;
 
@@ -63,22 +63,14 @@ fn check_comparisons(x: Operand, y: Operand, result_widths: &[usize]) {
                 prefix_matches && native_sources && proved_prefix.get(calls) == Some(&(op, width));
             prefix_matches = covered;
             calls += 1;
-            let equality = matches!(
-                kind,
-                Comparison::Equal
-                    | Comparison::NotEqual
-                    | Comparison::WildcardEqual
-                    | Comparison::WildcardNotEqual
-            );
-            let wide = equality
-                && x.width.max(y.width) >= 65
+            let wide = x.width.max(y.width) >= 65
                 && (1..=128).contains(&width)
                 && wide_cases::normalized(x)
                 && wide_cases::normalized(y);
             if wide {
                 wide_cases::shape(&result, width, false);
             }
-            // Ordering calls and unproved domains retain their value assertions.
+            // Retain actual-library boundary values and domains outside the proofs.
             if covered
                 || (wide && !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)))
             {

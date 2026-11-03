@@ -88,6 +88,26 @@ pub fn reference_planes(width: usize, bit: impl Fn(usize) -> Logic4) -> (u128, u
     (payload, mask_xz)
 }
 
+/// IEEE1800-2023 11.8.2: exact membership in a known single-hot expansion class.
+/// Normalized source words and nonnarrowing widths1..128; flags are independent.
+/// Widening cannot introduce a lone high bit: sign extension also retains the
+/// original sign bit. Membership therefore requires the original single-hot
+/// word and either no extension of its sign bit or equal widths.
+pub fn single_hot_expansion_member(
+    word: u128,
+    source: usize,
+    target: usize,
+    source_signed: bool,
+    use_sign: bool,
+    position: usize,
+) -> bool {
+    assert!((1..=128).contains(&source) && (source..=128).contains(&target));
+    assert!(position < target && word & !(u128::MAX >> (128 - source)) == 0);
+    position < source
+        && word == 1u128 << position
+        && (source == target || !source_signed || !use_sign || position + 1 < source)
+}
+
 #[cfg(test)]
 mod tests {
     use super::reference_planes;

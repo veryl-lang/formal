@@ -2,6 +2,7 @@
 //! 1..=64, including the complete operator/cache history and source preservation.
 //! BigUint bitwise/NOT/reduction operators are also proved in public_big_ops.rs
 //! under numeric/cache contracts; followup.rs proves preparation wiring.
+//! logical.rs covers mixed-storage &&/|| with observed zero/result extension.
 //! Retain finite actual
 //! library/cache histories, narrowing casts and independent scalar anchors.
 #[path = "../wide_cases.rs"]
@@ -72,8 +73,7 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
             if wide {
                 wide_cases::shape(&result, width, false);
             }
-            // Preserve all calls/cache history and all logical-operation checks.
-            // The joint proofs replace these bitwise value comparisons only.
+            // Preserve all calls/cache history and boundary value comparisons.
             if covered
                 || (wide && !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)))
             {
@@ -97,13 +97,25 @@ fn check_binary(x: Operand, y: Operand, widths: &[usize]) {
         }
     }
     for (op, kind) in [(Op::LogicAnd, BitOp::And), (Op::LogicOr, BitOp::Or)] {
-        let expected = gates::binary(
-            gates::logical_truth(x.planes, x.width),
-            gates::logical_truth(y.planes, y.width),
-            kind,
-        );
+        let mut expected = None;
         for width in [1, 8, 65] {
             let result = op.eval_value_binary(&lhs, &rhs, width, signed, &mut cache);
+            let wide = x.width.max(y.width) >= 65
+                && wide_cases::normalized(x)
+                && wide_cases::normalized(y);
+            if wide {
+                wide_cases::shape(&result, width, false);
+                if !(wide_cases::boundary(x.width) && wide_cases::boundary(y.width)) {
+                    continue;
+                }
+            }
+            let expected = *expected.get_or_insert_with(|| {
+                gates::binary(
+                    gates::logical_truth(x.planes, x.width),
+                    gates::logical_truth(y.planes, y.width),
+                    kind,
+                )
+            });
             assert_eq!(
                 planes(&result),
                 reference_planes(width, |position| if position == 0 {

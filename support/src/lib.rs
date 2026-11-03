@@ -18,6 +18,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+pub mod evidence;
 pub mod summary;
 use summary::{Phase, Status, Summary};
 
@@ -581,6 +582,13 @@ impl Runner<'_> {
             mutation_passes: Some(0),
             ..Summary::default()
         };
+        let journal = logs.join("results.tsv");
+        fs::write(&journal, evidence::HEADER).unwrap();
+        fs::write(
+            logs.join("identity.json"),
+            std::env::var("FORMAL_EVIDENCE").unwrap_or_else(|_| "{}".into()),
+        )
+        .unwrap();
         let summary_path = logs.join("summary.txt");
         summary.write(&summary_path).unwrap();
         let mut positives = 0;
@@ -592,11 +600,23 @@ impl Runner<'_> {
                 summary.active_harness = contract.harness.into();
                 summary.positive_passes = Some(positives);
                 summary.write(&summary_path).unwrap();
+                evidence::record(&journal, contract, Phase::Positive, "", "running", 0, None)
+                    .unwrap();
                 let start = Instant::now();
                 let output = backend.run(self.manifest, &build_target, contract, Phase::Positive);
                 let log = output_text(&output);
                 fs::write(logs.join(format!("{}.log", contract.name)), &log).unwrap();
                 let accepted = backend.positive(output.status.success(), &log, contract);
+                evidence::record(
+                    &journal,
+                    contract,
+                    Phase::Positive,
+                    "",
+                    evidence::outcome(accepted, output.status.code(), &log),
+                    start.elapsed().as_millis(),
+                    output.status.code(),
+                )
+                .unwrap();
                 if !accepted {
                     summary.status = Status::Failed;
                     summary.exit_code = format!("{:?}", output.status.code());
@@ -668,6 +688,16 @@ impl Runner<'_> {
                 summary.active_mutation = mutant.name.into();
                 summary.mutation_passes = Some(negatives);
                 summary.write(&summary_path).unwrap();
+                evidence::record(
+                    &journal,
+                    mutant.contract,
+                    Phase::Mutation,
+                    mutant.name,
+                    "running",
+                    0,
+                    None,
+                )
+                .unwrap();
                 let start = Instant::now();
                 let output = backend.run(
                     &scratch.0.join(relative_manifest),
@@ -684,6 +714,16 @@ impl Runner<'_> {
                     fs::write(logs.join(format!("{}.log", mutant.name)), &log).unwrap();
                 }
                 let accepted = unchanged && backend.mutation(&output, &log, mutant.contract);
+                evidence::record(
+                    &journal,
+                    mutant.contract,
+                    Phase::Mutation,
+                    mutant.name,
+                    evidence::outcome(accepted, output.status.code(), &log),
+                    start.elapsed().as_millis(),
+                    output.status.code(),
+                )
+                .unwrap();
                 if !accepted {
                     summary.status = Status::Failed;
                     summary.exit_code = format!("{:?}", output.status.code());
@@ -1198,6 +1238,26 @@ fn check() {
         assert_eq!(summary.positive_passes, Some(1));
         assert_eq!(summary.mutation_passes, Some(1));
         assert_eq!(summary.active_mutation, "original-control");
+        let evidence = fs::read_to_string(run.join("results.tsv")).unwrap();
+        let outcomes: Vec<_> = evidence
+            .lines()
+            .skip(1)
+            .map(|line| {
+                let fields: Vec<_> = line.split('\t').collect();
+                (fields[0], fields[3], fields[4])
+            })
+            .collect();
+        assert_eq!(
+            outcomes,
+            vec![
+                ("positive", "", "running"),
+                ("positive", "", "passed"),
+                ("mutation", "changed", "running"),
+                ("mutation", "changed", "passed"),
+                ("mutation", "original-control", "running"),
+                ("mutation", "original-control", "failed"),
+            ]
+        );
         assert_eq!(summary.exit_code, "Some(0)");
         assert_ne!(summary.build_target, summary.mutation_build_target);
         assert!(

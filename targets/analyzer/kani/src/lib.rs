@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 //! Production analyzer operations through ordinary crate dependencies.
 //!
 //! Each module states its quantified domain and caller boundary. Native value inputs

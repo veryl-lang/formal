@@ -25,6 +25,7 @@ fn init() {
     unsafe {
         TAG = u32::from(t) << 16;
         NEXT = 1;
+        ordering::reset();
     }
 }
 fn put(n: N) -> num_bigint::BigUint {
@@ -276,6 +277,22 @@ kani::stub_set!(
     stub(<num_bigint::BigUint as num_traits::Zero>::is_zero, zero),
     stub(<num_bigint::BigUint as num_traits::One>::one, one),
     stub(num_bigint::BigUint::eq, eq),
+    stub(
+        num_bigint::BigUint::cmp,
+        crate::public_big_ops::ordering::unsigned_cmp
+    ),
+    stub(
+        num_bigint::BigInt::from_biguint,
+        crate::public_big_ops::ordering::from_biguint
+    ),
+    stub(
+        num_bigint::BigInt::cmp,
+        crate::public_big_ops::ordering::signed_cmp
+    ),
+    stub(
+        num_bigint::BigInt::eq,
+        crate::public_big_ops::ordering::signed_eq
+    ),
     stub(
         <num_bigint::BigUint as num_traits::ToPrimitive>::to_u64,
         to64
@@ -1018,4 +1035,35 @@ fn wide_reduction_logic_not_matches_scalar_bits() {
     reduction::<6>();
 }
 
+mod exceptions;
 mod followup;
+mod identities;
+mod logical;
+mod plus;
+mod power;
+
+mod ordering;
+
+mod special;
+
+mod division;
+
+mod multiplication;
+
+mod opposite;
+
+mod signed_small;
+
+mod signed_power_two;
+
+mod ones;
+
+mod ones_power;
+
+mod hot_power;
+
+mod unit_quotient;
+
+mod power_quotient;
+
+mod signed_power_quotient;

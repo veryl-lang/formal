@@ -1,0 +1,140 @@
+{
+  "families": [
+    {
+      "id": "format",
+      "title": "Formatting",
+      "operators": "",
+      "scope": "AST/comment preservation and formatting idempotence",
+      "bounds": "128 seeds × LF/CRLF; correlated formatter options",
+      "native": "",
+      "big": "",
+      "direct": "Reparse and compare normalized ASTs and ordered comments",
+      "remaining": "No arbitrary grammar or formatter-option cross-product",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/frontend/tests/tests/cases/formatting.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/frontend/tests/tests/cases/formatting.rs",
+        "targets/frontend/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "format-roundtrip"
+        ]
+      }
+    },
+    {
+      "id": "positions",
+      "title": "Token positions & byte spans",
+      "operators": "",
+      "scope": "Unicode token/Finder coordinates and byte-span arithmetic",
+      "bounds": "Kani: ordered u32 offsets/length; 64-bit usize",
+      "native": "",
+      "big": "",
+      "direct": "Finite Unicode/newline fixtures and synthetic native boundaries",
+      "remaining": "No arbitrary tokenization, multiline Finder, source provenance, or 32-bit span theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/frontend/kani/src/positions.rs",
+          "label": "Kani"
+        },
+        {
+          "path": "targets/frontend/tests/tests/cases/positions.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/frontend/kani/src/positions.rs",
+        "targets/frontend/tests/tests/cases/positions.rs",
+        "targets/frontend/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "byte-span"
+        ],
+        "cbmc": [],
+        "direct": [
+          "unicode-positions",
+          "range-positions",
+          "byte-span"
+        ]
+      }
+    },
+    {
+      "id": "mapping",
+      "title": "Source maps",
+      "operators": "",
+      "scope": "Serialized source-map lookup against a predecessor model",
+      "bounds": "5 mapping points; queries at lines 1–6, columns 1–30",
+      "native": "",
+      "big": "",
+      "direct": "One-based numeric coordinates and Unicode source contents",
+      "remaining": "No arbitrary maps, URI escaping, or missing-file behavior",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/frontend/tests/tests/cases/mapping.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/frontend/tests/tests/cases/mapping.rs",
+        "targets/frontend/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "source-map"
+        ]
+      }
+    },
+    {
+      "id": "lsp",
+      "title": "LSP coordinates & protocol",
+      "operators": "",
+      "scope": "UTF-16 coordinates and production JSON-RPC paths",
+      "bounds": "Finite Unicode prefixes; LF/CRLF wire documents",
+      "native": "",
+      "big": "",
+      "direct": "Definition, diagnostics, and semantic tokens at matching document versions",
+      "remaining": "Other LSP features, encoding negotiation, and arbitrary diagnostic sources are out of scope",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/frontend/tests/tests/cases/lsp.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/frontend/tests/tests/cases/lsp.rs",
+        "targets/frontend/contracts.rs"
+      ],
+      "clauses": [
+        "LSP 3.17: Position"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "lsp-coordinates",
+          "lsp-wire"
+        ]
+      }
+    }
+  ]
+}

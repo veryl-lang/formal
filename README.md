@@ -14,8 +14,8 @@ support/     Shared runners and CI CLI
 
 ## Running
 
-Install Rust stable, a C compiler, and GNU `timeout`, then run from the repository
-root:
+Install Rust stable, a C compiler, and GNU `timeout`. The dashboard and host-tool
+bootstrap also require Python 3. Run from the repository root:
 
 ```sh
 git clone --recurse-submodules https://github.com/veryl-lang/formal.git
@@ -27,14 +27,18 @@ cargo run --locked --manifest-path support/cli/Cargo.toml -- run cache-contracts
 
 `plan CHECK SUITE` lists the commands; `run CHECK SUITE` executes them. Available
 check/suite pairs are defined in the [catalog](support/cli/src/checks.rs).
-The value target uses `native`, `storage`, `shifts`, `logic`, `arithmetic`, and
-`nonlinear` suites.
+The value target separates `native` checks from proof shards such as `storage`,
+`big-ordering`, and `nonlinear`.
 Omit `--mode positive` to include mutation checks. On Ubuntu, `setup CHECK SUITE`
 installs additional verification tools required by the suite.
 
 The Veryl checkout must match the pinned revision and have no source changes.
 Logs and failure fixtures are written under `target/` directories; `report`
 generates a verification summary.
+
+`dashboard` builds a static [verification dashboard](support/dashboard/README.md)
+from all target catalogs and optional runner evidence. CI attaches the HTML and
+JSON as `formal-dashboard-*` artifacts.
 
 ## CI
 

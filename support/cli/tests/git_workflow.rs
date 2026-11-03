@@ -247,7 +247,7 @@ fn binary_resolves_paths_from_its_execution_directory() {
     let event = f._directory.path().join("event.json");
     let output = f._directory.path().join("output");
     for (event_name, inputs, mode, shards) in [
-        ("push", Value::Null, "all", 27),
+        ("push", Value::Null, "all", 47),
         (
             "workflow_dispatch",
             json!({"target":"simulator", "mode":"positive"}),
@@ -624,4 +624,114 @@ fn candidate_artifact_covers_every_committed_formal_lock_file() {
         .unwrap();
     let listed = git(repo, &["ls-files", "--", "Cargo.lock", "**/Cargo.lock"]);
     assert_eq!(listed.lines().collect::<Vec<_>>(), locks::FILES);
+}
+
+#[test]
+fn candidate_checkout_aligns_initialized_nested_submodules_without_discarding_edits() {
+    struct LocalGit;
+    impl Commands for LocalGit {
+        fn run(&mut self, root: &Path, program: &str, args: &[&str]) -> Result<String> {
+            if program == "git" {
+                let mut local = vec!["-c", "protocol.file.allow=always"];
+                local.extend_from_slice(args);
+                Process.run(root, program, &local)
+            } else {
+                Process.run(root, program, args)
+            }
+        }
+    }
+    fn init(root: &Path) {
+        fs::create_dir_all(root).unwrap();
+        git(root, &["init", "--initial-branch=master"]);
+        identity(root);
+    }
+    fn commit(root: &Path, paths: &[&str]) -> String {
+        let mut args = vec!["add"];
+        args.extend_from_slice(paths);
+        git(root, &args);
+        git(root, &["commit", "-m", "Update fixture"]);
+        git(root, &["rev-parse", "HEAD"])
+    }
+    fn add(parent: &Path, source: &Path, path: &str, revision: &str) {
+        git(
+            parent,
+            &[
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                source.to_str().unwrap(),
+                path,
+            ],
+        );
+        git(&parent.join(path), &["checkout", "--detach", revision]);
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let base = directory.path();
+    let leaf = base.join("leaf");
+    init(&leaf);
+    fs::write(leaf.join("asset.txt"), "old\n").unwrap();
+    let leaf_old = commit(&leaf, &["asset.txt"]);
+    fs::write(leaf.join("asset.txt"), "new\n").unwrap();
+    let leaf_new = commit(&leaf, &["asset.txt"]);
+
+    let docs = base.join("docs");
+    init(&docs);
+    add(&docs, &leaf, "assets", &leaf_old);
+    let docs_old = commit(&docs, &[".gitmodules", "assets"]);
+    git(&docs.join("assets"), &["checkout", "--detach", &leaf_new]);
+    let docs_new = commit(&docs, &["assets"]);
+
+    let upstream = base.join("upstream");
+    init(&upstream);
+    add(&upstream, &docs, "doc", &docs_old);
+    add(&upstream, &leaf, "optional", &leaf_old);
+    let pinned = commit(&upstream, &[".gitmodules", "doc", "optional"]);
+    git(&upstream.join("doc"), &["checkout", "--detach", &docs_new]);
+    git(
+        &upstream.join("optional"),
+        &["checkout", "--detach", &leaf_new],
+    );
+    let candidate = commit(&upstream, &["doc", "optional"]);
+
+    let root = base.join("worker");
+    fs::create_dir(&root).unwrap();
+    git(
+        base,
+        &[
+            "clone",
+            upstream.to_str().unwrap(),
+            root.join("veryl").to_str().unwrap(),
+        ],
+    );
+    let veryl = root.join("veryl");
+    git(&veryl, &["checkout", "--detach", &pinned]);
+    LocalGit
+        .run(
+            &veryl,
+            "git",
+            &["submodule", "update", "--init", "--recursive", "--", "doc"],
+        )
+        .unwrap();
+    assert_eq!(git(&veryl, &["status", "--porcelain"]), "");
+
+    nightly::checkout(&root, &candidate, &mut LocalGit).unwrap();
+    assert_eq!(git(&veryl.join("doc"), &["rev-parse", "HEAD"]), docs_new);
+    assert_eq!(
+        git(&veryl.join("doc/assets"), &["rev-parse", "HEAD"]),
+        leaf_new
+    );
+    assert!(!veryl.join("optional/.git").exists());
+    assert_eq!(git(&veryl, &["status", "--porcelain"]), "");
+
+    // Reconcile stale nested revisions even when the parent already matches.
+    git(&veryl.join("doc"), &["checkout", "--detach", &docs_old]);
+    nightly::checkout(&root, &candidate, &mut LocalGit).unwrap();
+    assert_eq!(git(&veryl, &["status", "--porcelain"]), "");
+
+    let edited = veryl.join("doc/assets/asset.txt");
+    fs::write(&edited, "local edit\n").unwrap();
+    assert!(nightly::checkout(&root, &candidate, &mut LocalGit).is_err());
+    assert_eq!(fs::read_to_string(edited).unwrap(), "local edit\n");
 }

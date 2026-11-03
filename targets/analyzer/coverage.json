@@ -1,0 +1,1113 @@
+{
+  "families": [
+    {
+      "id": "assignment",
+      "title": "Part assignment",
+      "operators": "assign / part-select",
+      "native": "1–64 bits",
+      "big": "1–128 bits · 4 storage variants",
+      "direct": "Boundary cases · 14-bit regressions",
+      "remaining": "Type and width resolution: separate contracts",
+      "assumptions": [
+        "Normalized 4-state inputs; indices are resolved usize values.",
+        "Includes out-of-range, reversed, and partially overlapping ranges. RHS preparation is a caller precondition.",
+        "BigUint numeric APIs are modeled. Allocation is outside the proof scope."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_big_ops.rs",
+        "targets/analyzer/tests/tests/partial_assignment.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "assignment256-high",
+          "assignment256-native-native",
+          "assignment256-native-big",
+          "assignment256-big-native",
+          "assignment256-big-big",
+          "partial-assignment",
+          "public-assignment-native"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "bitwise",
+      "title": "Bitwise operators",
+      "operators": "&  |  ^  ~^  ~",
+      "native": "1–64 bits · all 4-state inputs",
+      "big": "65–128 bits · prepared operands",
+      "direct": "Boundary cases · BigUint · cache",
+      "remaining": "Arbitrary expression trees are unproved",
+      "assumptions": [
+        "Separate contracts check width and sign propagation from 1–128-bit inputs into non-narrowing 65–128-bit contexts.",
+        "Wiring contracts check operand identity, width, and sign; kernel and extension contracts check values.",
+        "Numeric APIs and mask access are modeled. Direct tests compare the actual BigUint and MaskCache implementations."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_gates.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs",
+        "targets/analyzer/tests/tests/gates.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.8",
+        "§11.8.2"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wiring256-and",
+          "wiring256-or",
+          "wiring256-xor",
+          "wiring256-xnor",
+          "wiring256-not",
+          "bitwise256-and",
+          "bitwise256-or",
+          "bitwise256-xor",
+          "bitwise256-xnor",
+          "not256",
+          "bitwise",
+          "bit-not",
+          "public-bitwise-native",
+          "public-not-native",
+          "public-bitwise-widened-mutation-witness",
+          "public-bitwise-widened-native-trace"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "shift",
+      "title": "Shifts",
+      "operators": "<<  >>  <<<  >>>",
+      "native": "Kernels · width-specific public APIs",
+      "big": "65–128 bits · 4 operators",
+      "direct": "BigUint · X/Z amounts · sign fill",
+      "remaining": "Narrowing contexts are out of scope",
+      "assumptions": [
+        "Input widths: 1–128 bits. Contexts do not narrow operands; signedness is already resolved.",
+        "Shift amounts: 1–128 bits, including signed, X/Z, and oversized amounts. Arithmetic right shift is split by signedness.",
+        "Left-shift intermediates retain up to 256 bits; truncation of upper bits is checked."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_shift.rs",
+        "targets/analyzer/kani/src/public_big_ops.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs",
+        "targets/analyzer/tests/tests/shift.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.10",
+        "§11.8.2"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "wiring256-left",
+          "wiring256-right",
+          "wiring256-arith-left",
+          "wiring256-arith-right",
+          "shift256-left",
+          "shift256-right",
+          "shift256-arith-left",
+          "shift256-arith-right-signed",
+          "shift256-arith-right-unsigned",
+          "public-small-shift-continuation-width-1",
+          "public-small-shift-continuation-width-2",
+          "public-small-shift-continuation-width-3",
+          "public-small-shift-continuation-width-4",
+          "public-shift-boundary-width-31",
+          "public-shift-boundary-width-32",
+          "public-shift-boundary-width-63",
+          "public-shift-boundary-width-64",
+          "public-shift-widening-4-to-8",
+          "public-shift-widening-4-to-64",
+          "public-big-amount-decoding-128",
+          "public-word64-big-amount-small",
+          "public-word64-big-amount-high",
+          "public-word64-big-amount-upper-x",
+          "public-word64-big-amount-upper-z",
+          "public-word32-big-amount-small",
+          "public-word32-big-amount-high",
+          "public-word32-big-amount-upper-x",
+          "public-word32-big-amount-upper-z",
+          "public-shift-big-amount-width-1-small",
+          "public-shift-big-amount-width-1-high",
+          "public-shift-big-amount-width-1-upper-x",
+          "public-shift-big-amount-width-1-upper-z",
+          "public-shift-big-amount-width-2-small",
+          "public-shift-big-amount-width-2-high",
+          "public-shift-big-amount-width-2-upper-x",
+          "public-shift-big-amount-width-2-upper-z",
+          "public-shift-big-amount-width-31-small",
+          "public-shift-big-amount-width-31-high",
+          "public-shift-big-amount-width-31-upper-x",
+          "public-shift-big-amount-width-31-upper-z",
+          "public-shift-big-amount-width-63-small",
+          "public-shift-big-amount-width-63-high",
+          "public-shift-big-amount-width-63-upper-x",
+          "public-shift-big-amount-width-63-upper-z",
+          "logical-left-shift",
+          "public-shift-unsigned-native",
+          "logical-right-shift",
+          "arithmetic-left-shift",
+          "arithmetic-right-shift"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "equality",
+      "title": "Equality & wildcards",
+      "operators": "==  !=  ==?  !=?",
+      "native": "Equality: 1–64 bits; others: per contract",
+      "big": "Inputs 65–128 / result 1–128 bits",
+      "direct": "Widths 1, 64, 65, 128",
+      "remaining": "Case equality and floating point are out of scope",
+      "assumptions": [
+        "Kernels cover normalized, equal-width 65–128-bit operands over all 4-state inputs.",
+        "At least one original operand is BigUint. Common operand width and result width are checked independently.",
+        "Known-bit mismatches take precedence over X/Z. Wildcards apply to RHS X/Z bits."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_comparison.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs",
+        "targets/analyzer/tests/tests/comparison.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.5",
+        "§11.4.6"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "equality256-eq",
+          "equality256-ne",
+          "equality256-wild-eq",
+          "equality256-wild-ne",
+          "wiring256-eq",
+          "wiring256-ne",
+          "wiring256-wild-eq",
+          "wiring256-wild-ne",
+          "public-inequality-native-unsigned-continuation",
+          "public-inequality-native-signed-continuation",
+          "public-small-wildcard-not-equal-width-1-by-4",
+          "public-small-wildcard-not-equal-width-2-by-4",
+          "public-small-wildcard-not-equal-width-3-by-4",
+          "public-small-wildcard-not-equal-width-4-by-1",
+          "public-small-wildcard-not-equal-width-4-by-2",
+          "public-small-wildcard-not-equal-width-4-by-3",
+          "public-small-wildcard-not-equal-width-4-by-4",
+          "public-small-wildcard-inequality-unsigned-continuation",
+          "public-small-wildcard-inequality-signed-continuation",
+          "public-small-wildcard-equal-width-1-by-4",
+          "public-small-wildcard-equal-width-2-by-4",
+          "public-small-wildcard-equal-width-3-by-4",
+          "public-small-wildcard-equal-width-4-by-1",
+          "public-small-wildcard-equal-width-4-by-2",
+          "public-small-wildcard-equal-width-4-by-3",
+          "public-small-wildcard-equal-width-4-by-4",
+          "public-small-wildcard-equality-continuation",
+          "equality",
+          "public-equality-native",
+          "inequality",
+          "wildcard-equality",
+          "wildcard-inequality"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "arithmetic",
+      "title": "Add/subtract & negation",
+      "operators": "+  −  unary −",
+      "native": "Kernels: 1–64 bits; public APIs: per contract",
+      "big": "65–128 bits · all 4-state inputs",
+      "direct": "Boundary cases · carry · BigUint",
+      "remaining": "Unary plus follows the documented SV-UPLUS identity interpretation; arbitrary expression trees are unproved",
+      "assumptions": [
+        "Prepared 65–128-bit addition, subtraction, and unary negation propagate any X/Z input to the entire result. Unary plus separately preserves prepared four-state planes under the SV-UPLUS identity interpretation.",
+        "Separate contracts check width and sign propagation from 1–128-bit inputs into non-narrowing contexts.",
+        "An independent model computes bitwise carry. Mutations check detection of a leaked 129th bit.",
+        "Unary-plus composition covers original widths 1–128 and nonnarrowing contexts 65–128 with independent source/caller signs. A value-preserving expansion summary is combined with observations of source identity, requested width and sign.",
+        "IEEE 1800-2023 Table 11-6 describes unary plus as identity; its precedence over the general arithmetic X/Z sentence remains unresolved here. X/Z equivalence checks this interpretation, not unconditional standard conformance."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/arithmetic.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs",
+        "targets/analyzer/tests/tests/arithmetic.rs",
+        "targets/analyzer/kani/src/public_big_ops/plus.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.3",
+        "§11.6.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "arithmetic256-add",
+          "arithmetic256-sub",
+          "arithmetic256-neg",
+          "wiring256-add",
+          "wiring256-sub",
+          "wiring256-neg",
+          "add-sub",
+          "negation",
+          "unary-plus",
+          "public-arithmetic-add",
+          "public-arithmetic-subtract",
+          "public-arithmetic-initial-pair",
+          "public-arithmetic-unsigned-growth-plus",
+          "public-arithmetic-unsigned-growth-negate",
+          "public-arithmetic-signed-growth-plus",
+          "public-arithmetic-signed-growth-negate",
+          "public-binary-natural-signed-add",
+          "public-binary-natural-signed-subtract",
+          "public-binary-widened-unsigned-add",
+          "public-binary-widened-unsigned-subtract",
+          "public-binary-widened-signed-add",
+          "public-binary-widened-signed-subtract",
+          "public-binary-word64",
+          "public-arithmetic-unary-native",
+          "public-arithmetic",
+          "public-arithmetic-plus",
+          "public-arithmetic-negate",
+          "arithmetic256-plus",
+          "wiring256-plus"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "ordering",
+      "title": "Relational comparison",
+      "operators": "<  <=  >  >=",
+      "native": "Small widths · continuations",
+      "big": "Prepared 65–128 / result 1–128 bits",
+      "direct": "BigUint/cache integration · storage boundaries",
+      "remaining": "Arbitrary ASTs, floating point, and general native public traces are outside this composition",
+      "assumptions": [
+        "Kernels partition known unsigned, known signed, and X/Z-containing inputs. Together they cover all normalized 65–128-bit planes and result widths 1–128.",
+        "Original source widths are 1–128 bits with at least one BigUint operand. Wiring checks operand identity, common width, resolved sign, and independent result width; expansion has separate proofs.",
+        "The caller supplies resolved signedness. IEEE 1800-2023 11.4.4 requires both operands signed for signed comparison; any X/Z makes the result X.",
+        "BigInt conversion is separately proved against signed i128 decoding. Numeric sign/magnitude construction and order use bounded API models proved against a scalar bit fold.",
+        "In the unknown partition, arbitrary numeric comparator results prove X dominance. A path guard verifies that the unsigned comparator abstraction is actually exercised.",
+        "Actual BigUint, BigInt, and shared MaskCache behavior remains checked at native/BigUint boundary widths."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_comparison.rs",
+        "targets/analyzer/tests/tests/comparison.rs",
+        "targets/analyzer/kani/src/public_big_ops/ordering.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.4",
+        "§11.8.2"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "public-less-equal-left-width4",
+          "public-less-equal-right-width4",
+          "public-small-greater-equal-width-1-by-4",
+          "public-small-greater-equal-width-2-by-4",
+          "public-small-greater-equal-width-3-by-4",
+          "public-small-greater-equal-width-4-by-1",
+          "public-small-greater-equal-width-4-by-2",
+          "public-small-greater-equal-width-4-by-3",
+          "public-small-greater-equal-width-4-by-4",
+          "public-small-greater-equal-width-1-by-1",
+          "public-small-greater-equal-width-1-by-2",
+          "public-small-greater-equal-width-1-by-3",
+          "public-small-greater-equal-width-2-by-1",
+          "public-small-greater-equal-width-2-by-2",
+          "public-small-greater-equal-width-2-by-3",
+          "public-small-greater-equal-width-3-by-1",
+          "public-small-greater-equal-width-3-by-2",
+          "public-small-greater-equal-width-3-by-3",
+          "public-small-greater-width-1-by-4",
+          "public-small-greater-width-2-by-4",
+          "public-small-greater-width-3-by-4",
+          "public-small-greater-width-4-by-1",
+          "public-small-greater-width-4-by-2",
+          "public-small-greater-width-4-by-3",
+          "public-small-greater-width-4-by-4",
+          "public-small-greater-width-1-by-1",
+          "public-small-greater-width-1-by-2",
+          "public-small-greater-width-1-by-3",
+          "public-small-greater-width-2-by-1",
+          "public-small-greater-width-2-by-2",
+          "public-small-greater-width-2-by-3",
+          "public-small-greater-width-3-by-1",
+          "public-small-greater-width-3-by-2",
+          "public-small-greater-width-3-by-3",
+          "public-small-less-equal-width-1-by-1",
+          "public-small-less-equal-width-1-by-2",
+          "public-small-less-equal-width-1-by-3",
+          "public-small-less-equal-width-2-by-1",
+          "public-small-less-equal-width-2-by-2",
+          "public-small-less-equal-width-2-by-3",
+          "public-small-less-equal-width-3-by-1",
+          "public-small-less-equal-width-3-by-2",
+          "public-small-less-equal-width-3-by-3",
+          "public-small-less-width-1-by-4",
+          "public-small-less-width-2-by-4",
+          "public-small-less-width-3-by-4",
+          "public-small-less-width-4-by-1",
+          "public-small-less-width-4-by-2",
+          "public-small-less-width-4-by-3",
+          "public-small-less-width-4-by-4",
+          "public-small-less-unsigned-continuation",
+          "public-small-less-signed-continuation",
+          "less-than",
+          "less-equal",
+          "greater-than",
+          "greater-equal",
+          "ordering256-less-unsigned",
+          "ordering256-less-signed",
+          "ordering256-less-unknown",
+          "ordering256-less-eq-unsigned",
+          "ordering256-less-eq-signed",
+          "ordering256-less-eq-unknown",
+          "ordering256-greater-unsigned",
+          "ordering256-greater-signed",
+          "ordering256-greater-unknown",
+          "ordering256-greater-eq-unsigned",
+          "ordering256-greater-eq-signed",
+          "ordering256-greater-eq-unknown",
+          "wiring256-less",
+          "wiring256-less-eq",
+          "wiring256-greater",
+          "wiring256-greater-eq"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "reduction",
+      "title": "Reductions",
+      "operators": "&  ~&  |  ~|  ^  ~^  !",
+      "native": "Width-specific · continuations",
+      "big": "Inputs 65–128 / result 1–128 bits",
+      "direct": "BigUint · width boundaries",
+      "remaining": "Expression side effects are out of scope",
+      "assumptions": [
+        "An independent scalar 4-state fold checks every bit.",
+        "Numeric APIs, mask access, and result extension rely on separate contracts."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_gates.rs",
+        "targets/analyzer/kani/src/public_big_ops.rs",
+        "targets/analyzer/tests/tests/gates.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.7",
+        "§11.4.9"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "reduction256-and",
+          "reduction256-nand",
+          "reduction256-or",
+          "reduction256-nor",
+          "reduction256-xor",
+          "reduction256-xnor",
+          "reduction256-logic-not",
+          "public-reduction-and-native-continuation",
+          "reduction-and-reference",
+          "public-reduction-and-width65",
+          "public-reduction-and-width128",
+          "public-reduction-nand-native-continuation",
+          "public-reduction-nand-width65",
+          "public-reduction-nand-width128",
+          "reduction-or-reference",
+          "public-reduction-or-native-continuation",
+          "public-reduction-or-width65",
+          "public-reduction-or-width128",
+          "public-reduction-nor-native-continuation",
+          "public-reduction-nor-width65",
+          "public-reduction-nor-width128",
+          "reduction-xor-reference",
+          "public-reduction-xor-native-continuation",
+          "public-reduction-xor-width65",
+          "public-reduction-xor-width128",
+          "public-reduction-xnor-native-continuation",
+          "public-reduction-xnor-width65",
+          "public-reduction-xnor-width128",
+          "public-logical-not-native-continuation",
+          "public-logical-not-width65",
+          "public-logical-not-width128",
+          "reductions"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "resize",
+      "title": "Resize & sign extension",
+      "operators": "expand / trunc",
+      "native": "Native kernels · wide conversions",
+      "big": "Inputs 65–128 / requested 1–128 bits",
+      "direct": "Value conversion · X/Z sign bits",
+      "remaining": "Sentinel values: direct tests only",
+      "assumptions": [
+        "Normalized inputs; sign bits may be 0, 1, X, or Z.",
+        "Narrowing requests and actual truncation are checked separately. Public Value storage transitions have separate contracts."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_wide_resize.rs",
+        "targets/analyzer/kani/src/public_big_values.rs",
+        "targets/analyzer/tests/tests/resize.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §10.7",
+        "§11.8.2–4"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "public-big-truncation",
+          "public-big-expansion-zero",
+          "public-big-expansion",
+          "public-native-sign-extension-wide",
+          "public-native-zero-extension-wide",
+          "public-native-zero-fill-extension-wide",
+          "truncation",
+          "public-resize-native",
+          "extension"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "selection",
+      "title": "Selects & indices",
+      "operators": "select / endpoints",
+      "native": "Selection · index boundaries",
+      "big": "1–128 bits · numeric API model",
+      "direct": "Layout · out-of-range · missing bits",
+      "remaining": "Index-expression side effects are checked separately",
+      "assumptions": [
+        "Selected values and path/storage-coordinate conversion have separate contracts.",
+        "Checks distinguish out-of-range reads from missing bits filled with X."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/selection.rs",
+        "targets/analyzer/kani/src/coordinates.rs",
+        "targets/analyzer/kani/src/public_big_values.rs",
+        "targets/analyzer/tests/tests/selection_layout.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "public-big-selection-wide",
+          "public-big-selection-native",
+          "selection",
+          "public-selection-native",
+          "selection-endpoints",
+          "packed-unpacked-bits",
+          "checked-selection-endpoints"
+        ],
+        "direct": [
+          "selection-storage",
+          "selection-geometry",
+          "selection-limits",
+          "selection-rebased-storage",
+          "selection-metadata",
+          "selection-unpacked-storage"
+        ]
+      }
+    },
+    {
+      "id": "conditional",
+      "title": "Truth & conditionals",
+      "operators": "truth / ?:",
+      "native": "Truth classification · native ops",
+      "big": "Contracts per mixed-storage case",
+      "direct": "Type/width boundaries · sentinels",
+      "remaining": "Condition side effects are out of scope",
+      "assumptions": [
+        "Truth classification and bitwise merging under unknown conditions use the numeric API model.",
+        "Bounded proofs compose with the existing width-extension contracts."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/conditional.rs",
+        "targets/analyzer/kani/src/public_big_values.rs",
+        "targets/analyzer/tests/tests/conditional.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.11"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "conditional-expansion-value-summary",
+          "conditional-expansion-summary",
+          "public-conditional-wide-native-native",
+          "public-conditional-wide-native-big",
+          "public-conditional-wide-big-native",
+          "public-conditional-wide-big-big",
+          "big-truth-reference",
+          "public-big-truth",
+          "public-big-conditional-native",
+          "condition-truth",
+          "conditional",
+          "public-conditional-native"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "logical",
+      "title": "Logical operators",
+      "operators": "&&  ||",
+      "native": "Native ops · continuations",
+      "big": "Inputs 1–128 / result 1–128 bits",
+      "direct": "BigUint/cache integration · storage boundaries",
+      "remaining": "Short-circuit effects and arbitrary expression trees are outside these value contracts",
+      "assumptions": [
+        "Normalized four-state inputs; each source has an independent width and sign. Existing native traces cover native/native inputs; the added contracts cover all three storage pairs involving BigUint.",
+        "A scalar-fold lemma proves truth classification at every width 1–128 and its invariance under zero extension. Known ones dominate X/Z in truth classification.",
+        "Actual &&/|| Op bodies execute under numeric API and separately proved expansion summaries. Observations verify source identity, unsigned extension at the common source width, and unsigned result extension to an independent width 1–128.",
+        "The caller sign is arbitrary. Both zero dominance for AND and one dominance for OR are checked, including unknown operands.",
+        "Real BigUint and shared MaskCache behavior remains checked at storage boundary widths. No source-level short-circuit or side-effect theorem follows."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/public_gates.rs",
+        "targets/analyzer/kani/src/public_big_values.rs",
+        "targets/analyzer/tests/tests/gates.rs",
+        "targets/analyzer/kani/src/public_big_ops/logical.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.7"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "logical",
+          "public-logical-and-mutation-witness",
+          "logical-truth-reference",
+          "public-logical-and-native-continuation",
+          "logical-truth-unrolled-reference",
+          "public-logical-binary-domain",
+          "public-logical-and-width65",
+          "public-logical-or-native-continuation",
+          "public-logical-or-width65",
+          "public-logical-and-width65-witness",
+          "public-logical-or-native-witness",
+          "public-logical-or-width65-witness",
+          "logical256-truth-reference",
+          "logical256-and-native-big",
+          "logical256-and-big-native",
+          "logical256-and-big-big",
+          "logical256-or-native-big",
+          "logical256-or-big-native",
+          "logical256-or-big-big"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "nonlinear",
+      "title": "Multiply/divide & power",
+      "operators": "×  ÷  %  **",
+      "native": "Small widths · identities · input classes",
+      "big": "Exceptions · arithmetic identities · power identities",
+      "direct": "Fixed inputs at selected widths, 1–512 bits",
+      "remaining": "General BigUint arithmetic outside the stated input classes is unproved",
+      "assumptions": [
+        "Contracts use different widths and input classes. Full-width identity and exception proofs do not establish general arbitrary-input correctness.",
+        "Wide operations use finite comparisons against an independent Boolean-vector model.",
+        "For *, / and %, prepared widths 65–128 cover all normalized X/Z-containing inputs. For / and %, known zero divisors are also covered, including zero over zero. Results are canonical all-X at the requested width and caller sign.",
+        "Original source widths are independent 1–128 with nonnarrowing contexts 65–128 and independent source/caller signs. All four source storage pairs, including native/native widened to BigUint, have required reachability witnesses.",
+        "Actual exceptional Op branches run under existing numeric/mask and value-preserving expansion contracts. Expansion observations verify both original operand identities, width and sign.",
+        "Numerical arithmetic and signed conversion are forbidden boundaries in these harnesses; reaching one fails a distinct guard. Mutation detection requires intended semantic failures, not boundary guards or tool errors.",
+        "Finite comparisons retain normal numerical paths, actual-library storage boundaries, operations above 128 bits, and general powers.",
+        "Power partitions unknown, known negative and known zero exponents. Prepared bases 65–128 and original bases 1–128 have nonnarrowing result contexts 65–128; exponent widths 1–128 and signs remain self-determined.",
+        "Power observations permit one expansion of the original base only. Scalar power_exception checks values, parity, signedness and input preservation; every source storage pair and exponents wider than the result have reachability witnesses.",
+        "Zero-exponent proofs execute the actual pow_mod_width body and use the separately proved signed-conversion summary under a local sign/magnitude bridge. The added modpow API assumes the mathematical empty-product identity for exponent zero and positive modulus. Adapter checks do not prove the num-bigint implementation.",
+        "For X/Z bases at zero exponent, the established power_exception model propagates X/Z first. Equivalence under that interpretation does not resolve its precedence against the explicit zero-power identity in IEEE 1800-2023 11.4.3.",
+        "Real-library boundary values and positive-power cases outside the identity classes remain finite comparisons.",
+        "Known-value unit multiplication covers a prepared 0/1 factor on either side at widths 65–128 and either caller sign. Unsigned division/remainder cover a prepared divisor of one.",
+        "Original source widths 1–128 use nonnarrowing contexts 65–128 and all four storage pairs. Unit membership is a precondition on independently prepared values; signed one-bit 1 extended in signed mode is -1 and is outside the unit-one class.",
+        "Guarded mathematical unit BigUint APIs are checked against native-half arithmetic through 256 bits. This validates the adapters, not num-bigint internals; scalar shift/add and restoring division remain the independent compiler reference.",
+        "Both original source identities, width and sign arguments, output planes/storage/metadata and input preservation are checked. General numerical cases, storage boundaries and real-library byte-based comparisons remain direct.",
+        "The independent restoring-division reference has a separate theorem for every normalized unsigned width 1–128 and divisor one. Op proofs compose that reference identity, preserving the full input domain.",
+        "Signed division and remainder cover every known prepared dividend at widths 65–128 and prepared divisor +1 or -1. Minimum/-1 wraps to the requested width; remainder is zero. Both modes also cover a zero dividend with any known nonzero prepared divisor.",
+        "Positive power covers every known prepared base at exponent +1, or prepared base 0/1 at any known positive exponent. Base contexts are nonnarrowing 65–128; exponent widths 1–128 and signs remain self-determined, including exponents wider than the result.",
+        "Each added arithmetic class has prepared-value and original-source proofs. Original widths 1–128 and source flags are independent; class membership is evaluated after independent sizing. Signed one-bit 1 may denote -1 rather than +1.",
+        "Actual signed new_bigint and pow_mod_width bodies execute under guarded mathematical numeric APIs and separately checked conversion/expansion summaries. Two numeric adapter checks compare signed quotient encoding, zero arithmetic, power identities and modular sign correction with native scalar arithmetic; they do not prove num-bigint internals.",
+        "Original-source observations require exactly two expansions for division/remainder and exactly one expansion of the base for power. Output planes, storage, metadata and source preservation are checked. Real-library boundaries, general arithmetic and small-exponent reference-model comparisons remain direct.",
+        "Equal nonzero prepared operands cover x/x and x%x in either signed or unsigned mode at widths 65–128. Equality is a condition on independently prepared values, with independent original widths 1–128 and source flags.",
+        "Unsigned division/remainder also cover every known pair with a smaller numerator (0 <= a < b), and every power-of-two divisor at shifts 0–127 below the prepared width. Original contexts are nonnarrowing and cover all four source storage pairs.",
+        "The added division classes execute the actual Op bodies and signed result constructors under guarded mathematical numeric APIs. An independent scalar bit-coordinate specification selects quotient/remainder bits; it does not call the production operation or the numeric limb model.",
+        "The new adapters are checked against native byte division/remainder, including signed self-division, and arbitrary 256-bit coordinate projections for powers of two. These are representation checks under mathematical arithmetic contracts, not proofs of num-bigint algorithms.",
+        "Corresponding finite value comparisons are omitted only inside the proved classes. Actual operation calls, cache histories, input preservation, storage-boundary pairs and general numerical cases remain direct.",
+        "Signed and unsigned self-operation modes are proved separately. Signed mixed-source storage witnesses use a dedicated domain harness with the exact same input generator; it checks complete prepared planes, storage, metadata, bounds and source preservation. The value proofs still quantify every original width, flag and storage pair.",
+        "Known multiplication covers a single-hot prepared factor on either side, result widths 65–128, nonnarrowing original widths 1–128, independent source flags and both caller modes. Class membership is checked after sizing; the top signed bit is included as a bit pattern, not assumed positive.",
+        "Multiplication executes the actual Op and result constructor under a guarded mathematical API retaining the complete 256-bit product before result-width truncation. The caller supplies a factor-position witness that is asserted against the actual numeric operand on every call. An independent scalar bit-coordinate specification validates the modular word summary in the numeric API contract, separately from the compiler bodies. The mask summary guards a single result-mask retrieval and checks its value independently; real cache storage and histories remain direct. Byte native products and all 256 product coordinates check the API specialization; num-bigint algorithms remain outside the proof.",
+        "All four original source storage pairs, cross-word products and discarded high products have mandatory reachability witnesses. Direct multiplication value comparisons are omitted only in the proved classes; actual calls, cache histories, input preservation and storage-boundary pairs remain direct.",
+        "Signed division/remainder cover distinct nonzero prepared operands with equal magnitude and opposite signs at result widths 65–128. The quotient is -1 and the remainder zero in both orientations. The minimum signed value has no positive counterpart in the same width and does not satisfy this class.",
+        "Original widths 1–128 and source flags are independent, with nonnarrowing contexts. Class membership is checked after sizing. Context value contracts partition the complete domain by dividend sign. The shared domain contract checks complete prepared representations and all four source storage pairs; the value contracts retain the identical input domain.",
+        "The actual Op and signed result constructors execute under guarded mathematical arithmetic APIs and separately proved signed conversion/expansion summaries. A new bounded theorem checks the value-preserving magnitude-witness conversion summary against signed decoding, for both signs, and validates the class word oracle; every actual conversion rechecks the complete numeric operand against its witness. Native and unsigned arithmetic branches must be unreachable. Byte native arithmetic checks the adapter; num-bigint algorithms remain outside the proof.",
+        "Only duplicate finite value comparisons within the proved opposite-sign class are omitted. Operation calls, cache histories, input preservation, real-library storage boundaries and other signed division cases remain direct.",
+        "Signed division/remainder cover every known prepared pair with abs(a) < abs(b) at result widths 65–128. The quotient is zero and the remainder preserves the dividend word. Both operand signs, zero dividends and the minimum signed divisor are included.",
+        "Independent nonnarrowing source widths 1–128 and flags are checked by post-expansion equality with complete magnitude witnesses. Nonnegative and negative dividend context contracts partition the complete input class. Shared domain witnesses check all four original storage pairs and all four numerical sign pairs.",
+        "The conversion witness is checked against the universal signed decoder for all valid signed magnitudes, including zero and the minimum signed value. Interior magnitudes reuse the existing value-preserving opposite-class summary. Each actual conversion rechecks width, complete known planes and its full magnitude/sign witness; no operand is replaced by a fixed magnitude.",
+        "Byte native arithmetic checks the guarded numeric adapters; a separate word-class theorem validates the independent scalar specification across widths 65–128. Actual Op and signed result constructors execute, while native/unsigned arithmetic branches must be unreachable. These proofs assume mathematical numeric APIs and do not prove num-bigint algorithms.",
+        "Only overlapping finite value comparisons in the proved class are omitted; actual operation calls, cache histories, source preservation, storage-boundary pairs and other signed arithmetic cases remain direct.",
+        "Signed division/remainder cover all known prepared dividends and divisor magnitudes 2^k for 0 <= k < result width, at result widths 65–128. Both representable divisor signs, zero/minimum dividends and the minimum signed divisor are included. Minimum/-1 encodes its positive intermediate modulo the result width.",
+        "Original widths 1–128 and source flags are independent and nonnarrowing; both expansions are validated against uniquely determined magnitude witnesses. Nonnegative/negative dividend contexts partition the whole class. Shared domain witnesses cover all four storage pairs, all four numerical sign pairs, zero and overflow corners.",
+        "The existing general signed conversion theorem preserves every magnitude/sign, including zero and minimum values. Every actual conversion rechecks complete known planes and width. The numeric power-of-two adapter asserts the actual divisor magnitude equals its supplied shift witness on every call, then returns full sign/magnitude results without erasing operands.",
+        "Byte native arithmetic and arbitrary 128-bit scalar magnitude coordinates validate the guarded numeric specialization. A separate signed-word theorem checks decoding and modular result encoding. Actual Op and signed result constructors execute; native/unsigned arithmetic paths must be unreachable. Mathematical numeric APIs are assumed, not num-bigint algorithm proofs.",
+        "Only finite value comparisons overlapping this class are omitted. Actual calls, cache histories, source preservation, real-library boundary pairs and general signed division cases remain direct.",
+        "Known multiplication covers an all-ones prepared factor on either side at result widths 65–128, with independent nonnarrowing original widths 1–128, source flags and either caller mode. Membership is checked after sizing; the factor denotes -1 only in signed mode, while both modes produce the same modular negation of the other raw word.",
+        "The guarded numeric API retains the complete 256-bit product n*(2^w-1)=(n<<w)-n before truncation. Byte products and the nonoverflowing inverse relation product+n=n<<w check the representation; existing exact addition and shift contracts supply the primitive operations. The inverse witnesses include bit255 of the maximum square.",
+        "A separate modulo-width theorem compares both numeric orientations and the native word summary against independent scalar subtraction-carry bits. A single result-mask retrieval is guarded using the separately checked shared summary. Real cache storage and histories remain direct; num-bigint algorithms are not proved.",
+        "Actual Op and result constructors execute. Both original storage-domain contracts use the exact same generator as their value proofs and check complete prepared planes, metadata, all four source storage pairs, caller modes and mixed source flags. High products and signed minimum negation have mandatory witnesses.",
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and general multiplication cases remain direct.",
+        "Known positive powers cover all-ones prepared bases at result widths 65–128, nonnarrowing original base widths 1–128, independent source flags and either caller mode. The exponent retains its original width 1–128 and signedness, including positive unsigned exponents wider than the result. Equal-width bases retain their original sign flag.",
+        "The modular API specializes to residues 1 and modulus−1 modulo 2^w. Byte products and a zero/successor law across all u128 exponents validate this mathematical summary under the separately checked all-ones multiplication identity. The modulus retains bit 128; num-bigint algorithms are not proved.",
+        "The actual Op, pow_mod_width sign correction and result constructors execute. Observers check the full exponent, the prepared base magnitude and modulus at the single modpow call, and the original base expansion arguments. Signed conversion is value preserving at magnitude 1 and checked against the actual all-ones word. The original-domain harness shares the value-proof generator and witnesses all four source storage pairs, exponent widths exceeding the result and retained equal-width signs.",
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and small-exponent model comparisons remain direct. Zero/negative exponents and X/Z branches retain their separate proofs.",
+        "Known positive powers cover every single-hot prepared base at result widths 65–128, independent nonnarrowing original base widths 1–128, source flags and either caller mode. The exponent retains its original width 1–128 and signedness, including positive values wider than the result. Signed minimum bases and equal-width retained signs are included.",
+        "The guarded modular API calculates the position only for exponents at most 127; larger exponents produce zero for nonunit bases. Independent scalar coordinates use divisibility and quotient rather than exponent multiplication. Byte products and a bounded zero/successor law under the checked single-hot multiplication identity validate the mathematical API for all u128 exponents, including zero. No num-bigint algorithm proof is claimed.",
+        "Actual Op, pow_mod_width and result constructors execute. Observers check the full exponent, exact base magnitude, 129-bit modulus and original base expansion arguments. The general value-preserving signed conversion summary includes the signed minimum. The original-domain harness compares specialized expansion with the independent reference using the same input generator and witnesses all four storage pairs and both sign-bit zero extension and signed positive widening.",
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and small-exponent model comparisons remain direct. Compiler zero/negative-exponent and X/Z cases retain separate contracts.",
+        "A separate necessary-and-sufficient membership theorem quantifies every normalized known source word, independent source/caller flags, all nonnarrowing widths 1–128 and every target single-hot position. The power generators use its scalar condition instead of recomputing full width expansion. Both directions are asserted without assuming membership; rejected sign extensions, missing source bits and multiple-bit words have mandatory witnesses. The original-domain value harness still checks the full independent expansion.",
+        "Known unsigned division/remainder cover quotient-one pairs b>0 and b≤a<2b at result widths 65–128. Membership is checked after nonnarrowing preparation from independent original widths 1–128 and source flags; the caller mode is unsigned. The upper bound uses a−b<b without overflowing 2b.",
+        "The numeric API is characterized by q=1, a=b+r and 0≤r<b; the checked addition retains bit 128. Byte division/remainder and independent scalar subtraction-borrow coordinates check the mathematical specialization, including divisors above 2^127, maximum dividends and cross-word borrows. No num-bigint algorithm proof is claimed.",
+        "Actual Op and unsigned result constructors execute. Signed and native arithmetic must be unreachable. The result-mask summary allows one retrieval; real cache storage/histories remain direct. The original-domain proof shares the value-proof generator and checks complete prepared values, metadata, all four source storage pairs and both mixed source flags.",
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation and storage-boundary pairs remain direct. Signed, general-quotient, zero-divisor and X/Z cases retain their existing checks.",
+        "Known unsigned division/remainder cover quotients 2^k with 0≤k<result width at result widths 65–128, independent nonnarrowing original widths 1–128 and source flags. The divisor need not be a power of two. Membership is checked after preparation using b>0, b≤a>>k and a−(b<<k)<b; this avoids wrapped scaled products and includes quotient 1.",
+        "The numeric API checks the actual operands and the full 256-bit product b*2^k before returning the quotient/remainder. Independent scalar coordinates validate every product bit, including bit 254 and rejected high-half products. Byte division/remainder and the Euclidean relation a=b*2^k+r, 0≤r<b characterize the mathematical specialization. Scalar subtraction borrows independently check the remainder; num-bigint algorithms are not proved.",
+        "Actual Op and unsigned result constructors execute. Signed/native arithmetic must be unreachable. The single mask retrieval summary and expansion model are reused unchanged. The original-domain harness uses the same generator as the value proofs and checks complete prepared words, metadata, four original storage pairs, mixed flags and quotient bit 127.",
+        "Only overlapping finite value comparisons beyond the existing classes are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and general quotients remain direct.",
+        "Known signed division/remainder cover quotient magnitudes 2^k at result widths 65–128, with independent nonnarrowing original widths 1–128 and source flags; the caller mode is signed. All valid input signs and divisor magnitudes are included. Membership is |b|>0, |b|≤|a|>>k and |a|−(|b|<<k)<|b|; zero-quotient cases remain separate.",
+        "The unchanged unsigned magnitude API checks actual magnitudes and full 256-bit shifted products. Signed byte division/remainder check quotient sign composition and canonical zero remainders. Separate quotient/remainder word theorems compare signed decoding/encoding against independently checked scalar magnitude and negation coordinates. Minimum/−1 results wrap to the result width without restricting the intermediate positive magnitude.",
+        "Actual Op and signed result constructors execute. The general checked signed conversion interface preserves complete input values including minima; every call checks the actual operand against its witness. Native/unsigned arithmetic must be unreachable. Prepared harnesses partition dividend signs; original-context harnesses partition both input signs completely. A common generator without the sign restriction checks original-domain preparation, all four storage pairs and mixed flags.",
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and general quotients remain direct. Numerical APIs are mathematical models; num-bigint algorithms are outside the proof scope."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/nonlinear.rs",
+        "targets/analyzer/tests/tests/nonlinear_wide.rs",
+        "targets/analyzer/kani/src/public_big_ops/exceptions.rs",
+        "targets/analyzer/kani/src/public_big_ops/power.rs",
+        "targets/analyzer/kani/src/public_big_ops/identities.rs",
+        "targets/analyzer/kani/src/public_big_ops/special.rs",
+        "targets/analyzer/kani/src/public_big_ops/division.rs",
+        "targets/analyzer/kani/src/public_big_ops/multiplication.rs",
+        "targets/analyzer/kani/src/public_big_ops/opposite.rs",
+        "targets/analyzer/kani/src/public_big_ops/signed_small.rs",
+        "targets/analyzer/kani/src/public_big_ops/signed_power_two.rs",
+        "targets/analyzer/kani/src/public_big_ops/ones.rs",
+        "targets/analyzer/kani/src/public_big_ops/ones_power.rs",
+        "targets/analyzer/kani/src/public_big_ops/hot_power.rs",
+        "semantics/src/resize.rs",
+        "targets/analyzer/kani/src/public_big_ops/unit_quotient.rs",
+        "targets/analyzer/kani/src/public_big_ops/power_quotient.rs",
+        "targets/analyzer/kani/src/public_big_ops/signed_power_quotient.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.4.3"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "public-small-remainder-width-1-unsigned",
+          "public-small-remainder-width-1-signed",
+          "public-small-remainder-width-2-unsigned",
+          "public-small-remainder-width-2-signed",
+          "public-small-remainder-width-3-unsigned",
+          "public-small-remainder-width-3-signed",
+          "public-small-remainder-width-4-unsigned",
+          "public-small-remainder-width-4-signed",
+          "public-small-divide-width-1-unsigned",
+          "public-small-divide-width-1-signed",
+          "public-small-divide-width-2-unsigned",
+          "public-small-divide-width-2-signed",
+          "public-small-divide-width-3-unsigned",
+          "public-small-divide-width-3-signed",
+          "public-small-divide-width-4-unsigned",
+          "public-small-divide-width-4-signed",
+          "public-small-multiply",
+          "full-multiply",
+          "public-nonlinear",
+          "multiplication",
+          "division-remainder",
+          "power",
+          "multiplication-identities",
+          "division-exceptions",
+          "power-exceptions",
+          "exception256-mul",
+          "exception256-mul-context",
+          "exception256-div",
+          "exception256-div-context",
+          "exception256-rem",
+          "exception256-rem-context",
+          "power256-zero-api",
+          "power256-unknown",
+          "power256-unknown-context",
+          "power256-negative",
+          "power256-negative-context",
+          "power256-zero",
+          "power256-zero-context",
+          "unit256-api",
+          "identity256-mul-right",
+          "identity256-mul-right-context",
+          "identity256-mul-left",
+          "identity256-mul-left-context",
+          "identity256-div-one",
+          "identity256-div-one-context",
+          "identity256-rem-one",
+          "identity256-rem-one-context",
+          "unit256-div-one-reference",
+          "special256-signed-api",
+          "special256-power-api",
+          "special256-signed-div-unit",
+          "special256-signed-div-unit-context",
+          "special256-signed-rem-unit",
+          "special256-signed-rem-unit-context",
+          "special256-zero-div",
+          "special256-zero-div-context",
+          "special256-zero-rem",
+          "special256-zero-rem-context",
+          "special256-power-one",
+          "special256-power-one-context",
+          "special256-power-unit-base",
+          "special256-power-unit-base-context",
+          "division256-byte-api",
+          "division256-pow2-api",
+          "division256-self-signed-domain-api",
+          "division256-self-div-unsigned",
+          "division256-self-div-unsigned-context",
+          "division256-self-div-signed",
+          "division256-self-div-signed-context",
+          "division256-self-rem-unsigned",
+          "division256-self-rem-unsigned-context",
+          "division256-self-rem-signed",
+          "division256-self-rem-signed-context",
+          "division256-smaller-div",
+          "division256-smaller-div-context",
+          "division256-smaller-rem",
+          "division256-smaller-rem-context",
+          "division256-pow2-div",
+          "division256-pow2-div-context",
+          "division256-pow2-rem",
+          "division256-pow2-rem-context",
+          "multiply256-byte-api",
+          "multiply256-coordinates-api",
+          "multiply256-right",
+          "multiply256-right-context",
+          "multiply256-left",
+          "multiply256-left-context",
+          "opposite256-conversion-api",
+          "opposite256-byte-api",
+          "opposite256-context-domain-api",
+          "opposite256-div",
+          "opposite256-div-positive-context",
+          "opposite256-div-negative-context",
+          "opposite256-rem",
+          "opposite256-rem-positive-context",
+          "opposite256-rem-negative-context",
+          "signedsmall256-conversion-api",
+          "signedsmall256-byte-api",
+          "signedsmall256-word-api",
+          "signedsmall256-domain-api",
+          "signedsmall256-div",
+          "signedsmall256-div-nonnegative-context",
+          "signedsmall256-div-negative-context",
+          "signedsmall256-rem",
+          "signedsmall256-rem-nonnegative-context",
+          "signedsmall256-rem-negative-context",
+          "signedpow256-byte-api",
+          "signedpow256-coordinates-api",
+          "signedpow256-word-api",
+          "signedpow256-domain-api",
+          "signedpow256-div",
+          "signedpow256-div-nonnegative-context",
+          "signedpow256-div-negative-context",
+          "signedpow256-rem",
+          "signedpow256-rem-nonnegative-context",
+          "signedpow256-rem-negative-context",
+          "ones256-byte-api",
+          "ones256-inverse-api",
+          "ones256-word-api",
+          "ones256-right-domain-api",
+          "ones256-left-domain-api",
+          "ones256-right",
+          "ones256-right-context",
+          "ones256-left",
+          "ones256-left-context",
+          "powerones256-byte-api",
+          "powerones256-successor-api",
+          "powerones256-domain-api",
+          "powerones256-prepared",
+          "powerones256-context",
+          "powerhot256-byte-api",
+          "powerhot256-coordinates-api",
+          "powerhot256-successor-api",
+          "powerhot256-domain-api",
+          "powerhot256-prepared-signed",
+          "powerhot256-prepared-unsigned",
+          "powerhot256-context-signed",
+          "powerhot256-context-unsigned",
+          "powerhot256-expansion-api",
+          "unitq256-byte-api",
+          "unitq256-euclidean-api",
+          "unitq256-domain-api",
+          "unitq256-div",
+          "unitq256-div-context",
+          "unitq256-rem",
+          "unitq256-rem-context",
+          "powerq256-byte-api",
+          "powerq256-product-api",
+          "powerq256-euclidean-api",
+          "powerq256-domain-api",
+          "powerq256-div",
+          "powerq256-div-context",
+          "powerq256-rem",
+          "powerq256-rem-context",
+          "signedq256-byte-api",
+          "signedq256-quotient-word-api",
+          "signedq256-remainder-word-api",
+          "signedq256-domain-api",
+          "signedq256-div-positive",
+          "signedq256-div-negative",
+          "signedq256-rem-positive",
+          "signedq256-rem-negative",
+          "signedq256-div-positive-positive-context",
+          "signedq256-div-positive-negative-context",
+          "signedq256-div-negative-positive-context",
+          "signedq256-div-negative-negative-context",
+          "signedq256-rem-positive-positive-context",
+          "signedq256-rem-positive-negative-context",
+          "signedq256-rem-negative-positive-context",
+          "signedq256-rem-negative-negative-context"
+        ],
+        "direct": [
+          "wide-product",
+          "wide-divrem",
+          "wide-power"
+        ]
+      }
+    },
+    {
+      "id": "context",
+      "title": "Context width & type",
+      "operators": "width / signed / cast",
+      "native": "Scalar metadata rules",
+      "big": "Operand propagation: separate contracts",
+      "direct": "gather / apply / eval integration",
+      "remaining": "Arbitrary recursive expression trees are unproved",
+      "assumptions": [
+        "Checks context merging, operator rules, and preparation of decoded casts.",
+        "Name resolution and arbitrary recursive expression evaluation are out of scope."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/context.rs",
+        "targets/analyzer/tests/tests/context.rs"
+      ],
+      "clauses": [
+        "IEEE 1800 §11.8"
+      ],
+      "reviewed": false,
+      "contracts": {
+        "kani": [
+          "context-merge",
+          "context-unary",
+          "context-binary",
+          "context-cast"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "layout",
+      "title": "Shape & layout",
+      "operators": "shape / layout",
+      "native": "Arithmetic boundaries · overflow",
+      "big": "Not applicable: shapes/coordinates",
+      "direct": "Small-layout enumeration · boundaries",
+      "remaining": "Dimension and index bounds are harness-specific",
+      "assumptions": [
+        "Bounded contracts for dimensions, storage ranges, and element coordinates.",
+        "Each harness specifies dimension and index bounds."
+      ],
+      "files": [
+        "targets/analyzer/kani/src/layout.rs",
+        "targets/analyzer/tests/tests/layout.rs"
+      ],
+      "clauses": [],
+      "reviewed": false,
+      "contracts": {
+        "kani": [
+          "shape-total",
+          "shape-index",
+          "shape-range",
+          "shape-boundary",
+          "shape-overflow"
+        ],
+        "direct": []
+      }
+    },
+    {
+      "id": "aggregate",
+      "title": "Aggregates & dynamic members",
+      "operators": "struct / union / member",
+      "native": "Width/coordinates only",
+      "big": "No whole-aggregate Kani proof",
+      "direct": "Nesting · dynamic indices · evaluation counts",
+      "remaining": "Side effects and general ASTs use direct tests",
+      "assumptions": [
+        "Aggregate expressions use finite comparisons. Kani covers width and coordinate components only."
+      ],
+      "files": [
+        "targets/analyzer/tests/tests/aggregate.rs",
+        "targets/analyzer/tests/tests/aggregate_dynamic.rs"
+      ],
+      "clauses": [],
+      "reviewed": false,
+      "contracts": {
+        "kani": [],
+        "direct": [
+          "aggregate-width",
+          "aggregate-spans",
+          "aggregate-nested",
+          "aggregate-invalid-storage",
+          "effectful-member",
+          "packed-selector-calls",
+          "dynamic-aggregate",
+          "aggregate-selector-calls"
+        ]
+      }
+    },
+    {
+      "id": "trees",
+      "title": "Expression trees",
+      "operators": "generated expressions",
+      "native": "Individual operators only",
+      "big": "No whole-tree Kani proof",
+      "direct": "Generated expressions with bounded grammar/depth",
+      "remaining": "Arbitrary grammar, side effects, and floating point are out of scope",
+      "assumptions": [
+        "Finite generated source expressions are compared against an independent recursive model.",
+        "Small 2-state inputs are enumerated. 4-state inputs and 63/64/65-bit boundaries use selected patterns."
+      ],
+      "files": [
+        "targets/analyzer/tests/tests/expression_trees.rs",
+        "semantics/src/expressions.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "direct": [
+          "expression-small",
+          "expression-four-state"
+        ]
+      }
+    },
+    {
+      "id": "ir",
+      "title": "IR execution",
+      "operators": "small IR programs",
+      "native": "Foundation components only",
+      "big": "No whole-IR Kani proof",
+      "direct": "Small IR fixtures",
+      "remaining": "General programs are out of scope",
+      "assumptions": [
+        "Finite IR fixtures are compared against independent expected behavior."
+      ],
+      "files": [
+        "targets/analyzer/tests/tests/ir_execution.rs"
+      ],
+      "clauses": [],
+      "reviewed": false,
+      "contracts": {
+        "kani": [],
+        "direct": [
+          "ir-loop-trace",
+          "ir-actual-trace",
+          "ir-constant-control"
+        ]
+      }
+    },
+    {
+      "id": "graph",
+      "title": "Dependency graphs",
+      "operators": "dependency graph",
+      "native": "Foundation components only",
+      "big": "No whole-graph Kani proof",
+      "direct": "Small graphs · cycles · dependencies",
+      "remaining": "Arbitrary graph sizes are out of scope",
+      "assumptions": [
+        "Checks use finite comparison contracts and enumeration of small graphs."
+      ],
+      "files": [
+        "targets/analyzer/tests/tests/dependency_graph.rs"
+      ],
+      "clauses": [],
+      "reviewed": false,
+      "contracts": {
+        "kani": [],
+        "direct": [
+          "graph-direct",
+          "graph-hierarchy",
+          "graph-summary",
+          "graph-incomplete"
+        ]
+      }
+    },
+    {
+      "id": "foundation",
+      "title": "Numeric models & APIs",
+      "operators": "numeric / masks / getters",
+      "native": "Supporting model lemmas",
+      "big": "Bounded numeric APIs up to 256 bits",
+      "direct": "BigUint · masks · MaskCache",
+      "remaining": "Allocation and arbitrary HashMap states are out of scope",
+      "assumptions": [
+        "Numeric and ownership-specific APIs are checked against independent models.",
+        "BigUint addition comparisons include 256-bit inputs and the carry into bit 257.",
+        "MaskCache comparisons cover every pair of widths from 0–128 and full-key round trips. Arbitrary operation histories are unproved.",
+        "BigUint/BigInt ordering APIs use canonical sign/magnitude values through 256 bits; scalar order and negative/no-sign zero normalization are checked separately."
+      ],
+      "files": [
+        "semantics/src/bits256.rs",
+        "targets/analyzer/kani/src/public_big_ops.rs",
+        "targets/analyzer/kani/src/public_big_ops/followup.rs",
+        "targets/analyzer/tests/tests/big_helpers.rs",
+        "targets/analyzer/kani/src/public_big_ops/ordering.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "numeric256-add-api",
+          "numeric256-add",
+          "numeric256-shifts",
+          "numeric256-api",
+          "big-numeric-wide-api",
+          "big-numeric-api",
+          "big-numeric-bridge",
+          "public-big-getters-128",
+          "numeric256-order-api",
+          "conversion256-bigint"
+        ],
+        "direct": [
+          "big-addition-boundaries",
+          "big-mask-cache-histories",
+          "big-mask-exhaustive",
+          "big-constructor-boundaries"
+        ]
+      }
+    }
+  ]
+}

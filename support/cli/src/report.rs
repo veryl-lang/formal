@@ -20,7 +20,7 @@ fn directories(path: &Path) -> io::Result<Vec<PathBuf>> {
     }
 }
 
-fn summaries(root: &Path) -> io::Result<Vec<PathBuf>> {
+pub(crate) fn summaries(root: &Path) -> io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     // Search only maintained adapters, never private plans or mutation build trees.
     for target in directories(&root.join("targets"))? {
@@ -243,6 +243,7 @@ pub fn write(root: &Path, env: &Environment) -> Result<()> {
             .open(get("GITHUB_STEP_SUMMARY"))?
             .write_all(report.as_bytes())?;
     }
+    crate::dashboard::export(root, env)?;
     print!("{report}");
     Ok(())
 }

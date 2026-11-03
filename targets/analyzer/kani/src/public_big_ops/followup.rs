@@ -1,4 +1,5 @@
 //! Prepared equality/arithmetic kernels and original-operand preparation wiring.
+//! Relational kernels and signed conversion are in ordering.rs.
 //! Inputs use canonical storage: widths1..64 in U64, widths65..128 in BigUint.
 //! Numeric results are checked by the kernels. Wiring separately overapproximates
 //! numeric API reads, checking actual operand identity and width/sign arguments.
@@ -45,14 +46,14 @@ fn numeric256_addition_matches_scalar_carry() {
 
 // Equal-width calls preserve even invalid high bits for result assertions.
 // Unequal-width preparation uses the separately proved expansion summary.
-fn expanded(value: &Value, target: usize, sign: bool) -> std::borrow::Cow<'_, Value> {
+pub(super) fn expanded(value: &Value, target: usize, sign: bool) -> std::borrow::Cow<'_, Value> {
     if value.width() == target {
         std::borrow::Cow::Borrowed(value)
     } else {
         prepared(value, target, sign)
     }
 }
-fn wide_input(w: usize) -> (Value, Operand) {
+pub(super) fn wide_input(w: usize) -> (Value, Operand) {
     let (v, a) = input(w);
     let Value::BigUint(v) = v else {
         panic!("wide operator semantics mismatch")
@@ -245,16 +246,20 @@ fn wiring_expand(value: &Value, width: usize, sign: bool) -> std::borrow::Cow<'_
         }
     }
 }
-// IEEE1800-2023 11.8.2,11.4.5/6/8/10. Original source widths1..128,
+// IEEE1800-2023 11.8.2,11.4.4/5/6/8/10. Original source widths1..128,
 // all source signs; nonnarrowing65..128 contexts. Equality prepares at the
 // common operand width independently of result width1..128 and outer sign;
-// at least one original operand is BigUint for the equality wiring contracts.
+// at least one original operand is BigUint for comparison wiring contracts.
+// Relational callers supply the resolved sign (both source signs); unlike
+// equality, the low-level API does not ignore an arbitrary caller sign. Caller
+// expression-context derivation remains covered by separate context contracts.
 // Numeric API relaxation checks argument wiring only. The separately proved
 // expansion summaries and universal prepared kernels discharge the value part.
 fn wiring<const K: u8>() {
-    let comparison = (9..=12).contains(&K);
+    let ordering = (16..=19).contains(&K);
+    let comparison = (9..=12).contains(&K) || ordering;
     let shift = (5..=8).contains(&K);
-    let binary = K < 4 || (9..=14).contains(&K);
+    let binary = K < 4 || (9..=14).contains(&K) || ordering;
     let sw = usize::from(kani::any::<u8>() & 127) + 1;
     let tw = usize::from(kani::any::<u8>() & 127) + 1;
     let requested = usize::from(kani::any::<u8>() & 63) + 65;
@@ -303,6 +308,10 @@ fn wiring<const K: u8>() {
         12 => Op::NeWildcard,
         13 => Op::Add,
         14 => Op::Sub,
+        16 => Op::Less,
+        17 => Op::LessEq,
+        18 => Op::Greater,
+        19 => Op::GreaterEq,
         _ => Op::Sub,
     };
     let mut cache = MaskCache::default();
@@ -311,7 +320,7 @@ fn wiring<const K: u8>() {
             &x,
             &y,
             out,
-            if comparison { outer } else { sign },
+            if comparison && !ordering { outer } else { sign },
             &mut cache,
         )
     } else {
@@ -368,10 +377,17 @@ fn wiring<const K: u8>() {
         );
     }
     if comparison {
-        kani::cover!(
-            out == 1 && outer != sign,
-            "wiring comparison ignores outer sign"
-        );
+        if ordering {
+            kani::cover!(
+                out == 1 && sign,
+                "wiring ordering signed operands are reachable"
+            );
+        } else {
+            kani::cover!(
+                out == 1 && outer != sign,
+                "wiring comparison ignores outer sign"
+            );
+        }
         kani::cover!(
             out == 128 && prep == 65,
             "wiring comparison separates result width"
@@ -669,4 +685,52 @@ fn numeric256_addition_api_preserves_high_half() {
     );
     kani::cover!(sum.hi >> 127 != 0, "addition API bit255 is reachable");
     kani::cover!(sum == N::ZERO, "addition API zero sum is reachable");
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::get, wiring_read)]
+#[kani::stub(crate::public_big_ops::put, wiring_write)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_shl, wiring_shift)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_add, wiring_add)]
+#[kani::stub(veryl_analyzer::value::Value::expand, wiring_expand)]
+fn wide_preparation_less_wiring() {
+    wiring::<16>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::get, wiring_read)]
+#[kani::stub(crate::public_big_ops::put, wiring_write)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_shl, wiring_shift)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_add, wiring_add)]
+#[kani::stub(veryl_analyzer::value::Value::expand, wiring_expand)]
+fn wide_preparation_less_eq_wiring() {
+    wiring::<17>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::get, wiring_read)]
+#[kani::stub(crate::public_big_ops::put, wiring_write)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_shl, wiring_shift)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_add, wiring_add)]
+#[kani::stub(veryl_analyzer::value::Value::expand, wiring_expand)]
+fn wide_preparation_greater_wiring() {
+    wiring::<18>();
+}
+
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::get, wiring_read)]
+#[kani::stub(crate::public_big_ops::put, wiring_write)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_shl, wiring_shift)]
+#[kani::stub(veryl_formal_semantics::bits256::Bits256::checked_add, wiring_add)]
+#[kani::stub(veryl_analyzer::value::Value::expand, wiring_expand)]
+fn wide_preparation_greater_eq_wiring() {
+    wiring::<19>();
 }

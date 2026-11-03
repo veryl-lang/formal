@@ -110,3 +110,36 @@ impl Bits256 {
         result
     }
 }
+
+impl Bits256 {
+    pub fn unsigned_cmp(self, rhs: Self) -> std::cmp::Ordering {
+        (self.hi, self.lo).cmp(&(rhs.hi, rhs.lo))
+    }
+}
+
+/// Canonical sign/magnitude values for the bounded BigInt API contract.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Signed256 {
+    pub magnitude: Bits256,
+    pub negative: bool,
+}
+impl Signed256 {
+    pub const ZERO: Self = Self {
+        magnitude: Bits256::ZERO,
+        negative: false,
+    };
+    pub fn new(magnitude: Bits256, negative: bool) -> Self {
+        Self {
+            magnitude,
+            negative: negative && magnitude != Bits256::ZERO,
+        }
+    }
+    pub fn compare(self, rhs: Self) -> std::cmp::Ordering {
+        match (self.negative, rhs.negative) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (true, true) => rhs.magnitude.unsigned_cmp(self.magnitude),
+            (false, false) => self.magnitude.unsigned_cmp(rhs.magnitude),
+        }
+    }
+}

@@ -1,0 +1,169 @@
+{
+  "families": [
+    {
+      "id": "emitter-scalar",
+      "title": "Scalar expressions",
+      "operators": "",
+      "scope": "Emitted SV precedence, casts, widths, and signedness",
+      "bounds": "Widths 1–3; all two-state input triples",
+      "native": "",
+      "big": "",
+      "direct": "Icarus execution vs independent widened arithmetic; selected integer-cast X/Z cases",
+      "remaining": "No arbitrary expression grammar or symbolic wide-input proof",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/emitter/tests/tests/cases/scalars.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/emitter/tests/tests/cases/scalars.rs",
+        "targets/emitter/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "scalar"
+        ]
+      }
+    },
+    {
+      "id": "emitter-select",
+      "title": "Indexed selects",
+      "operators": "",
+      "scope": "Emitted SV ascending, descending, and stepped reads",
+      "bounds": "Data 8/17/65 bits; windows 3/8; signed/unsigned 8-bit indices",
+      "native": "",
+      "big": "",
+      "direct": "Selected numeric and X/Z indices vs independent per-bit clipping",
+      "remaining": "No arbitrary widths, selector expressions, or general conformance theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/emitter/tests/tests/cases/selects.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/emitter/tests/tests/cases/selects.rs",
+        "targets/emitter/contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "select"
+        ]
+      }
+    },
+    {
+      "id": "spec-conditional",
+      "title": "Four-state conditionals",
+      "operators": "",
+      "scope": "Conditional consensus against the independent IEEE model",
+      "bounds": "Widths 1/2/65; exhaustive small values and selected wide patterns",
+      "native": "",
+      "big": "",
+      "direct": "Analyzer/reference for every vector; Icarus for the corroborating subset",
+      "remaining": "Common-Z disagreement excludes external comparisons only; it does not waive analyzer/reference checks",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/emitter/tests/tests/cases/conditional.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/emitter/tests/tests/cases/conditional.rs",
+        "targets/emitter/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 Table 11-20"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "conditional"
+        ]
+      }
+    },
+    {
+      "id": "expression-cross",
+      "title": "Cross-target expressions",
+      "operators": "",
+      "scope": "Analyzer, simulator, mapped-gate, and emitted-SV results",
+      "bounds": "Operand widths independently 1–4; both signs; all input values",
+      "native": "",
+      "big": "",
+      "direct": "Fixed grammar; output widths 1, max operand width, or max+1",
+      "remaining": "No arbitrary grammar, four-state, wide-vector, or sequential guarantee",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/emitter/tests/tests/cases/mixed_expressions.rs",
+          "label": "Direct tests"
+        }
+      ],
+      "files": [
+        "targets/emitter/tests/tests/cases/mixed_expressions.rs",
+        "targets/emitter/cross_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "mixed-expression-cross"
+        ]
+      }
+    },
+    {
+      "id": "sequential-cross",
+      "title": "Cross-target sequential traces",
+      "operators": "",
+      "scope": "FF prior-state/pure-call and two-clock masked-RAM traces",
+      "bounds": "Two-bit call fixture; three-instant histories; fixed RAM fixture",
+      "native": "",
+      "big": "",
+      "direct": "Interpreter/JIT/AOT-C, mapped cells, and emitted SV vs independent state models",
+      "remaining": "No arbitrary histories, X/Z, function side effects, metastability, CDC, or general RAM technology",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/emitter/tests/tests/cases/sequential.rs",
+          "label": "FF/call comparisons"
+        },
+        {
+          "path": "targets/emitter/tests/tests/cases/ram_clocks.rs",
+          "label": "RAM/clock comparisons"
+        }
+      ],
+      "files": [
+        "targets/emitter/tests/tests/cases/sequential.rs",
+        "targets/emitter/tests/tests/cases/ram_clocks.rs",
+        "targets/simulator/fixtures/call_ff.veryl",
+        "targets/simulator/fixtures/ram_clocks.veryl",
+        "targets/emitter/cross_contracts.rs"
+      ],
+      "clauses": [],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "sequential-cross",
+          "ram-clock-cross"
+        ]
+      }
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 //! The complete small binary/unary arithmetic traces are proved in Kani at
 //! normalized widths 1..=3 and natural/natural+2 contexts. Natural unary calls
 //! also cover every native width, and four binary word64 calls have a proof.
-//! Execute every remaining boundary call to preserve cache history; retain
-//! BigUint kernels and original preparation wiring are proved in
-//! public_big_ops/followup.rs. Keep actual numeric-library boundary values,
+//! Execute every boundary call to preserve cache history. BigUint kernels and
+//! original preparation are proved in public_big_ops/{followup,plus}.rs.
+//! Keep actual numeric-library boundary values,
 //! sentinel behavior, and all other domains as executable comparisons.
 //! X/Z unary plus uses the documented Table 11-6 identity interpretation.
 #[path = "../wide_cases.rs"]
@@ -133,14 +133,12 @@ fn check_unary(a: Operand, widths: &[usize]) {
                         });
                 prefix_matches = covered;
                 calls += 1;
-                let wide = kind == Arithmetic::Negate
-                    && (65..=128).contains(&width)
-                    && a.width <= width
-                    && wide_cases::normalized(a);
+                let wide =
+                    (65..=128).contains(&width) && a.width <= width && wide_cases::normalized(a);
                 if wide {
                     wide_cases::shape(&result, width, a.signed && (width == a.width || signed));
                 }
-                // Unary-plus interpretation and sentinel cases stay executable.
+                // Boundary values, interpretation anchors, and sentinel cases stay executable.
                 if covered || (wide && !wide_cases::boundary(a.width)) {
                     continue;
                 }
