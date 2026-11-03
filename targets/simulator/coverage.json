@@ -335,7 +335,7 @@
       "title": "Window write-log records",
       "operators": "",
       "scope": "Direct/log-only writes and record preservation",
-      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records",
+      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–64 into logical widths 0–192, all u64 starts",
       "native": "",
       "big": "",
       "direct": "Finite append/growth histories and prefilled no-op buffers",
@@ -359,6 +359,10 @@
         {
           "path": "targets/simulator/kani/src/window_log_chunks.rs",
           "label": "Kani chunk split"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_variable.rs",
+          "label": "Kani variable window and constructor refinement"
         }
       ],
       "files": [
@@ -369,7 +373,8 @@
         "semantics/src/write_log.rs",
         "targets/simulator/contracts.rs",
         "targets/simulator/kani/src/window_log_pool.rs",
-        "targets/simulator/kani/src/window_log_chunks.rs"
+        "targets/simulator/kani/src/window_log_chunks.rs",
+        "targets/simulator/kani/src/window_log_variable.rs"
       ],
       "clauses": [],
       "reviewed": true,
@@ -383,7 +388,9 @@
           "log-append-growth",
           "log-full-pool-growth",
           "log-prefix-append",
-          "log-chunk-split"
+          "log-chunk-split",
+          "log-variable",
+          "log-scratch-constructor"
         ],
         "cbmc": [],
         "direct": [

@@ -33,13 +33,21 @@ fn main() {
     let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
         matches!(
             c.name,
-            "log-full-pool-growth" | "log-prefix-append" | "log-chunk-split"
+            "log-full-pool-growth"
+                | "log-prefix-append"
+                | "log-chunk-split"
+                | "log-variable"
+                | "log-scratch-constructor"
         )
     });
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
         matches!(
             m.contract.name,
-            "log-full-pool-growth" | "log-prefix-append" | "log-chunk-split"
+            "log-full-pool-growth"
+                | "log-prefix-append"
+                | "log-chunk-split"
+                | "log-variable"
+                | "log-scratch-constructor"
         )
     });
     let (full, ordinary): (Vec<_>, Vec<_>) = selected
@@ -74,7 +82,7 @@ fn main() {
             &ordinary_mutations,
         );
     }
-    // Explicit covers avoid redundant per-assertion queries over 64 symbolic records.
+    // Explicit covers avoid redundant per-assertion reachability queries.
     if !history.is_empty() && (options.mode != Mode::Mutation || !history_mutations.is_empty()) {
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {

@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 51] = [
+pub static KANI: [Contract; 53] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -328,6 +328,31 @@ pub static KANI: [Contract; 51] = [
         "log-direct-alias",
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
+    ),
+    window_log_contract(
+        "log-variable",
+        "window_log_variable_matches_reference",
+        &[
+            "zero source window is reachable",
+            "zero destination width is reachable",
+            "maximum window amount is reachable",
+            "unaligned full window crosses a word",
+            "window is clipped at logical end",
+            "single-bit window is reachable",
+            "last logical bit is reachable",
+            "direct alias variable window is reachable",
+            "log-only alias variable window is reachable",
+            "direct external variable window is reachable",
+            "log-only external variable window is reachable",
+        ],
+    ),
+    window_log_contract(
+        "log-scratch-constructor",
+        "window_scratch_refines_constructor",
+        &[
+            "empty scratch is reachable",
+            "last bounded scratch word is reachable",
+        ],
     ),
     window_log_contract(
         "log-chunk-split",
@@ -1180,6 +1205,60 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             "wide_window_store",
             "if width == 0 || amount >= dst_width {",
             "if width == 0 && dst_width > 0 {unsafe {wr(dst,0,0);}} if width == 0 || amount >= dst_width {",
+            1,
+        ),
+        (
+            "window-variable-reads-updated-alias",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "*out = (old & !mask) | ((sv << shift) & mask);",
+            "*out = (old & !mask) | ((sv << shift) & mask); if in_place { wr(dst, word, *out); }",
+            1,
+        ),
+        (
+            "window-variable-extends-mask",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "let hi = ((word + 1) * 64).min(amount + width);",
+            "let hi = (word + 1) * 64;",
+            1,
+        ),
+        (
+            "window-variable-ignores-shift",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "((1u64 << cnt) - 1) << shift",
+            "(1u64 << cnt) - 1",
+            1,
+        ),
+        (
+            "window-variable-skips-record",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "if !log_buf.is_null() {",
+            "if false {",
+            1,
+        ),
+        (
+            "window-variable-wrong-offset",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "log_offset + (w0 * 8) as u32",
+            "log_offset",
+            1,
+        ),
+        (
+            "window-variable-clears-noop",
+            "log-variable",
+            "",
+            "wide_window_store",
+            "if width == 0 || amount >= dst_width {",
+            "if width == 0 { unsafe { wr(dst,0,0); } } if width == 0 || amount >= dst_width {",
             1,
         ),
         (
