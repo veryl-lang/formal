@@ -9,7 +9,8 @@
 //! Other capacities, arbitrary histories/chunking, partial overlaps, four-state
 //! interpretation and commit/scheduling are excluded. Execution is single-threaded
 //! and allocations succeed. Word generation spans all payload byte patterns with
-//! fewer initialization loops; pointer/refcount identity and allocation failure
+//! fewer initialization loops on a little-endian 64-bit target. Pointer/refcount
+//! identity and allocation failure
 //! are outside scope.
 use veryl_simulator::{ir::WriteLogBuffer, wide_ops};
 #[cfg(not(all(target_endian = "little", target_pointer_width = "64")))]

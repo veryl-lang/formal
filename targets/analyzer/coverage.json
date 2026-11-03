@@ -911,9 +911,7 @@
       "remaining": "Arbitrary recursive expression trees are unproved",
       "assumptions": [
         "Checks context merging, operator rules, and preparation of decoded casts.",
-        "Name resolution and arbitrary recursive expression evaluation are out of scope.",
-        "Literal protocol: Logic/U64 sources widths1–4, normalized arbitrary four-state planes, resolved signs; incoming contexts widths1–8 with all signed/const/global flags. Actual constructors and Factor gather/apply/eval execute. Single-thread normal initialization is checked; catch_unwind executes its closure and every panic fails. No panic recovery, parser/name resolution, deferred widths, recursive AST or diagnostics theorem. Real initialization and diagnostics have a 43,520-case native check.",
-        "Type copies/updates: Bit/Logic scalars, positive usize extents, empty or concrete deferred widths. Comptime copies: Logic/U64 widths1–4, all four-state planes, independent type/value signs and flags, contexts1–8. Classification caches are invalidated; copy edits preserve source observations. Arrays, part selects and member domains are absent; clocks/tokens are default. Allocation/refcount identity and teardown are excluded."
+        "Name resolution and arbitrary recursive expression evaluation are out of scope."
       ],
       "files": [
         "targets/analyzer/kani/src/context.rs",
@@ -937,7 +935,21 @@
           "literal-metadata-copy"
         ],
         "direct": []
-      }
+      },
+      "scopeDocs": [
+        {
+          "path": "targets/analyzer/kani/src/context.rs",
+          "label": "Kani scalar context"
+        },
+        {
+          "path": "targets/analyzer/kani/src/expression_context.rs",
+          "label": "Kani literal protocol"
+        },
+        {
+          "path": "targets/analyzer/kani/src/metadata.rs",
+          "label": "Kani metadata"
+        }
+      ]
     },
     {
       "id": "layout",
