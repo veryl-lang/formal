@@ -247,7 +247,7 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 473] = [
+pub static CONTRACTS: [Contract; 475] = [
     Contract {
         group: "public-big-values",
         name: "signedq256-byte-api",
@@ -754,6 +754,30 @@ pub static CONTRACTS: [Contract; 473] = [
             "ones power class odd exponent is reachable",
             "ones power class full unsigned exponent is reachable",
             "ones power class wide signed exponent is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "powerones256-prepared-witness",
+        harness: "public_big_ops::ones_power::all_ones_power_prepared_mutation_witness",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "ones power class witness signed base is reachable",
+            "ones power class witness unsigned base is reachable",
+            "ones power class witness even exponent is reachable",
+            "ones power class witness odd exponent is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "powerones256-context-witness",
+        harness: "public_big_ops::ones_power::all_ones_power_context_mutation_witness",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "ones power class witness native exponent is reachable",
+            "ones power class witness wide exponent is reachable",
+            "ones power class witness even exponent is reachable",
+            "ones power class witness odd exponent is reachable",
         ],
     },
     Contract {
@@ -6431,6 +6455,12 @@ pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
     "ones power class full unsigned exponent is reachable",
     "ones power class wide signed exponent is reachable",
     "ones power class original context is reachable",
+    "ones power class witness even exponent is reachable",
+    "ones power class witness native exponent is reachable",
+    "ones power class witness odd exponent is reachable",
+    "ones power class witness signed base is reachable",
+    "ones power class witness unsigned base is reachable",
+    "ones power class witness wide exponent is reachable",
     "ones class minimum signed width is reachable",
     "ones class maximum unsigned width is reachable",
     "ones class zero number is reachable",

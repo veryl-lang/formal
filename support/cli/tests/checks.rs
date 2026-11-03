@@ -551,6 +551,12 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     "powerones256-domain-api" => "ones power domain native native is reachable",
                     "powerones256-prepared" => "ones power class minimum signed base is reachable",
                     "powerones256-context" => "ones power class original context is reachable",
+                    "powerones256-prepared-witness" => {
+                        "ones power class witness signed base is reachable"
+                    }
+                    "powerones256-context-witness" => {
+                        "ones power class witness native exponent is reachable"
+                    }
                     "ones256-byte-api" => "ones API unit factor is reachable",
                     "ones256-inverse-api" => "ones inverse unit width is reachable",
                     "ones256-word-api" => "ones word minimum width is reachable",

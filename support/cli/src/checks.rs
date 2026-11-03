@@ -228,6 +228,8 @@ pub const SHARDS: &[Shard] = &[
             "powerones256-domain-api",
             "powerones256-prepared",
             "powerones256-context",
+            "powerones256-prepared-witness",
+            "powerones256-context-witness",
         ],
     ),
     Shard::value(
