@@ -32,10 +32,13 @@ fn main() {
     };
     let (history, selected): (Vec<_>, Vec<_>) = selected
         .into_iter()
-        .partition(|c| c.name == "log-full-pool-growth");
-    let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations
-        .into_iter()
-        .partition(|m| m.contract.name == "log-full-pool-growth");
+        .partition(|c| matches!(c.name, "log-full-pool-growth" | "log-prefix-append"));
+    let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
+        matches!(
+            m.contract.name,
+            "log-full-pool-growth" | "log-prefix-append"
+        )
+    });
     let (full, ordinary): (Vec<_>, Vec<_>) = selected
         .into_iter()
         .partition(|c| c.group == "signed-shift-full");

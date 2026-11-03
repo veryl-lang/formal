@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 49] = [
+pub static KANI: [Contract; 50] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -328,6 +328,24 @@ pub static KANI: [Contract; 49] = [
         "log-direct-alias",
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
+    ),
+    window_log_contract(
+        "log-prefix-append",
+        "window_log_prefix_append_matches_reference",
+        &[
+            "empty wide prefix is reachable",
+            "one live record prefix is reachable",
+            "last spare slot is reachable",
+            "first live prefix byte is reachable",
+            "last live prefix byte is reachable",
+            "nonzero live prefix is reachable",
+            "dirty unused slot is overwritten",
+            "maximum safe prefix base is reachable",
+            "prefix direct alias is reachable",
+            "prefix log-only alias is reachable",
+            "prefix direct external is reachable",
+            "prefix log-only external is reachable",
+        ],
     ),
     window_log_contract(
         "log-full-pool-growth",
@@ -1259,6 +1277,8 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
     }
     let log_path = "veryl/crates/simulator/src/ir/write_log.rs";
     let log_original = fs::read_to_string(repo.join(log_path)).unwrap();
+    // Native history still covers long multi-chunk execution; shared append/count/
+    // growth faults are injected in the Kani contracts instead of duplicated.
     for (name, proof, native, function, old, new) in [
         (
             "window-log-short-record",
@@ -1287,7 +1307,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         (
             "window-log-loses-append-count",
             "log-append-growth",
-            "log-history",
+            "",
             "push_wide",
             "self.wide_count += 1;",
             "self.wide_count = 1;",
@@ -1295,7 +1315,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         (
             "window-log-overwrites-entry-zero",
             "log-append-growth",
-            "log-history",
+            "",
             "push_wide",
             "let idx = self.wide_count as usize;",
             "let idx = 0;",
@@ -1303,7 +1323,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         (
             "window-log-growth-drops-history",
             "log-append-growth",
-            "log-history",
+            "",
             "grow_wide_to",
             "wide[..live].copy_from_slice(&self._wide_owner[..live]);",
             "wide[..live].fill(WriteLogWideEntry::default());",
@@ -1311,10 +1331,34 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         (
             "window-log-clears-narrow-count",
             "log-append-growth",
-            "log-history",
+            "",
             "push_wide",
             "self.wide_count += 1;",
             "self.wide_count += 1; self.narrow_count = 0;",
+        ),
+        (
+            "window-log-prefix-count-resets",
+            "log-prefix-append",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "if self.wide_count >= 2 && self.wide_count < 64 { self.wide_count = 1; } else { self.wide_count += 1; }",
+        ),
+        (
+            "window-log-prefix-overwrites-first-slot",
+            "log-prefix-append",
+            "",
+            "push_wide",
+            "let idx = self.wide_count as usize;",
+            "let idx = if self.wide_count >= 2 && self.wide_count < 64 { 0 } else { self.wide_count as usize };",
+        ),
+        (
+            "window-log-prefix-clears-narrow-count",
+            "log-prefix-append",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "self.wide_count += 1; if self.wide_count >= 3 && self.wide_count <= 64 { self.narrow_count = 0; }",
         ),
         (
             "window-log-full-pool-count-stalls",
