@@ -905,17 +905,19 @@
       "id": "context",
       "title": "Context width & type",
       "operators": "width / signed / cast",
-      "native": "Scalar metadata rules",
+      "native": "Scalar metadata rules · resolved literal leaves",
       "big": "Operand propagation: separate contracts",
       "direct": "gather / apply / eval integration",
       "remaining": "Arbitrary recursive expression trees are unproved",
       "assumptions": [
         "Checks context merging, operator rules, and preparation of decoded casts.",
-        "Name resolution and arbitrary recursive expression evaluation are out of scope."
+        "Name resolution and arbitrary recursive expression evaluation are out of scope.",
+        "Literal protocol: Logic/U64 sources widths1–4, normalized arbitrary four-state planes, resolved signs; incoming contexts widths1–8 with all signed/const/global flags. Actual constructors and Factor gather/apply/eval execute. Single-thread normal initialization is checked; catch_unwind executes its closure and every panic fails. No panic recovery, parser/name resolution, deferred widths, recursive AST or diagnostics theorem. Real initialization and diagnostics have a 43,520-case native check."
       ],
       "files": [
         "targets/analyzer/kani/src/context.rs",
-        "targets/analyzer/tests/tests/context.rs"
+        "targets/analyzer/tests/tests/context.rs",
+        "targets/analyzer/kani/src/expression_context.rs"
       ],
       "clauses": [
         "IEEE 1800 §11.8"
@@ -926,7 +928,8 @@
           "context-merge",
           "context-unary",
           "context-binary",
-          "context-cast"
+          "context-cast",
+          "literal-leaf-context"
         ],
         "direct": []
       }

@@ -373,7 +373,8 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 shard.suite == "nonlinear"
                     || matches!(
                         contract.group,
-                        "public-wide-resize"
+                        "expression-context"
+                            | "public-wide-resize"
                             | "public-big-values"
                             | "public-getters"
                             | "public-native-sequences"
@@ -1317,7 +1318,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 32);
+    assert_eq!(proof_shards, 33);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1708,7 +1709,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 48);
+    assert_eq!(all.len(), 49);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1731,7 +1732,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 11);
-    assert_eq!(rows("value").len(), 33);
+    assert_eq!(rows("value").len(), 34);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
@@ -1800,4 +1801,24 @@ fn simulator_kernel_shards_select_known_contracts_and_partition_proofs() {
             .map(|m| m.name)
             .collect()
     );
+}
+
+#[test]
+fn literal_leaf_registry_uses_the_proof_diagnostics() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let source =
+        fs::read_to_string(root.join("targets/analyzer/kani/src/expression_context.rs")).unwrap();
+    let contract = analyzer::CONTRACTS
+        .iter()
+        .find(|c| c.name == "literal-leaf-context")
+        .unwrap();
+    for message in std::iter::once(contract.message).chain(contract.covers.iter().copied()) {
+        assert!(
+            source.contains(&format!("{message:?}")),
+            "missing proof diagnostic: {message}"
+        );
+    }
 }

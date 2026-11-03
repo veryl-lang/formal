@@ -192,6 +192,8 @@ pub enum Backend<'a> {
         auxiliary_covers: &'a [&'a str],
         /// Cache repeated symbolic dereferences without disabling any checks.
         cache_dereferences: bool,
+        /// Restrict virtual dispatch using Kani's compiler-generated target sets.
+        restrict_vtable: bool,
     },
     NativeTests {
         package: &'a str,
@@ -240,12 +242,19 @@ impl Backend<'_> {
     }
     fn run(self, manifest: &Path, target: &Path, contract: &Contract, phase: Phase) -> Output {
         match self {
-            Self::Kani { harness_timeout } => {
-                run_proof(manifest, target, contract, harness_timeout, false, false)
-            }
+            Self::Kani { harness_timeout } => run_proof(
+                manifest,
+                target,
+                contract,
+                harness_timeout,
+                false,
+                false,
+                false,
+            ),
             Self::KaniWithExplicitCovers {
                 harness_timeout,
                 cache_dereferences,
+                restrict_vtable,
                 ..
             } => run_proof(
                 manifest,
@@ -254,6 +263,7 @@ impl Backend<'_> {
                 harness_timeout,
                 true,
                 cache_dereferences,
+                restrict_vtable,
             ),
             Self::NativeTests {
                 package,
@@ -339,6 +349,7 @@ fn proof_command(
     harness_timeout: &str,
     explicit_covers: bool,
     cache_dereferences: bool,
+    restrict_vtable: bool,
 ) -> Command {
     let mut command = Command::new("cargo");
     command
@@ -355,6 +366,9 @@ fn proof_command(
         ])
         .arg(manifest)
         .env("CARGO_TARGET_DIR", target);
+    if restrict_vtable {
+        command.args(["-Z", "restrict-vtable"]);
+    }
     if explicit_covers {
         command.arg("--no-assertion-reach-checks");
     }
@@ -371,6 +385,7 @@ fn run_proof(
     harness_timeout: &str,
     explicit_covers: bool,
     cache_dereferences: bool,
+    restrict_vtable: bool,
 ) -> Output {
     proof_command(
         manifest,
@@ -379,6 +394,7 @@ fn run_proof(
         harness_timeout,
         explicit_covers,
         cache_dereferences,
+        restrict_vtable,
     )
     .output()
     .expect("failed to launch cargo kani")
@@ -775,8 +791,8 @@ mod tests {
     fn explicit_cover_profile_only_changes_reachability_diagnostics() {
         let manifest = Path::new("proof/Cargo.toml");
         let target = Path::new("proof/target");
-        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false, false);
-        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true, false);
+        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false, false, false);
+        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true, false, false);
         assert_eq!(legacy.get_program(), explicit.get_program());
         assert!(legacy.get_envs().eq(explicit.get_envs()));
         let legacy_args: Vec<_> = legacy.get_args().collect();
@@ -795,6 +811,33 @@ mod tests {
     }
 
     #[test]
+    fn vtable_restrictions_are_opt_in_and_precede_cbmc_arguments() {
+        let args = |restricted| {
+            proof_command(
+                Path::new("p/Cargo.toml"),
+                Path::new("p/target"),
+                &CONTRACTS[0],
+                "180s",
+                true,
+                true,
+                restricted,
+            )
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+        };
+        let plain = args(false);
+        let mut restricted = args(true);
+        let index = restricted
+            .windows(2)
+            .position(|p| p == ["-Z", "restrict-vtable"])
+            .unwrap();
+        assert!(index < restricted.iter().position(|a| a == "--cbmc-args").unwrap());
+        restricted.drain(index..index + 2);
+        assert_eq!(plain, restricted);
+    }
+
+    #[test]
     fn cached_dereferences_preserve_the_verification_profile() {
         let plain = proof_command(
             Path::new("p/Cargo.toml"),
@@ -802,6 +845,7 @@ mod tests {
             &CONTRACTS[0],
             "180s",
             true,
+            false,
             false,
         );
         let cached = proof_command(
@@ -811,6 +855,7 @@ mod tests {
             "180s",
             true,
             true,
+            false,
         );
         let plain_args: Vec<_> = plain.get_args().collect();
         let cached_args: Vec<_> = cached.get_args().collect();
@@ -836,6 +881,7 @@ mod tests {
                 harness_timeout: "60s",
                 auxiliary_covers: &["auxiliary diagnostic"],
                 cache_dereferences: false,
+                restrict_vtable: false,
             },
             Mode::Positive,
             &[&CONTRACTS[1]],
@@ -980,6 +1026,7 @@ mod tests {
             harness_timeout: "60s",
             auxiliary_covers: &["auxiliary diagnostic"],
             cache_dereferences: false,
+            restrict_vtable: false,
         };
         let only_auxiliary = "Check 1:\n - Status: SATISFIED\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- SUCCESSFUL";
         assert!(!backend.positive(true, only_auxiliary, &CONTRACTS[0]));

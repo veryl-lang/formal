@@ -1,4 +1,6 @@
 //! Analyzer-specific contracts and production mutations.
+#[path = "analyzer/expression_context.rs"]
+mod expression_context;
 use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
@@ -247,7 +249,21 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 475] = [
+pub static CONTRACTS: [Contract; 476] = [
+    Contract {
+        group: "expression-context",
+        name: "literal-leaf-context",
+        harness: "expression_context::literal_leaf_context_matches_reference",
+        message: "literal leaf context semantics mismatch",
+        covers: &[
+            "literal leaf signed width1 source is reachable",
+            "literal leaf unsigned width4 source is reachable",
+            "literal leaf smaller incoming width is reachable",
+            "literal leaf larger incoming width is reachable",
+            "literal leaf X is reachable",
+            "literal leaf Z is reachable",
+        ],
+    },
     Contract {
         group: "public-big-values",
         name: "signedq256-byte-api",
@@ -6570,7 +6586,8 @@ pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
     matches!(
         contract.group,
-        "public-nonlinear"
+        "expression-context"
+            | "public-nonlinear"
             | "public-big-values"
             | "public-wide-resize"
             | "public-getters"
@@ -6673,6 +6690,7 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
+    mutations.extend(expression_context::mutations(repo, selected));
     wide_operator_mutations(repo, selected, &mut mutations);
     mutations.extend(followup::mutations(repo, selected));
     if let Some(&contract) = selected

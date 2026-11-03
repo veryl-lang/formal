@@ -69,6 +69,7 @@ fn main() {
             Backend::KaniWithExplicitCovers {
                 harness_timeout: "300s",
                 cache_dereferences: true,
+                restrict_vtable: false,
                 auxiliary_covers: &[],
             },
             options.mode,

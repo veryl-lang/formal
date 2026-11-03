@@ -127,6 +127,7 @@ impl Shard {
 }
 
 pub const SHARDS: &[Shard] = &[
+    Shard::value("expression-context", &["literal-leaf-context"]),
     Shard::new("value-contracts", "native", 90, &[]),
     // Balance proof and mutation time together. Tests require an exact partition
     // of the analyzer catalog, including full-native multiplication.
