@@ -51,6 +51,18 @@ const fn shift_contract(name: &'static str, harness: &'static str, proof: bool) 
     }
 }
 
+const SIGNED_ALL_COVERS: &[&str] = &[
+    "signed shift identity is reachable",
+    "signed shift negative one-bit fill is reachable",
+    "signed shift word boundary is reachable",
+    "signed shift above word boundary is reachable",
+    "signed shift last bit is reachable",
+    "signed shift full negative fill is reachable",
+    "signed shift oversized positive fill is reachable",
+    "signed shift oversized negative fill is reachable",
+    "signed shift prefix guard is reachable",
+    "signed shift suffix guard is reachable",
+];
 const SIGNED_SMALL_COVERS: &[&str] = &[
     "signed shift identity is reachable",
     "signed shift negative one-bit fill is reachable",
@@ -229,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 45] = [
+pub static KANI: [Contract; 47] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -399,6 +411,20 @@ pub static KANI: [Contract; 45] = [
         "wide_bnot_matches_reference",
         UNARY_BITWISE_COVERS,
     ),
+    Contract {
+        name: "wide-ashr-all",
+        group: "signed-shift-full",
+        harness: "wide_ashr_all_amounts_matches_reference",
+        message: "simulator arithmetic shift semantics mismatch",
+        covers: SIGNED_ALL_COVERS,
+    },
+    Contract {
+        name: "wide-ashr-all-inplace",
+        group: "signed-shift-full",
+        harness: "wide_ashr_all_amounts_inplace_matches_reference",
+        message: "simulator arithmetic shift semantics mismatch",
+        covers: SIGNED_ALL_COVERS,
+    },
     signed_shift_contract(
         "wide-ashr-small",
         "wide_ashr_small_matches_reference",
@@ -850,6 +876,24 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             1,
         ),
         (
+            "ashr-skips-long-sign-fill",
+            "wide-ashr-all",
+            "wide-ashr",
+            "wide_ashr",
+            "if sign == 1 && amount > 0 {",
+            "if sign == 1 && amount > 0 && amount <= 8 {",
+            1,
+        ),
+        (
+            "ashr-skips-long-alias-sign-fill",
+            "wide-ashr-all-inplace",
+            "wide-ashr",
+            "wide_ashr",
+            "if sign == 1 && amount > 0 {",
+            "if sign == 1 && amount > 0 && (dst as *const u8 != a || amount <= 8) {",
+            1,
+        ),
+        (
             "ashr-disables-sign-fill",
             "wide-ashr-small",
             "wide-ashr",
@@ -905,7 +949,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         ),
         (
             "ashr-misses-lowest-negative-bit",
-            "",
+            "wide-ashr-all",
             "wide-ashr",
             "wide_ashr",
             "if amount >= width as u64 {\n                0",

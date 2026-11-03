@@ -783,6 +783,12 @@ pub const SHARDS: &[Shard] = &[
             "commit",
         ],
     ),
+    Shard::new(
+        "simulator-contracts",
+        "signed-shift-full",
+        45,
+        &["signed-shift-full"],
+    ),
     Shard::new("simulator-contracts", "bitwise", 90, &["bitwise"]),
     Shard::new("simulator-contracts", "window-log", 90, &["window-log"]),
     Shard::new(
@@ -959,7 +965,9 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             steps.push(Invocation::cargo(
                 "test --locked --manifest-path veryl/Cargo.toml -p veryl-simulator --lib write_log",
             ));
-            steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
+            if suite != "signed-shift-full" {
+                steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
+            }
             steps.push(Invocation::adapter("run --locked --manifest-path targets/simulator/kani/Cargo.toml --bin check_contracts --", groups, mode));
         }
         "simulator-backend-contracts" => {

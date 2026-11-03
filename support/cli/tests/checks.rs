@@ -5,6 +5,9 @@ use veryl_formal_ci::{Commands, Environment, Result, checks::*, error};
 #[path = "../../../targets/analyzer/kani/src/bin/check_contracts/analyzer.rs"]
 mod analyzer;
 
+#[path = "../../../targets/simulator/contracts.rs"]
+mod simulator_catalog;
+
 #[derive(Default)]
 struct Recording {
     calls: Vec<Invocation>,
@@ -1705,7 +1708,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 47);
+    assert_eq!(all.len(), 48);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1727,7 +1730,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         }
     }
     assert_eq!(selected, expected);
-    assert_eq!(rows("simulator").len(), 10);
+    assert_eq!(rows("simulator").len(), 11);
     assert_eq!(rows("value").len(), 33);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
@@ -1737,4 +1740,64 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         assert!(shard["timeout"].as_u64().unwrap() > 0);
     }
     assert!(matrix("unknown").is_err());
+}
+
+#[test]
+fn simulator_kernel_shards_select_known_contracts_and_partition_proofs() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let all = simulator_catalog::catalog(true);
+    let mut assigned = std::collections::BTreeSet::new();
+    let mut mutations = std::collections::BTreeSet::new();
+    for shard in SHARDS.iter().filter(|s| s.check == "simulator-contracts") {
+        let p = plan(shard.check, shard.suite, Mode::All).unwrap();
+        for step in p.steps.iter().filter(|s| {
+            s.args
+                .iter()
+                .any(|a| a == "check_contracts" || a == "check_simulator_contracts")
+        }) {
+            let proof = step.args.iter().any(|a| a == "check_contracts");
+            let groups: Vec<_> = step
+                .args
+                .windows(2)
+                .filter(|p| p[0] == "--group")
+                .map(|p| p[1].as_str())
+                .collect();
+            let selected: Vec<_> = simulator_catalog::catalog(proof)
+                .iter()
+                .filter(|c| groups.contains(&c.group))
+                .collect();
+            assert!(
+                !selected.is_empty(),
+                "empty adapter selection: {}",
+                shard.suite
+            );
+            if proof {
+                for c in &selected {
+                    assert!(
+                        assigned.insert(c.name),
+                        "overlapping simulator proof: {}",
+                        c.name
+                    );
+                }
+                for m in simulator_catalog::mutations(root, &selected, true) {
+                    assert!(
+                        mutations.insert(m.name),
+                        "overlapping simulator mutation: {}",
+                        m.name
+                    );
+                }
+            }
+        }
+    }
+    assert_eq!(assigned, all.iter().map(|c| c.name).collect());
+    assert_eq!(
+        mutations,
+        simulator_catalog::mutations(root, &all.iter().collect::<Vec<_>>(), true)
+            .iter()
+            .map(|m| m.name)
+            .collect()
+    );
 }

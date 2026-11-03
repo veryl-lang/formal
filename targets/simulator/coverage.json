@@ -185,12 +185,14 @@
       "title": "Arithmetic right shift",
       "operators": "",
       "scope": "Signed storage fill and defensive empty metadata",
-      "bounds": "Kani: 192 bits; amount 0–8, or any u64 for nonnegative inputs",
+      "bounds": "Kani: 192 bits; arbitrary signs and every u64 amount",
       "native": "",
       "big": "",
       "direct": "Broader finite signed widths and prepared logical-width masks",
-      "remaining": "Negative inputs shifted by 9+ are not generally proved; caller preparation is separate",
-      "assumptions": [],
+      "remaining": "Caller logical-width preparation, partial overlap and other storage lengths are separate",
+      "assumptions": [
+        "Full-domain kernels use 24 data bytes at offset1 with separate output or exact alias; every result/guard bit and disjoint source byte is quantified. Small-amount/nonnegative contracts remain focused mutation witnesses."
+      ],
       "scopeDocs": [
         {
           "path": "targets/simulator/kani/src/signed_shift.rs",
@@ -211,6 +213,8 @@
       "reviewed": true,
       "contracts": {
         "kani": [
+          "wide-ashr-all",
+          "wide-ashr-all-inplace",
           "wide-ashr-small",
           "wide-ashr-small-inplace",
           "wide-ashr-nonnegative",

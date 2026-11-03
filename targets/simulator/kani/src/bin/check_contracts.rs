@@ -30,14 +30,18 @@ fn main() {
     } else {
         contracts::mutations(repo, &selected, true)
     };
-    // First-record window proofs include real allocation and direct writes;
-    // their CBMC runs can exceed one minute without finding a counterexample.
-    let harness_timeout = if selected.iter().any(|c| c.group == "window-log") {
+    let (full, ordinary): (Vec<_>, Vec<_>) = selected
+        .into_iter()
+        .partition(|c| c.group == "signed-shift-full");
+    let (full_mutations, ordinary_mutations): (Vec<_>, Vec<_>) = mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "signed-shift-full");
+    let harness_timeout = if ordinary.iter().any(|c| c.group == "window-log") {
         "180s"
     } else {
         "60s"
     };
-    Runner {
+    let runner = Runner {
         target: "simulator",
         repo,
         manifest: &package.join("Cargo.toml"),
@@ -49,11 +53,27 @@ fn main() {
             "LICENSE-APACHE",
         ],
         directories: &["veryl", "targets", "semantics", "support"],
+    };
+    if !ordinary.is_empty() && (options.mode != Mode::Mutation || !ordinary_mutations.is_empty()) {
+        runner.run_with_backend(
+            Backend::Kani { harness_timeout },
+            options.mode,
+            &ordinary,
+            &ordinary_mutations,
+        );
     }
-    .run_with_backend(
-        Backend::Kani { harness_timeout },
-        options.mode,
-        &selected,
-        &mutations,
-    );
+    // The bit-fill loop has up to192 iterations. Explicit covers and pointer
+    // caching keep its complete-domain checks within a separate solver budget.
+    if !full.is_empty() && (options.mode != Mode::Mutation || !full_mutations.is_empty()) {
+        runner.run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "300s",
+                cache_dereferences: true,
+                auxiliary_covers: &[],
+            },
+            options.mode,
+            &full,
+            &full_mutations,
+        );
+    }
 }
