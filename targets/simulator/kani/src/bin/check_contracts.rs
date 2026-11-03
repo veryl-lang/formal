@@ -30,13 +30,16 @@ fn main() {
     } else {
         contracts::mutations(repo, &selected, true)
     };
-    let (history, selected): (Vec<_>, Vec<_>) = selected
-        .into_iter()
-        .partition(|c| matches!(c.name, "log-full-pool-growth" | "log-prefix-append"));
+    let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
+        matches!(
+            c.name,
+            "log-full-pool-growth" | "log-prefix-append" | "log-chunk-split"
+        )
+    });
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
         matches!(
             m.contract.name,
-            "log-full-pool-growth" | "log-prefix-append"
+            "log-full-pool-growth" | "log-prefix-append" | "log-chunk-split"
         )
     });
     let (full, ordinary): (Vec<_>, Vec<_>) = selected

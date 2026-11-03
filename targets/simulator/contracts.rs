@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 50] = [
+pub static KANI: [Contract; 51] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -328,6 +328,24 @@ pub static KANI: [Contract; 50] = [
         "log-direct-alias",
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
+    ),
+    window_log_contract(
+        "log-chunk-split",
+        "window_log_chunk_split_matches_reference",
+        &[
+            "first chunk begins at first source byte",
+            "first chunk ends at byte55",
+            "second chunk begins at byte56",
+            "second chunk ends at byte63",
+            "chunk payloads differ",
+            "highest safe chunk base is reachable",
+            "direct alias chunk split is reachable",
+            "log-only alias chunk split is reachable",
+            "direct external chunk split is reachable",
+            "log-only external chunk split is reachable",
+            "chunk prefix guard is reachable",
+            "chunk suffix guard is reachable",
+        ],
     ),
     window_log_contract(
         "log-prefix-append",
@@ -1165,6 +1183,15 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             1,
         ),
         (
+            "window-log-chunk-reads-updated-alias",
+            "log-chunk-split",
+            "",
+            "wide_window_store",
+            "*out = (old & !mask) | ((sv << shift) & mask);",
+            "*out = (old & !mask) | ((sv << shift) & mask); if in_place { wr(dst, word, *out); }",
+            1,
+        ),
+        (
             "window-log-skips-record",
             "log-only",
             "log-records",
@@ -1393,25 +1420,33 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             "self.wide_count += 1; if self.wide_count > 64 { self.narrow_count = 0; }",
         ),
         (
-            "window-log-chunk-skips-byte",
+            "window-log-chunk-uses-short-boundary",
+            "log-chunk-split",
             "",
-            "log-records",
+            "push_wide_range",
+            "let chunk = (nbytes - done).min(WRITE_LOG_WIDE_ENTRY_PAYLOAD_BYTES);",
+            "let chunk = (nbytes - done).min(48);",
+        ),
+        (
+            "window-log-chunk-skips-byte",
+            "log-chunk-split",
+            "",
             "push_wide_range",
             "done += chunk;",
             "done += chunk + 1;",
         ),
         (
             "window-log-chunk-repeats-prefix",
+            "log-chunk-split",
             "",
-            "log-records",
             "push_wide_range",
             "payload.add(done)",
             "payload",
         ),
         (
             "window-log-chunk-reuses-offset",
+            "log-chunk-split",
             "",
-            "log-records",
             "push_wide_range",
             "offset + done as u32",
             "offset",
