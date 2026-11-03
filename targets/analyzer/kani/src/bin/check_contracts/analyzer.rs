@@ -6550,15 +6550,14 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
-// Full logical/conditional continuations and variable-width wide operators
-// exceed the normal60s cap on this toolchain. Keep180s scoped to these names;
-// the separate word64 logical mutation-witness contracts retain60s.
 // Mixed original widths, two signed conversions and variable shifted products
 // need a larger solver budget than the prepared arithmetic kernels.
 pub fn uses_signed_quotient_context_timeout(contract: &Contract) -> bool {
     contract.name.starts_with("signedq256-") && contract.name.ends_with("-context")
 }
 
+// These continuations and variable-width operators can exceed the 60s cap.
+// Width-four LessEq mutations also need time to finish their cover diagnostics.
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     contract.name.starts_with("signedq256-")
         || contract.name.starts_with("powerq256-")
@@ -6574,7 +6573,9 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
         || contract.name.starts_with("special256-")
         || matches!(
             contract.name,
-            "unit256-div-one-reference"
+            "public-less-equal-left-width4"
+                | "public-less-equal-right-width4"
+                | "unit256-div-one-reference"
                 | "identity256-mul-right"
                 | "identity256-mul-right-context"
                 | "identity256-mul-left"

@@ -250,7 +250,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 || contract.name.starts_with("special256-")
                 || matches!(
                     contract.name,
-                    "unit256-div-one-reference"
+                    "public-less-equal-left-width4"
+                        | "public-less-equal-right-width4"
+                        | "unit256-div-one-reference"
                         | "identity256-mul-right"
                         | "identity256-mul-right-context"
                         | "identity256-mul-left"
