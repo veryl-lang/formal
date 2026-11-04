@@ -674,7 +674,7 @@ pub const SHARDS: &[Shard] = &[
             "greater-equal",
         ],
     ),
-    // Keep unary reduction traces separate from binary logic and conditionals.
+    // Split unary reductions so proof and mutation batches fit the job budget.
     Shard::value(
         "reductions",
         &[
@@ -686,6 +686,11 @@ pub const SHARDS: &[Shard] = &[
             "public-reduction-nand-native-continuation",
             "public-reduction-nand-width65",
             "public-reduction-nand-width128",
+        ],
+    ),
+    Shard::value(
+        "reductions-or-xor",
+        &[
             "reduction-or-reference",
             "public-reduction-or-native-continuation",
             "public-reduction-or-width65",

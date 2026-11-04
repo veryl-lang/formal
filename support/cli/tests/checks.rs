@@ -204,12 +204,13 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .filter(|c| c.starts_with("signed quotient class "))
         .collect();
     assert_eq!(signedq_covers, signedq_diagnostics);
-    let signed_context_budget: BTreeSet<_> = all
+    let large_context_budget: BTreeSet<_> = all
         .iter()
-        .filter(|c| analyzer::uses_signed_quotient_context_timeout(c))
+        .filter(|c| analyzer::uses_large_context_timeout(c))
         .map(|c| c.name)
         .collect();
-    let expected_signed_context_budget: BTreeSet<_> = [
+    let expected_large_context_budget: BTreeSet<_> = [
+        "special256-power-one-context",
         "signedq256-div-positive-positive-context",
         "signedq256-div-positive-negative-context",
         "signedq256-div-negative-positive-context",
@@ -221,7 +222,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     ]
     .into_iter()
     .collect();
-    assert_eq!(signed_context_budget, expected_signed_context_budget);
+    assert_eq!(large_context_budget, expected_large_context_budget);
 
     // Conditional diagnostics belong only to their matching public boundary proofs.
     // They must never become mandatory witnesses for unrelated contracts.
@@ -253,7 +254,8 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 || contract.name.starts_with("special256-")
                 || matches!(
                     contract.name,
-                    "public-less-equal-left-width4"
+                    "public-reduction-and-width65"
+                        | "public-less-equal-left-width4"
                         | "public-less-equal-right-width4"
                         | "unit256-div-one-reference"
                         | "identity256-mul-right"
@@ -877,7 +879,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     || contract.name.starts_with("reduction-")
                     || contract.name.starts_with("public-logical-not-")
                 {
-                    "reductions"
+                    if contract.name.starts_with("public-reduction-and-")
+                        || contract.name.starts_with("public-reduction-nand-")
+                        || contract.name == "reduction-and-reference"
+                    {
+                        "reductions"
+                    } else {
+                        "reductions-or-xor"
+                    }
                 } else {
                     "logic"
                 };
@@ -1318,7 +1327,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 33);
+    assert_eq!(proof_shards, 34);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1709,7 +1718,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 49);
+    assert_eq!(all.len(), 50);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1732,7 +1741,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
     }
     assert_eq!(selected, expected);
     assert_eq!(rows("simulator").len(), 11);
-    assert_eq!(rows("value").len(), 34);
+    assert_eq!(rows("value").len(), 35);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();

@@ -6631,14 +6631,15 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
-// Mixed original widths, two signed conversions and variable shifted products
-// need a larger solver budget than the prepared arithmetic kernels.
-pub fn uses_signed_quotient_context_timeout(contract: &Contract) -> bool {
-    contract.name.starts_with("signedq256-") && contract.name.ends_with("-context")
+// Mixed original widths make signed quotient and x**1 context proofs costly.
+// Include time for both assertions and required reachability queries.
+pub fn uses_large_context_timeout(contract: &Contract) -> bool {
+    (contract.name.starts_with("signedq256-") && contract.name.ends_with("-context"))
+        || contract.name == "special256-power-one-context"
 }
 
 // These continuations and variable-width operators can exceed the 60s cap.
-// Width-four LessEq mutations also need time to finish their cover diagnostics.
+// Width-four LessEq and wide reduction AND mutations need cover diagnostics too.
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     contract.name.starts_with("signedq256-")
         || contract.name.starts_with("powerq256-")
@@ -6654,7 +6655,8 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
         || contract.name.starts_with("special256-")
         || matches!(
             contract.name,
-            "public-less-equal-left-width4"
+            "public-reduction-and-width65"
+                | "public-less-equal-left-width4"
                 | "public-less-equal-right-width4"
                 | "unit256-div-one-reference"
                 | "identity256-mul-right"

@@ -75,12 +75,12 @@ fn main() {
     let (big_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
         .into_iter()
         .partition(|m| m.contract.group == "public-big-values");
-    let (signed_contexts, big): (Vec<_>, Vec<_>) = big
+    let (large_contexts, big): (Vec<_>, Vec<_>) = big
         .into_iter()
-        .partition(|c| analyzer::uses_signed_quotient_context_timeout(c));
-    let (signed_context_mutations, big_mutations): (Vec<_>, Vec<_>) = big_mutations
+        .partition(|c| analyzer::uses_large_context_timeout(c));
+    let (large_context_mutations, big_mutations): (Vec<_>, Vec<_>) = big_mutations
         .into_iter()
-        .partition(|m| analyzer::uses_signed_quotient_context_timeout(m.contract));
+        .partition(|m| analyzer::uses_large_context_timeout(m.contract));
     let (extended, explicit): (Vec<_>, Vec<_>) = explicit
         .into_iter()
         .partition(|c| analyzer::uses_extended_logical_timeout(c));
@@ -98,13 +98,7 @@ fn main() {
         ("180s", false, false, extended, extended_mutations),
         ("60s", true, false, big, big_mutations),
         ("180s", true, false, big_extended, big_extended_mutations),
-        (
-            "300s",
-            true,
-            false,
-            signed_contexts,
-            signed_context_mutations,
-        ),
+        ("300s", true, false, large_contexts, large_context_mutations),
         ("180s", true, true, expressions, expression_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
