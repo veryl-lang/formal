@@ -1,4 +1,4 @@
-#![recursion_limit = "256"]
+#![recursion_limit = "1024"]
 //! Production analyzer operations through ordinary crate dependencies.
 //!
 //! Each module states its quantified domain and caller boundary. Native value inputs
@@ -63,3 +63,9 @@ mod public_big_values;
 
 #[cfg(kani)]
 mod public_big_ops;
+
+#[cfg(kani)]
+mod expression_context;
+
+#[cfg(kani)]
+mod metadata;

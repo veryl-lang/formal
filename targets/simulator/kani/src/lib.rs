@@ -21,3 +21,12 @@ mod signed_shift;
 mod window;
 #[cfg(kani)]
 mod window_log;
+
+#[cfg(kani)]
+mod window_log_pool;
+
+#[cfg(kani)]
+mod window_log_chunks;
+
+#[cfg(kani)]
+mod window_log_variable;

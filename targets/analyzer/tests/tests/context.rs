@@ -6,6 +6,78 @@ use veryl_formal_semantics::comparison::{Comparison, Operand, compared_logic};
 use veryl_formal_semantics::gates::{BitOp, binary};
 use veryl_formal_semantics::resize::{extended_logic_bit, reference_planes};
 
+// Native four-state literals, widths1..4 and outer widths1..8. Context metadata
+// is stored at the leaf; enclosing operators perform value sizing. Native execution
+// exercises normal initialization and checks that no diagnostics are emitted.
+#[test]
+fn literal_leaf_context_boundary() {
+    for width in 1..=4 {
+        for payload in 0..(1u64 << width) {
+            for mask in 0..(1u64 << width) {
+                for signed in [false, true] {
+                    for outer_width in 1..=8 {
+                        for flags in 0..8 {
+                            let mut literal = Factor::create_value(
+                                Value::from_u128(
+                                    u128::from(payload),
+                                    u128::from(mask),
+                                    width,
+                                    signed,
+                                ),
+                                Default::default(),
+                            );
+                            literal.comptime_mut().r#type.signed = signed;
+                            literal.comptime_mut().r#type.kind = TypeKind::Logic;
+                            let mut context = Context::default();
+                            let gathered = literal.gather_context(&mut context);
+                            assert!(
+                                gathered.width == width
+                                    && gathered.signed == signed
+                                    && gathered.is_const
+                                    && gathered.is_global,
+                                "literal leaf context mismatch"
+                            );
+                            let outer = veryl_analyzer::ir::ExpressionContext {
+                                width: outer_width,
+                                signed: flags & 1 != 0,
+                                is_const: flags & 2 != 0,
+                                is_global: flags & 4 != 0,
+                            };
+                            literal.apply_context(outer);
+                            let meta = literal.comptime();
+                            let applied = meta.expr_context;
+                            assert!(
+                                applied.width == outer.width
+                                    && applied.signed == outer.signed
+                                    && applied.is_const == outer.is_const
+                                    && applied.is_global == outer.is_global
+                                    && meta.evaluated
+                                    && meta.is_const
+                                    && meta.is_global
+                                    && meta.r#type.total_width() == Some(width)
+                                    && meta.r#type.signed == signed
+                                    && meta.r#type.width_expr().is_empty()
+                                    && meta.r#type.array_expr().is_empty(),
+                                "literal leaf context mismatch"
+                            );
+                            let value = literal.eval_value(&mut context).unwrap();
+                            assert!(
+                                matches!(value, Value::U64(_))
+                                    && value.width() == width
+                                    && value.signed() == signed
+                                    && value.payload_u128() == u128::from(payload)
+                                    && value.mask_xz_u128() == u128::from(mask),
+                                "literal leaf value mismatch"
+                            );
+                            assert!(context.drain_errors().is_empty());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn leaf(a: Operand) -> Expression {
     let mut expr = Expression::create_value(
         Value::from_u128(a.planes.0, a.planes.1, a.width, a.signed),

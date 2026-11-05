@@ -5,6 +5,9 @@ use veryl_formal_ci::{Commands, Environment, Result, checks::*, error};
 #[path = "../../../targets/analyzer/kani/src/bin/check_contracts/analyzer.rs"]
 mod analyzer;
 
+#[path = "../../../targets/simulator/contracts.rs"]
+mod simulator_catalog;
+
 #[derive(Default)]
 struct Recording {
     calls: Vec<Invocation>,
@@ -201,12 +204,15 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .filter(|c| c.starts_with("signed quotient class "))
         .collect();
     assert_eq!(signedq_covers, signedq_diagnostics);
-    let signed_context_budget: BTreeSet<_> = all
+    let large_context_budget: BTreeSet<_> = all
         .iter()
-        .filter(|c| analyzer::uses_signed_quotient_context_timeout(c))
+        .filter(|c| analyzer::uses_large_context_timeout(c))
         .map(|c| c.name)
         .collect();
-    let expected_signed_context_budget: BTreeSet<_> = [
+    let expected_large_context_budget: BTreeSet<_> = [
+        "special256-power-one-context",
+        "signedpow256-div-negative-context",
+        "equality256-ne",
         "signedq256-div-positive-positive-context",
         "signedq256-div-positive-negative-context",
         "signedq256-div-negative-positive-context",
@@ -218,7 +224,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     ]
     .into_iter()
     .collect();
-    assert_eq!(signed_context_budget, expected_signed_context_budget);
+    assert_eq!(large_context_budget, expected_large_context_budget);
 
     // Conditional diagnostics belong only to their matching public boundary proofs.
     // They must never become mandatory witnesses for unrelated contracts.
@@ -250,7 +256,9 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 || contract.name.starts_with("special256-")
                 || matches!(
                     contract.name,
-                    "public-less-equal-left-width4"
+                    "public-reduction-and-width65"
+                        | "public-logical-and-native-continuation"
+                        | "public-less-equal-left-width4"
                         | "public-less-equal-right-width4"
                         | "unit256-div-one-reference"
                         | "identity256-mul-right"
@@ -370,7 +378,8 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 shard.suite == "nonlinear"
                     || matches!(
                         contract.group,
-                        "public-wide-resize"
+                        "expression-context"
+                            | "public-wide-resize"
                             | "public-big-values"
                             | "public-getters"
                             | "public-native-sequences"
@@ -551,6 +560,12 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     "powerones256-domain-api" => "ones power domain native native is reachable",
                     "powerones256-prepared" => "ones power class minimum signed base is reachable",
                     "powerones256-context" => "ones power class original context is reachable",
+                    "powerones256-prepared-witness" => {
+                        "ones power class witness signed base is reachable"
+                    }
+                    "powerones256-context-witness" => {
+                        "ones power class witness native exponent is reachable"
+                    }
                     "ones256-byte-api" => "ones API unit factor is reachable",
                     "ones256-inverse-api" => "ones inverse unit width is reachable",
                     "ones256-word-api" => "ones word minimum width is reachable",
@@ -867,7 +882,14 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                     || contract.name.starts_with("reduction-")
                     || contract.name.starts_with("public-logical-not-")
                 {
-                    "reductions"
+                    if contract.name.starts_with("public-reduction-and-")
+                        || contract.name.starts_with("public-reduction-nand-")
+                        || contract.name == "reduction-and-reference"
+                    {
+                        "reductions"
+                    } else {
+                        "reductions-or-xor"
+                    }
                 } else {
                     "logic"
                 };
@@ -1308,7 +1330,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
             "missing conditional composition dependency: {name}"
         );
     }
-    assert_eq!(proof_shards, 32);
+    assert_eq!(proof_shards, 34);
     assert_eq!(contracts, all.iter().map(|c| c.name).collect());
     assert_eq!(mutations, expected.keys().copied().collect());
 }
@@ -1699,7 +1721,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 47);
+    assert_eq!(all.len(), 50);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1721,8 +1743,8 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         }
     }
     assert_eq!(selected, expected);
-    assert_eq!(rows("simulator").len(), 10);
-    assert_eq!(rows("value").len(), 33);
+    assert_eq!(rows("simulator").len(), 11);
+    assert_eq!(rows("value").len(), 35);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
         let suite = shard["suite"].as_str().unwrap();
@@ -1731,4 +1753,86 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         assert!(shard["timeout"].as_u64().unwrap() > 0);
     }
     assert!(matrix("unknown").is_err());
+}
+
+#[test]
+fn simulator_kernel_shards_select_known_contracts_and_partition_proofs() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let all = simulator_catalog::catalog(true);
+    let mut assigned = std::collections::BTreeSet::new();
+    let mut mutations = std::collections::BTreeSet::new();
+    for shard in SHARDS.iter().filter(|s| s.check == "simulator-contracts") {
+        let p = plan(shard.check, shard.suite, Mode::All).unwrap();
+        for step in p.steps.iter().filter(|s| {
+            s.args
+                .iter()
+                .any(|a| a == "check_contracts" || a == "check_simulator_contracts")
+        }) {
+            let proof = step.args.iter().any(|a| a == "check_contracts");
+            let groups: Vec<_> = step
+                .args
+                .windows(2)
+                .filter(|p| p[0] == "--group")
+                .map(|p| p[1].as_str())
+                .collect();
+            let selected: Vec<_> = simulator_catalog::catalog(proof)
+                .iter()
+                .filter(|c| groups.contains(&c.group))
+                .collect();
+            assert!(
+                !selected.is_empty(),
+                "empty adapter selection: {}",
+                shard.suite
+            );
+            if proof {
+                for c in &selected {
+                    assert!(
+                        assigned.insert(c.name),
+                        "overlapping simulator proof: {}",
+                        c.name
+                    );
+                }
+                for m in simulator_catalog::mutations(root, &selected, true) {
+                    assert!(
+                        mutations.insert(m.name),
+                        "overlapping simulator mutation: {}",
+                        m.name
+                    );
+                }
+            }
+        }
+    }
+    assert_eq!(assigned, all.iter().map(|c| c.name).collect());
+    assert_eq!(
+        mutations,
+        simulator_catalog::mutations(root, &all.iter().collect::<Vec<_>>(), true)
+            .iter()
+            .map(|m| m.name)
+            .collect()
+    );
+}
+
+#[test]
+fn literal_and_metadata_registry_use_the_proof_diagnostics() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    for (name, file) in [
+        ("literal-leaf-context", "expression_context.rs"),
+        ("resolved-type-copy-update", "metadata.rs"),
+        ("literal-metadata-copy", "metadata.rs"),
+    ] {
+        let source = fs::read_to_string(root.join("targets/analyzer/kani/src").join(file)).unwrap();
+        let contract = analyzer::CONTRACTS.iter().find(|c| c.name == name).unwrap();
+        for message in std::iter::once(contract.message).chain(contract.covers.iter().copied()) {
+            assert!(
+                source.contains(&format!("{message:?}")),
+                "missing proof diagnostic for {name}: {message}"
+            );
+        }
+    }
 }

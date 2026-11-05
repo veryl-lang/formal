@@ -185,12 +185,14 @@
       "title": "Arithmetic right shift",
       "operators": "",
       "scope": "Signed storage fill and defensive empty metadata",
-      "bounds": "Kani: 192 bits; amount 0–8, or any u64 for nonnegative inputs",
+      "bounds": "Kani: 192 bits; arbitrary signs and every u64 amount",
       "native": "",
       "big": "",
       "direct": "Broader finite signed widths and prepared logical-width masks",
-      "remaining": "Negative inputs shifted by 9+ are not generally proved; caller preparation is separate",
-      "assumptions": [],
+      "remaining": "Caller logical-width preparation, partial overlap and other storage lengths are separate",
+      "assumptions": [
+        "Full-domain kernels use 24 data bytes at offset1 with separate output or exact alias; every result/guard bit and disjoint source byte is quantified. Small-amount/nonnegative contracts remain focused mutation witnesses."
+      ],
       "scopeDocs": [
         {
           "path": "targets/simulator/kani/src/signed_shift.rs",
@@ -211,6 +213,8 @@
       "reviewed": true,
       "contracts": {
         "kani": [
+          "wide-ashr-all",
+          "wide-ashr-all-inplace",
           "wide-ashr-small",
           "wide-ashr-small-inplace",
           "wide-ashr-nonnegative",
@@ -331,12 +335,14 @@
       "title": "Window write-log records",
       "operators": "",
       "scope": "Direct/log-only writes and record preservation",
-      "bounds": "Kani: first record; width 192, offset 64, window 64",
+      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–64 into logical widths 0–192, all u64 starts",
       "native": "",
       "big": "",
       "direct": "Finite append/growth histories and prefilled no-op buffers",
-      "remaining": "Multiple-record/reallocation behavior and commit are not covered by these Kani proofs",
-      "assumptions": [],
+      "remaining": "Other capacities, arbitrary histories and general chunk splitting remain finite comparisons; commit has separate contracts",
+      "assumptions": [
+        "Append/growth: initially one wide slot and one live narrow record; two 64-bit writes at bit offsets 64 and 128 in a 192-bit destination, arbitrary bytes and base <= u32::MAX - 23; direct/log-only and separate/exact-alias modes. The second append executes real allocation/growth and preserves both record pools. No arbitrary sequence or source-level NBA theorem."
+      ],
       "scopeDocs": [
         {
           "path": "targets/simulator/kani/src/window_log.rs",
@@ -345,6 +351,18 @@
         {
           "path": "targets/simulator/tests/tests/wide_memory.rs",
           "label": "Shared native suite"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_pool.rs",
+          "label": "Kani pool append"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_chunks.rs",
+          "label": "Kani chunk split"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_variable.rs",
+          "label": "Kani variable window and constructor refinement"
         }
       ],
       "files": [
@@ -353,7 +371,10 @@
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/window_log.rs",
         "semantics/src/write_log.rs",
-        "targets/simulator/contracts.rs"
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/window_log_pool.rs",
+        "targets/simulator/kani/src/window_log_chunks.rs",
+        "targets/simulator/kani/src/window_log_variable.rs"
       ],
       "clauses": [],
       "reviewed": true,
@@ -363,7 +384,13 @@
           "log-only-alias",
           "log-direct",
           "log-direct-alias",
-          "log-noop"
+          "log-noop",
+          "log-append-growth",
+          "log-full-pool-growth",
+          "log-prefix-append",
+          "log-chunk-split",
+          "log-variable",
+          "log-scratch-constructor"
         ],
         "cbmc": [],
         "direct": [

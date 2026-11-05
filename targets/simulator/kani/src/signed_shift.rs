@@ -1,7 +1,9 @@
-//! Width 192 in three words: arbitrary signs for amounts 0..=8, or sign-clear inputs
-//! for every u64 amount. Negative inputs shifted by nine or more are not generally
-//! proved. Empty metadata is a separate defensive no-access contract. Caller width
-//! preparation and source decoding are outside the kernel proofs.
+//! IEEE 1800-2023 11.4.10: width192 in three words, every u64 shift amount
+//! and arbitrary input signs, for separate output and exact alias. Prefix/suffix
+//! guards and the disjoint input allocation are preserved. Partial overlap,
+//! four-state planes and caller logical-width preparation remain outside scope.
+//! Small-amount/nonnegative proofs remain focused mutation witnesses. Empty
+//! metadata is a separate defensive no-access contract.
 
 use veryl_formal_semantics::words;
 use veryl_simulator::wide_ops;
@@ -145,4 +147,81 @@ fn wide_ashr_empty_metadata_preserves_storage() {
         no_storage && width == 0,
         "signed shift empty metadata is reachable"
     );
+}
+
+#[kani::proof]
+#[kani::unwind(193)]
+fn wide_ashr_all_amounts_matches_reference() {
+    signed_shift_all::<false>();
+}
+
+fn signed_shift_all<const INPLACE: bool>() {
+    let source: [u8; 25] = kani::any();
+    let source_before = source;
+    let mut destination: [u8; 26] = kani::any();
+    let before = destination;
+    let amount: u64 = kani::any();
+    let observed = usize::from(kani::any::<u8>() % 26);
+    let bit = usize::from(kani::any::<u8>() & 7);
+    unsafe {
+        let dst = destination.as_mut_ptr().add(1);
+        let src = if INPLACE {
+            dst as *const u8
+        } else {
+            source.as_ptr().add(1)
+        };
+        wide_ops::wide_ashr(dst, src, amount, wide_ops::pack_nb_width(24, 192));
+    }
+    let original = if INPLACE {
+        &before[1..25]
+    } else {
+        &source_before[1..]
+    };
+    let inside = observed > 0 && observed < 25;
+    let position = observed.saturating_sub(1) * 8 + bit;
+    let expected = if inside {
+        words::arithmetic_shifted_bit(original, 192, amount, position)
+    } else {
+        words::bit(&before, observed * 8 + bit)
+    };
+    assert!(
+        words::bit(&destination, observed * 8 + bit) == expected,
+        "simulator arithmetic shift semantics mismatch"
+    );
+    let src_observed = usize::from(kani::any::<u8>() % 25);
+    assert!(
+        source[src_observed] == source_before[src_observed],
+        "simulator arithmetic shift semantics mismatch"
+    );
+    kani::cover!(amount == 0, "signed shift identity is reachable");
+    kani::cover!(
+        amount == 1 && words::bit(original, 191),
+        "signed shift negative one-bit fill is reachable"
+    );
+    kani::cover!(amount == 64, "signed shift word boundary is reachable");
+    kani::cover!(
+        amount == 65,
+        "signed shift above word boundary is reachable"
+    );
+    kani::cover!(amount == 191, "signed shift last bit is reachable");
+    kani::cover!(
+        amount == 192 && words::bit(original, 191),
+        "signed shift full negative fill is reachable"
+    );
+    kani::cover!(
+        amount == u64::MAX && !words::bit(original, 191),
+        "signed shift oversized positive fill is reachable"
+    );
+    kani::cover!(
+        amount == u64::MAX && words::bit(original, 191),
+        "signed shift oversized negative fill is reachable"
+    );
+    kani::cover!(observed == 0, "signed shift prefix guard is reachable");
+    kani::cover!(observed == 25, "signed shift suffix guard is reachable");
+}
+
+#[kani::proof]
+#[kani::unwind(193)]
+fn wide_ashr_all_amounts_inplace_matches_reference() {
+    signed_shift_all::<true>();
 }

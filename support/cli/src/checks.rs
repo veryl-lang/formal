@@ -127,6 +127,14 @@ impl Shard {
 }
 
 pub const SHARDS: &[Shard] = &[
+    Shard::value(
+        "expression-context",
+        &[
+            "resolved-type-copy-update",
+            "literal-metadata-copy",
+            "literal-leaf-context",
+        ],
+    ),
     Shard::new("value-contracts", "native", 90, &[]),
     // Balance proof and mutation time together. Tests require an exact partition
     // of the analyzer catalog, including full-native multiplication.
@@ -228,6 +236,8 @@ pub const SHARDS: &[Shard] = &[
             "powerones256-domain-api",
             "powerones256-prepared",
             "powerones256-context",
+            "powerones256-prepared-witness",
+            "powerones256-context-witness",
         ],
     ),
     Shard::value(
@@ -664,7 +674,7 @@ pub const SHARDS: &[Shard] = &[
             "greater-equal",
         ],
     ),
-    // Keep unary reduction traces separate from binary logic and conditionals.
+    // Split unary reductions so proof and mutation batches fit the job budget.
     Shard::value(
         "reductions",
         &[
@@ -676,6 +686,11 @@ pub const SHARDS: &[Shard] = &[
             "public-reduction-nand-native-continuation",
             "public-reduction-nand-width65",
             "public-reduction-nand-width128",
+        ],
+    ),
+    Shard::value(
+        "reductions-or-xor",
+        &[
             "reduction-or-reference",
             "public-reduction-or-native-continuation",
             "public-reduction-or-width65",
@@ -780,6 +795,12 @@ pub const SHARDS: &[Shard] = &[
             "window",
             "commit",
         ],
+    ),
+    Shard::new(
+        "simulator-contracts",
+        "signed-shift-full",
+        45,
+        &["signed-shift-full"],
     ),
     Shard::new("simulator-contracts", "bitwise", 90, &["bitwise"]),
     Shard::new("simulator-contracts", "window-log", 90, &["window-log"]),
@@ -957,7 +978,9 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             steps.push(Invocation::cargo(
                 "test --locked --manifest-path veryl/Cargo.toml -p veryl-simulator --lib write_log",
             ));
-            steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
+            if suite != "signed-shift-full" {
+                steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
+            }
             steps.push(Invocation::adapter("run --locked --manifest-path targets/simulator/kani/Cargo.toml --bin check_contracts --", groups, mode));
         }
         "simulator-backend-contracts" => {

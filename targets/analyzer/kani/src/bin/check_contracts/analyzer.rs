@@ -1,4 +1,8 @@
 //! Analyzer-specific contracts and production mutations.
+#[path = "analyzer/expression_context.rs"]
+mod expression_context;
+#[path = "analyzer/metadata.rs"]
+mod metadata;
 use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
@@ -247,7 +251,53 @@ const PUBLIC_WIDTH4_WILDCARD_NOT_EQUAL_COVERS: &[&str] = &[
     "public width4 wildcard inequality known mismatch survives RHS wildcard",
 ];
 
-pub static CONTRACTS: [Contract; 473] = [
+pub static CONTRACTS: [Contract; 478] = [
+    Contract {
+        group: "expression-context",
+        name: "resolved-type-copy-update",
+        harness: "metadata::resolved_type_clone_update_matches_reference",
+        message: "resolved type semantics mismatch",
+        covers: &[
+            "cloned concrete width can grow",
+            "cloned concrete width can shrink",
+            "empty deferred clone can change width",
+            "signed positive logic metadata is reachable",
+            "unsigned bit metadata is reachable",
+            "maximum source width can narrow",
+            "minimum source width can widen",
+            "native boundary updates are reachable",
+        ],
+    },
+    Contract {
+        group: "expression-context",
+        name: "literal-metadata-copy",
+        harness: "metadata::literal_metadata_clone_matches_reference",
+        message: "metadata clone semantics mismatch",
+        covers: &[
+            "true classification cache is invalidated",
+            "false classification cache is invalidated",
+            "absent classification cache is reachable",
+            "independent type and value signs are reachable",
+            "unknown metadata payload is reachable",
+            "high impedance metadata payload is reachable",
+            "narrower stored context is reachable",
+            "wider stored context is reachable",
+        ],
+    },
+    Contract {
+        group: "expression-context",
+        name: "literal-leaf-context",
+        harness: "expression_context::literal_leaf_context_matches_reference",
+        message: "literal leaf context semantics mismatch",
+        covers: &[
+            "literal leaf signed width1 source is reachable",
+            "literal leaf unsigned width4 source is reachable",
+            "literal leaf smaller incoming width is reachable",
+            "literal leaf larger incoming width is reachable",
+            "literal leaf X is reachable",
+            "literal leaf Z is reachable",
+        ],
+    },
     Contract {
         group: "public-big-values",
         name: "signedq256-byte-api",
@@ -754,6 +804,30 @@ pub static CONTRACTS: [Contract; 473] = [
             "ones power class odd exponent is reachable",
             "ones power class full unsigned exponent is reachable",
             "ones power class wide signed exponent is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "powerones256-prepared-witness",
+        harness: "public_big_ops::ones_power::all_ones_power_prepared_mutation_witness",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "ones power class witness signed base is reachable",
+            "ones power class witness unsigned base is reachable",
+            "ones power class witness even exponent is reachable",
+            "ones power class witness odd exponent is reachable",
+        ],
+    },
+    Contract {
+        group: "public-big-values",
+        name: "powerones256-context-witness",
+        harness: "public_big_ops::ones_power::all_ones_power_context_mutation_witness",
+        message: "wide operator semantics mismatch",
+        covers: &[
+            "ones power class witness native exponent is reachable",
+            "ones power class witness wide exponent is reachable",
+            "ones power class witness even exponent is reachable",
+            "ones power class witness odd exponent is reachable",
         ],
     },
     Contract {
@@ -6431,6 +6505,12 @@ pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
     "ones power class full unsigned exponent is reachable",
     "ones power class wide signed exponent is reachable",
     "ones power class original context is reachable",
+    "ones power class witness even exponent is reachable",
+    "ones power class witness native exponent is reachable",
+    "ones power class witness odd exponent is reachable",
+    "ones power class witness signed base is reachable",
+    "ones power class witness unsigned base is reachable",
+    "ones power class witness wide exponent is reachable",
     "ones class minimum signed width is reachable",
     "ones class maximum unsigned width is reachable",
     "ones class zero number is reachable",
@@ -6540,7 +6620,8 @@ pub const AUXILIARY_CONDITIONAL_COVERS: &[&str] = &[
 pub fn uses_explicit_covers(contract: &Contract) -> bool {
     matches!(
         contract.group,
-        "public-nonlinear"
+        "expression-context"
+            | "public-nonlinear"
             | "public-big-values"
             | "public-wide-resize"
             | "public-getters"
@@ -6550,14 +6631,18 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
-// Mixed original widths, two signed conversions and variable shifted products
-// need a larger solver budget than the prepared arithmetic kernels.
-pub fn uses_signed_quotient_context_timeout(contract: &Contract) -> bool {
-    contract.name.starts_with("signedq256-") && contract.name.ends_with("-context")
+// Mixed widths and wide comparisons can exceed the 180s proof budget.
+// Include time for both assertions and required reachability queries.
+pub fn uses_large_context_timeout(contract: &Contract) -> bool {
+    (contract.name.starts_with("signedq256-") && contract.name.ends_with("-context"))
+        || matches!(
+            contract.name,
+            "special256-power-one-context" | "signedpow256-div-negative-context" | "equality256-ne"
+        )
 }
 
 // These continuations and variable-width operators can exceed the 60s cap.
-// Width-four LessEq mutations also need time to finish their cover diagnostics.
+// Include time for the reachability queries on native logical AND traces too.
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     contract.name.starts_with("signedq256-")
         || contract.name.starts_with("powerq256-")
@@ -6573,7 +6658,9 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
         || contract.name.starts_with("special256-")
         || matches!(
             contract.name,
-            "public-less-equal-left-width4"
+            "public-reduction-and-width65"
+                | "public-logical-and-native-continuation"
+                | "public-less-equal-left-width4"
                 | "public-less-equal-right-width4"
                 | "unit256-div-one-reference"
                 | "identity256-mul-right"
@@ -6643,6 +6730,8 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
 
 pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
     let mut mutations = Vec::new();
+    mutations.extend(expression_context::mutations(repo, selected));
+    mutations.extend(metadata::mutations(repo, selected));
     wide_operator_mutations(repo, selected, &mut mutations);
     mutations.extend(followup::mutations(repo, selected));
     if let Some(&contract) = selected

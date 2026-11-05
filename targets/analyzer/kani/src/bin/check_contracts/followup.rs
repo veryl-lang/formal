@@ -741,7 +741,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 ),
             );
         }
-        if contract.name == "powerones256-prepared" {
+        if contract.name == "powerones256-prepared-witness" {
             add(
                 "powerones-wrong-negative-gate",
                 replace_once(
@@ -796,7 +796,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 ),
             );
         }
-        if contract.name == "powerones256-context" {
+        if contract.name == "powerones256-context-witness" {
             add(
                 "powerones-wrong-base-width",
                 scoped(

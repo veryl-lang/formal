@@ -117,7 +117,8 @@ fn reject_native(
 ) -> veryl_analyzer::value::ValueU64 {
     panic!("power ones native arithmetic boundary reached")
 }
-fn inputs<const ORIGINAL: bool>() -> (Value, Operand, Value, Operand, usize, bool, u128, bool) {
+type Inputs = (Value, Operand, Value, Operand, usize, bool, u128, bool);
+fn inputs<const ORIGINAL: bool>() -> Inputs {
     init();
     let width = usize::from(kani::any::<u8>() & 63) + 65;
     let aw = if ORIGINAL {
@@ -138,8 +139,8 @@ fn inputs<const ORIGINAL: bool>() -> (Value, Operand, Value, Operand, usize, boo
     // in the caller, after its final stack location is established.
     (x, a, y, b, width, caller, ap, result_sign)
 }
-fn check<const ORIGINAL: bool>() {
-    let (x, a, y, b, width, caller, ap, result_sign) = inputs::<ORIGINAL>();
+fn verify<const ORIGINAL: bool>(input: Inputs) -> (Operand, Operand, usize, bool) {
+    let (x, a, y, b, width, caller, ap, result_sign) = input;
     configure(width, b.planes.0, result_sign, &x, caller);
     let out = Op::Pow.eval_value_binary(&x, &y, width, caller, &mut MaskCache::default());
     assert!(
@@ -159,6 +160,10 @@ fn check<const ORIGINAL: bool>() {
     result(&out, width, result_sign, pos, read_logic(expected, 0, pos));
     preserve(&x, a);
     preserve(&y, b);
+    (a, b, width, result_sign)
+}
+fn check<const ORIGINAL: bool>() {
+    let (_, b, width, result_sign) = verify::<ORIGINAL>(inputs::<ORIGINAL>());
     if ORIGINAL {
         kani::cover!(
             width == 65 && b.planes.0 == 3 && result_sign,
@@ -464,4 +469,104 @@ fn wide_all_ones_power_prepared_matches_reference() {
 #[kani::stub(veryl_analyzer::value::Value::expand, observed_expand)]
 fn wide_all_ones_power_context_matches_reference() {
     check::<true>();
+}
+
+// Mutation witnesses are separate width-65 checks, not substitutes for the
+// quantified prepared/context theorems above. Exponents 2/3 cover both parities;
+// widths 2/65 exercise native and BigUint exponent extraction.
+fn mutation_witness<const ORIGINAL: bool>() {
+    init();
+    let width = 65;
+    let signed = ORIGINAL || kani::any::<bool>();
+    let aw = if ORIGINAL { 64 } else { width };
+    let caller = ORIGINAL || kani::any::<bool>();
+    let exponent = if kani::any::<bool>() { 2 } else { 3 };
+    let bw = if kani::any::<bool>() { 2 } else { 65 };
+    let a = Operand {
+        planes: (u128::MAX >> (128 - aw), 0),
+        width: aw,
+        signed,
+    };
+    let b = Operand {
+        planes: (exponent, 0),
+        width: bw,
+        signed: false,
+    };
+    let x = Value::from_u128(a.planes.0, 0, aw, signed);
+    let y = Value::from_u128(exponent, 0, bw, false);
+    verify::<ORIGINAL>((x, a, y, b, width, caller, (1u128 << width) - 1, signed));
+    if ORIGINAL {
+        kani::cover!(
+            bw == 2,
+            "ones power class witness native exponent is reachable"
+        );
+        kani::cover!(
+            bw == 65,
+            "ones power class witness wide exponent is reachable"
+        );
+    } else {
+        kani::cover!(signed, "ones power class witness signed base is reachable");
+        kani::cover!(
+            !signed,
+            "ones power class witness unsigned base is reachable"
+        );
+    }
+    kani::cover!(
+        exponent == 2,
+        "ones power class witness even exponent is reachable"
+    );
+    kani::cover!(
+        exponent == 3,
+        "ones power class witness odd exponent is reachable"
+    );
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::clone_number, super::special::allocating_clone)]
+#[kani::stub(
+    crate::public_big_ops::ordering::from_biguint,
+    super::power::signed_from_numeric
+)]
+#[kani::stub(
+    veryl_analyzer::value::ValueBigUint::to_bigint,
+    super::opposite::witnessed_conversion
+)]
+#[kani::stub(<num_bigint::BigUint as std::convert::From<u32>>::from, super::special::from32)]
+#[kani::stub(<&num_bigint::BigUint as std::ops::Sub<&num_bigint::BigUint>>::sub, super::special::subtract)]
+#[kani::stub(<num_bigint::BigUint as std::ops::Rem<&num_bigint::BigUint>>::rem, super::special::rem_owned)]
+#[kani::stub(
+    crate::public_big_ops::cached_mask,
+    super::multiplication::product_mask
+)]
+#[kani::stub(veryl_analyzer::value::ValueU64::power, reject_native)]
+#[kani::stub(num_bigint::BigUint::modpow, observed_modular)]
+#[kani::stub(veryl_analyzer::value::Value::expand, super::prepared_wide)]
+fn all_ones_power_prepared_mutation_witness() {
+    mutation_witness::<false>();
+}
+#[kani::proof]
+#[kani::unwind(3)]
+#[kani::use_stub_set(numeric256)]
+#[kani::stub(crate::public_big_ops::clone_number, super::special::allocating_clone)]
+#[kani::stub(
+    crate::public_big_ops::ordering::from_biguint,
+    super::power::signed_from_numeric
+)]
+#[kani::stub(
+    veryl_analyzer::value::ValueBigUint::to_bigint,
+    super::opposite::witnessed_conversion
+)]
+#[kani::stub(<num_bigint::BigUint as std::convert::From<u32>>::from, super::special::from32)]
+#[kani::stub(<&num_bigint::BigUint as std::ops::Sub<&num_bigint::BigUint>>::sub, super::special::subtract)]
+#[kani::stub(<num_bigint::BigUint as std::ops::Rem<&num_bigint::BigUint>>::rem, super::special::rem_owned)]
+#[kani::stub(
+    crate::public_big_ops::cached_mask,
+    super::multiplication::product_mask
+)]
+#[kani::stub(veryl_analyzer::value::ValueU64::power, reject_native)]
+#[kani::stub(num_bigint::BigUint::modpow, observed_modular)]
+#[kani::stub(veryl_analyzer::value::Value::expand, observed_expand)]
+fn all_ones_power_context_mutation_witness() {
+    mutation_witness::<true>();
 }

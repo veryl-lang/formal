@@ -5,9 +5,13 @@ edition = "2024"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[package.metadata.kani.flags]
+unstable = ["stubbing"]
+
 [workspace]
 
 [dependencies]
+smallvec = "=1.16.3"
 veryl-simulator = { path = "../../../veryl/crates/simulator" }
 veryl-formal-semantics = { path = "../../../semantics" }
 

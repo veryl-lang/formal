@@ -26,6 +26,24 @@ pub fn window_stored_bit(
     }
 }
 
+/// Whether a 64-bit word contains any selected logical destination bit.
+/// The overlap test avoids adding the arbitrary u64 starting position.
+/// `word` must fit a 64-bit word interval in usize.
+pub fn window_touches_word(
+    word: usize,
+    destination_width: usize,
+    amount: u64,
+    width: usize,
+) -> bool {
+    let first = (word * 64) as u64;
+    let last = first + 63;
+    width > 0
+        && amount < destination_width as u64
+        && first < destination_width as u64
+        && amount <= last
+        && (amount >= first || first - amount < width as u64)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StorageBitOp {
     And,

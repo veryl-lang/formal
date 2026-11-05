@@ -692,7 +692,8 @@
         "Known signed division/remainder cover quotient magnitudes 2^k at result widths 65–128, with independent nonnarrowing original widths 1–128 and source flags; the caller mode is signed. All valid input signs and divisor magnitudes are included. Membership is |b|>0, |b|≤|a|>>k and |a|−(|b|<<k)<|b|; zero-quotient cases remain separate.",
         "The unchanged unsigned magnitude API checks actual magnitudes and full 256-bit shifted products. Signed byte division/remainder check quotient sign composition and canonical zero remainders. Separate quotient/remainder word theorems compare signed decoding/encoding against independently checked scalar magnitude and negation coordinates. Minimum/−1 results wrap to the result width without restricting the intermediate positive magnitude.",
         "Actual Op and signed result constructors execute. The general checked signed conversion interface preserves complete input values including minima; every call checks the actual operand against its witness. Native/unsigned arithmetic must be unreachable. Prepared harnesses partition dividend signs; original-context harnesses partition both input signs completely. A common generator without the sign restriction checks original-domain preparation, all four storage pairs and mixed flags.",
-        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and general quotients remain direct. Numerical APIs are mathematical models; num-bigint algorithms are outside the proof scope."
+        "Only overlapping finite value comparisons are omitted. Actual calls, cache histories, source preservation, storage-boundary pairs and general quotients remain direct. Numerical APIs are mathematical models; num-bigint algorithms are outside the proof scope.",
+        "All-ones power mutation witnesses use result width 65, prepared source width 65 or signed original source width 64, and unsigned exponents 2/3 stored at widths 2/65. They reuse the general proofs\\u0027 production calls, guards and assertions; the general result-width/source-width/exponent domains remain separate and unchanged."
       ],
       "files": [
         "targets/analyzer/kani/src/nonlinear.rs",
@@ -850,6 +851,8 @@
           "powerones256-domain-api",
           "powerones256-prepared",
           "powerones256-context",
+          "powerones256-prepared-witness",
+          "powerones256-context-witness",
           "powerhot256-byte-api",
           "powerhot256-coordinates-api",
           "powerhot256-successor-api",
@@ -902,7 +905,7 @@
       "id": "context",
       "title": "Context width & type",
       "operators": "width / signed / cast",
-      "native": "Scalar metadata rules",
+      "native": "Scalar metadata rules · copies and updates · resolved literal leaves",
       "big": "Operand propagation: separate contracts",
       "direct": "gather / apply / eval integration",
       "remaining": "Arbitrary recursive expression trees are unproved",
@@ -912,7 +915,10 @@
       ],
       "files": [
         "targets/analyzer/kani/src/context.rs",
-        "targets/analyzer/tests/tests/context.rs"
+        "targets/analyzer/tests/tests/context.rs",
+        "targets/analyzer/kani/src/expression_context.rs",
+        "targets/analyzer/kani/src/metadata.rs",
+        "targets/analyzer/tests/tests/metadata.rs"
       ],
       "clauses": [
         "IEEE 1800 §11.8"
@@ -923,10 +929,27 @@
           "context-merge",
           "context-unary",
           "context-binary",
-          "context-cast"
+          "context-cast",
+          "literal-leaf-context",
+          "resolved-type-copy-update",
+          "literal-metadata-copy"
         ],
         "direct": []
-      }
+      },
+      "scopeDocs": [
+        {
+          "path": "targets/analyzer/kani/src/context.rs",
+          "label": "Kani scalar context"
+        },
+        {
+          "path": "targets/analyzer/kani/src/expression_context.rs",
+          "label": "Kani literal protocol"
+        },
+        {
+          "path": "targets/analyzer/kani/src/metadata.rs",
+          "label": "Kani metadata"
+        }
+      ]
     },
     {
       "id": "layout",
