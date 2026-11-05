@@ -211,6 +211,8 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .collect();
     let expected_large_context_budget: BTreeSet<_> = [
         "special256-power-one-context",
+        "signedpow256-div-negative-context",
+        "equality256-ne",
         "signedq256-div-positive-positive-context",
         "signedq256-div-positive-negative-context",
         "signedq256-div-negative-positive-context",
@@ -255,6 +257,7 @@ fn value_shards_partition_every_proof_and_production_mutation() {
                 || matches!(
                     contract.name,
                     "public-reduction-and-width65"
+                        | "public-logical-and-native-continuation"
                         | "public-less-equal-left-width4"
                         | "public-less-equal-right-width4"
                         | "unit256-div-one-reference"

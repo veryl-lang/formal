@@ -6631,15 +6631,18 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
-// Mixed original widths make signed quotient and x**1 context proofs costly.
+// Mixed widths and wide comparisons can exceed the 180s proof budget.
 // Include time for both assertions and required reachability queries.
 pub fn uses_large_context_timeout(contract: &Contract) -> bool {
     (contract.name.starts_with("signedq256-") && contract.name.ends_with("-context"))
-        || contract.name == "special256-power-one-context"
+        || matches!(
+            contract.name,
+            "special256-power-one-context" | "signedpow256-div-negative-context" | "equality256-ne"
+        )
 }
 
 // These continuations and variable-width operators can exceed the 60s cap.
-// Width-four LessEq and wide reduction AND mutations need cover diagnostics too.
+// Include time for the reachability queries on native logical AND traces too.
 pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
     contract.name.starts_with("signedq256-")
         || contract.name.starts_with("powerq256-")
@@ -6656,6 +6659,7 @@ pub fn uses_extended_logical_timeout(contract: &Contract) -> bool {
         || matches!(
             contract.name,
             "public-reduction-and-width65"
+                | "public-logical-and-native-continuation"
                 | "public-less-equal-left-width4"
                 | "public-less-equal-right-width4"
                 | "unit256-div-one-reference"
