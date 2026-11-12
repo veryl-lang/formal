@@ -825,6 +825,12 @@ pub const SHARDS: &[Shard] = &[
     Shard::new("simulator-contracts", "window-from", 45, &["window-from"]),
     Shard::new(
         "simulator-contracts",
+        "model-projections",
+        30,
+        &["reference-models"],
+    ),
+    Shard::new(
+        "simulator-contracts",
         "window-from-chunks",
         45,
         &["window-from-chunks"],
@@ -1050,6 +1056,7 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
                     | "window-from"
                     | "window-from-variable"
                     | "window-from-chunks"
+                    | "model-projections"
                     | "dual-slot"
                     | "dual-slot-wide"
                     | "window-read"

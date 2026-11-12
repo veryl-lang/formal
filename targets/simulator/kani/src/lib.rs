@@ -57,3 +57,6 @@ mod window_from_variable;
 
 #[cfg(kani)]
 mod window_from_chunks;
+
+#[cfg(kani)]
+mod integer_projection;

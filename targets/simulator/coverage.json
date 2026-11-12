@@ -1892,6 +1892,44 @@
           "dual-slot-chunks-aot-c"
         ]
       }
+    },
+    {
+      "id": "reference-project192",
+      "title": "192-bit reference projection refinement",
+      "operators": "",
+      "scope": "Auxiliary oracle assurance: independent scalar projection agrees with source-bit origins; no new production or Veryl language feature claim",
+      "bounds": "Every 24-byte source bit pattern, every valid nonempty interval inside 192 bits and every 192-bit output position; empty source slice with width0 and every usize start; 64-bit little-endian host and two-state unsigned bits",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No production operation checked by this lemma; no arbitrary source-length or wider projection claim",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/integer_projection.rs",
+          "label": "Symbolic oracle refinement and empty-source no-read case"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent scalar projection and source-bit origins"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/integer_projection.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "reference-project192"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
     }
   ]
 }

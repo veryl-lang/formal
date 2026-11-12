@@ -33,7 +33,10 @@ fn main() {
     let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
         matches!(
             c.group,
-            "window-read-source" | "window-from-variable" | "window-from-chunks"
+            "window-read-source"
+                | "window-from-variable"
+                | "window-from-chunks"
+                | "reference-models"
         ) || matches!(
             c.name,
             "log-full-pool-growth"
@@ -66,7 +69,10 @@ fn main() {
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
         matches!(
             m.contract.group,
-            "window-read-source" | "window-from-variable" | "window-from-chunks"
+            "window-read-source"
+                | "window-from-variable"
+                | "window-from-chunks"
+                | "reference-models"
         ) || matches!(
             m.contract.name,
             "log-full-pool-growth"
@@ -96,6 +102,12 @@ fn main() {
                 | "log-scratch-constructor"
         )
     });
+    let (reference_models, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "reference-models");
+    let (reference_model_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "reference-models");
     let (source_reads, history): (Vec<_>, Vec<_>) = history
         .into_iter()
         .partition(|c| c.group == "window-read-source");
@@ -190,6 +202,7 @@ fn main() {
     // pool histories preserve up to 64 live records and have their own solver budget.
     for (timeout, contracts, mutations) in [
         ("180s", history, history_mutations),
+        ("180s", reference_models, reference_model_mutations),
         ("300s", pool, pool_mutations),
         ("300s", two_word, two_word_mutations),
         ("300s", source_reads, source_read_mutations),

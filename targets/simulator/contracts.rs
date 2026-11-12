@@ -241,7 +241,23 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 98] = [
+pub static KANI: [Contract; 99] = [
+    Contract {
+        name: "reference-project192",
+        group: "reference-models",
+        harness: "integer_projection::projected192_matches_bit_origins",
+        message: "independent 192-bit projection mismatch",
+        covers: &[
+            "projection192 empty maximum start is reachable",
+            "projection192 full high bit is reachable",
+            "projection192 crossing128 is reachable",
+            "projection192 high-only source is reachable",
+            "projection192 final source bit is reachable",
+            "projection192 full low limb is reachable",
+            "projection192 first high output bit is reachable",
+            "projection192 zero upper output is reachable",
+        ],
+    },
     Contract {
         name: "log-from-chunks-log-external",
         group: "window-from-chunks",
