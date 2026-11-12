@@ -33,3 +33,6 @@ mod window_log_variable;
 
 #[cfg(kani)]
 mod window_commit;
+
+#[cfg(kani)]
+mod window_history;

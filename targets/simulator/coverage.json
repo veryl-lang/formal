@@ -234,7 +234,7 @@
       "title": "Write-log commit",
       "operators": "",
       "scope": "Byte replacement, record ordering, and change events",
-      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes",
+      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue",
       "native": "",
       "big": "",
       "direct": "Finite mixed histories, invalid spans, live prefixes, and byte marking",
@@ -250,6 +250,10 @@
           "label": "Kani window-to-commit composition"
         },
         {
+          "path": "targets/simulator/kani/src/window_history.rs",
+          "label": "Kani overlapping and mixed histories"
+        },
+        {
           "path": "targets/simulator/tests/tests/wide_memory.rs",
           "label": "Shared native suite"
         }
@@ -257,6 +261,7 @@
       "files": [
         "targets/simulator/kani/src/commit.rs",
         "targets/simulator/kani/src/window_commit.rs",
+        "targets/simulator/kani/src/window_history.rs",
         "targets/simulator/tests/tests/wide_memory.rs",
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/commit.rs",
@@ -277,7 +282,9 @@
           "commit-wide-order",
           "commit-mixed-order",
           "log-commit-unaligned",
-          "log-commit-chunks"
+          "log-commit-chunks",
+          "log-history-overlap",
+          "log-history-mixed"
         ],
         "cbmc": [],
         "direct": [

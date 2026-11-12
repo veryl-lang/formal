@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 56] = [
+pub static KANI: [Contract; 58] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -329,6 +329,55 @@ pub static KANI: [Contract; 56] = [
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
     ),
+    Contract {
+        name: "log-history-overlap",
+        group: "window-history",
+        harness: "window_history_overlap_matches_reference",
+        message: "simulator window history semantics mismatch",
+        covers: &[
+            "overlap both log-only writes are reachable",
+            "overlap both direct writes are reachable",
+            "overlap direct then log-only is reachable",
+            "overlap log-only then direct is reachable",
+            "overlap disjoint sources are reachable",
+            "overlap both source aliases are reachable",
+            "overlap second source alias is reachable",
+            "overlap first source alias is reachable",
+            "second alias reads first direct update",
+            "second alias ignores uncommitted first value",
+            "overlap no changes emit no events",
+            "overlap only first record changes",
+            "overlap only second record changes",
+            "overlap both records emit ordered events",
+            "overlap restoring initial state still emits two events",
+            "overlap direct final state still has transient commit changes",
+            "overlap prefix guard is reachable",
+            "overlap suffix guard is reachable",
+            "overlap preserved first word end is reachable",
+            "overlap last writer start is reachable",
+        ],
+    },
+    Contract {
+        name: "log-history-mixed",
+        group: "window-history",
+        harness: "window_history_mixed_matches_reference",
+        message: "simulator window history semantics mismatch",
+        covers: &[
+            "mixed history direct source alias is reachable",
+            "mixed history log-only source alias is reachable",
+            "mixed history direct external source is reachable",
+            "mixed history log-only external source is reachable",
+            "wide pool overrides later enqueued narrow value",
+            "mixed history no changes emit no events",
+            "mixed history only narrow record changes",
+            "mixed history only wide record changes",
+            "mixed history emits narrow then wide events",
+            "mixed history restores direct staging with two events",
+            "mixed history restores initial state with two events",
+            "mixed history prefix guard is reachable",
+            "mixed history suffix guard is reachable",
+        ],
+    },
     Contract {
         name: "log-commit-unaligned",
         group: "window-commit",
@@ -1271,6 +1320,24 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             1,
         ),
         (
+            "history-first-direct-disabled",
+            "log-history-overlap",
+            "",
+            "wide_window_store",
+            "let in_place = (log_and_flags >> 32) & 1 == 1;",
+            "let in_place = (log_and_flags >> 32) & 1 == 1 && width != 128;",
+            1,
+        ),
+        (
+            "history-second-alias-wrong-word",
+            "log-history-overlap",
+            "",
+            "wide_window_store",
+            "let s_lo = if sw < src_words { rd(src, sw) } else { 0 };",
+            "let s_lo = if sw < src_words { rd(src, if src == dst.cast_const() && amount == 64 { 1 } else { sw }) } else { 0 };",
+            1,
+        ),
+        (
             "commit-window-alias-snapshot",
             "log-commit-unaligned",
             "",
@@ -1634,6 +1701,14 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             "self.wide_count += 1; if self.wide_count > 64 { self.narrow_count = 0; }",
         ),
         (
+            "history-append-count-resets",
+            "log-history-overlap",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "self.wide_count = 1;",
+        ),
+        (
             "commit-window-chunk-repeats-prefix",
             "log-commit-chunks",
             "",
@@ -1714,6 +1789,48 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         + 2;
     let commit_body = &log_original[commit_start..commit_end];
     for (name, proof, native, old, new) in [
+        (
+            "history-wide-reverse",
+            "log-history-overlap",
+            "",
+            "buffer.wide_entries_slice().iter().take(wide_limit)",
+            "buffer.wide_entries_slice().iter().take(wide_limit).rev()",
+        ),
+        (
+            "history-skips-unoverwritten-first-word",
+            "log-history-overlap",
+            "",
+            "buffer.wide_entries_slice().iter().take(wide_limit)",
+            "buffer.wide_entries_slice().iter().take(wide_limit).skip(1)",
+        ),
+        (
+            "history-coalesces-transient-events",
+            "log-history-overlap",
+            "",
+            "let dst = ff_values.as_mut_ptr();",
+            "let dst = ff_values.as_mut_ptr(); let mut original_changed = changed; let mut notified = false; let mut changed = |off, nb| { if !notified { original_changed(off, nb); notified = true; } };",
+        ),
+        (
+            "history-mixed-skips-narrow",
+            "log-history-mixed",
+            "",
+            "let narrow_limit = buffer.narrow_count as usize;",
+            "let narrow_limit = 0;",
+        ),
+        (
+            "history-mixed-corrupts-transient",
+            "log-history-mixed",
+            "",
+            "(p as *mut u64).write_unaligned(entry.payload);",
+            "(p as *mut u64).write_unaligned(!entry.payload);",
+        ),
+        (
+            "history-mixed-ignores-upper-change",
+            "log-history-mixed",
+            "",
+            "|| (p.add(tail) as *const $t).read_unaligned() != hi_v",
+            "|| false",
+        ),
         (
             "commit-window-large-copy-tail",
             "log-commit-unaligned",
@@ -1910,33 +2027,43 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             });
         }
     }
-    let contract_name = if kani {
-        "commit-mixed-order"
-    } else {
-        "commit-mixed"
-    };
-    if let Some(contract) = selected.iter().find(|c| c.name == contract_name) {
-        let narrow = commit_body
-            .find("    // Narrow path: single word store per width class.")
-            .expect("narrow block moved");
-        let wide = commit_body
-            .find("    // Wide path.")
-            .expect("wide block moved");
-        let end = commit_body.len() - 2;
-        result.push(Mutation {
-            name: "commit-pool-order",
-            contract,
-            path: log_path,
-            source: format!(
-                "{}{}{}{}{}{}",
-                &log_original[..commit_start],
-                &commit_body[..narrow],
-                &commit_body[wide..end],
-                &commit_body[narrow..wide],
-                &commit_body[end..],
-                &log_original[commit_end..]
-            ),
-        });
+    for (contract_name, mutation_name) in [
+        (
+            if kani {
+                "commit-mixed-order"
+            } else {
+                "commit-mixed"
+            },
+            "commit-pool-order",
+        ),
+        (
+            if kani { "log-history-mixed" } else { "" },
+            "history-mixed-pool-order",
+        ),
+    ] {
+        if let Some(contract) = selected.iter().find(|c| c.name == contract_name) {
+            let narrow = commit_body
+                .find("    // Narrow path: single word store per width class.")
+                .expect("narrow block moved");
+            let wide = commit_body
+                .find("    // Wide path.")
+                .expect("wide block moved");
+            let end = commit_body.len() - 2;
+            result.push(Mutation {
+                name: mutation_name,
+                contract,
+                path: log_path,
+                source: format!(
+                    "{}{}{}{}{}{}",
+                    &log_original[..commit_start],
+                    &commit_body[..narrow],
+                    &commit_body[wide..end],
+                    &commit_body[narrow..wide],
+                    &commit_body[end..],
+                    &log_original[commit_end..]
+                ),
+            });
+        }
     }
     let contract_name = if kani {
         "commit-narrow"
