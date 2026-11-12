@@ -39,3 +39,6 @@ mod window_history;
 
 #[cfg(kani)]
 mod window_from;
+
+#[cfg(kani)]
+mod dual_slot_window;

@@ -234,7 +234,7 @@
       "title": "Write-log commit",
       "operators": "",
       "scope": "Byte replacement, record ordering, and change events",
-      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue; source-offset stores into 13/128/130-bit native destinations, plus full-metadata no-op frames",
+      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue; source-offset stores into 13/128/130-bit native destinations, plus full-metadata no-op frames; initialized dual-slot partial histories at logical widths 61/128",
       "native": "",
       "big": "",
       "direct": "Finite mixed histories, invalid spans, live prefixes, and byte marking",
@@ -258,6 +258,10 @@
           "label": "Kani source-offset stores and commits"
         },
         {
+          "path": "targets/simulator/kani/src/dual_slot_window.rs",
+          "label": "Kani initialized dual-slot partial histories"
+        },
+        {
           "path": "targets/simulator/tests/tests/wide_memory.rs",
           "label": "Shared native suite"
         }
@@ -267,6 +271,7 @@
         "targets/simulator/kani/src/window_commit.rs",
         "targets/simulator/kani/src/window_history.rs",
         "targets/simulator/kani/src/window_from.rs",
+        "targets/simulator/kani/src/dual_slot_window.rs",
         "targets/simulator/tests/tests/wide_memory.rs",
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/commit.rs",
@@ -293,7 +298,9 @@
           "log-from-short",
           "log-from-native128",
           "log-from-wide130",
-          "log-from-noop"
+          "log-from-noop",
+          "log-dual-partial61",
+          "log-dual-partial128"
         ],
         "cbmc": [],
         "direct": [
