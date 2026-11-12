@@ -8,6 +8,9 @@ mod analyzer;
 #[path = "../../../targets/simulator/contracts.rs"]
 mod simulator_catalog;
 
+#[path = "../../../targets/simulator/backend_contracts.rs"]
+mod simulator_backend_catalog;
+
 #[derive(Default)]
 struct Recording {
     calls: Vec<Invocation>,
@@ -1436,6 +1439,7 @@ fn simulator_shards_keep_their_disjoint_group_selection() {
         "packed-write",
         "packed-read",
         "packed-layout",
+        "dual-slot",
     ] {
         let plan = plan("simulator-backend-contracts", suite, Mode::All).unwrap();
         assert!(
@@ -1730,7 +1734,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 55);
+    assert_eq!(all.len(), 56);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1752,7 +1756,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         }
     }
     assert_eq!(selected, expected);
-    assert_eq!(rows("simulator").len(), 16);
+    assert_eq!(rows("simulator").len(), 17);
     assert_eq!(rows("value").len(), 35);
     for shard in all {
         let check = shard["check"].as_str().unwrap();
@@ -1844,4 +1848,56 @@ fn literal_and_metadata_registry_use_the_proof_diagnostics() {
             );
         }
     }
+}
+
+#[test]
+fn simulator_backend_shards_partition_contracts_and_mutations() {
+    use std::collections::BTreeSet;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let all = simulator_backend_catalog::catalog();
+    let mut assigned = BTreeSet::new();
+    let mut mutations = BTreeSet::new();
+    for shard in SHARDS
+        .iter()
+        .filter(|s| s.check == "simulator-backend-contracts")
+    {
+        let p = plan(shard.check, shard.suite, Mode::All).unwrap();
+        let adapters: Vec<_> = p
+            .steps
+            .iter()
+            .filter(|s| s.args.iter().any(|a| a == "check_backend_contracts"))
+            .collect();
+        assert_eq!(adapters.len(), 1);
+        let groups: Vec<_> = adapters[0]
+            .args
+            .windows(2)
+            .filter(|p| p[0] == "--group")
+            .map(|p| p[1].as_str())
+            .collect();
+        let selected: Vec<_> = all.iter().filter(|c| groups.contains(&c.group)).collect();
+        assert!(!selected.is_empty(), "empty backend shard: {}", shard.suite);
+        for c in &selected {
+            assert!(
+                assigned.insert(c.name),
+                "overlapping backend contract: {}",
+                c.name
+            );
+        }
+        for m in simulator_backend_catalog::mutations(root, &selected) {
+            assert!(selected.iter().any(|c| c.name == m.contract.name));
+            assert!(
+                mutations.insert(m.name),
+                "overlapping backend mutation: {}",
+                m.name
+            );
+        }
+    }
+    assert_eq!(assigned, all.iter().map(|c| c.name).collect());
+    let all_mutations = simulator_backend_catalog::mutations(root, &all.iter().collect::<Vec<_>>());
+    let expected: BTreeSet<_> = all_mutations.iter().map(|m| m.name).collect();
+    assert_eq!(expected.len(), all_mutations.len());
+    assert_eq!(mutations, expected);
 }

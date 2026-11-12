@@ -1591,6 +1591,43 @@
         ],
         "direct": []
       }
+    },
+    {
+      "id": "dual-slot-history",
+      "title": "Dual-slot partial update histories",
+      "operators": "",
+      "scope": "Reset/current-next consistency, overlapping dynamic writes, and old-current RHS reads through source lowering and real commit",
+      "bounds": "Widths 61/128/130; default/forced placement; two seeds, four RHS choices, eight updates per choice; upper two bits of width 130 remain zero",
+      "native": "",
+      "big": "",
+      "direct": "384 updates per backend in interpreter, Cranelift, and AOT-C",
+      "remaining": "Finite histories only; no arbitrary initialization, allocation, source, selector, or scheduling theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot.rs",
+          "label": "Finite source-to-commit histories"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-interpreter",
+          "dual-slot-cranelift",
+          "dual-slot-aot-c"
+        ]
+      }
     }
   ]
 }

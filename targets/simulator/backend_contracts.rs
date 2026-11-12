@@ -11,7 +11,28 @@ use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 
-pub static NATIVE: [Contract; 118] = [
+pub static NATIVE: [Contract; 121] = [
+    Contract {
+        name: "dual-slot-interpreter",
+        group: "dual-slot-history",
+        harness: "dual_slot::interpreter_dual_slot",
+        message: "simulator dual-slot state mismatch",
+        covers: &[],
+    },
+    Contract {
+        name: "dual-slot-cranelift",
+        group: "dual-slot-history",
+        harness: "dual_slot::cranelift_dual_slot",
+        message: "simulator dual-slot state mismatch",
+        covers: &[],
+    },
+    Contract {
+        name: "dual-slot-aot-c",
+        group: "dual-slot-history",
+        harness: "dual_slot::aot_c_dual_slot",
+        message: "simulator dual-slot state mismatch",
+        covers: &[],
+    },
     gate_extension_contract(
         "gate-max-interpreter",
         "gate_cycle::interpreter_gate_max",
@@ -2790,6 +2811,24 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 ),
             });
         }
+    }
+    for &contract in selected.iter().filter(|c| c.group == "dual-slot-history") {
+        let path = "veryl/crates/simulator/src/ir/opt/multi_write_analysis.rs";
+        let original = fs::read_to_string(repo.join(path)).unwrap();
+        let old = "if total >= 2 {";
+        assert_eq!(original.matches(old).count(), 1);
+        let name = match contract.name {
+            "dual-slot-interpreter" => "dual-slot-interpreter-missed-multi-write",
+            "dual-slot-cranelift" => "dual-slot-cranelift-missed-multi-write",
+            "dual-slot-aot-c" => "dual-slot-aot-c-missed-multi-write",
+            _ => unreachable!(),
+        };
+        result.push(Mutation {
+            name,
+            contract,
+            path,
+            source: original.replace(old, "if total >= 3 {"),
+        });
     }
     result.extend(event_contracts::mutations(repo, selected));
     result.extend(gate_extension_contracts::mutations(repo, selected));
