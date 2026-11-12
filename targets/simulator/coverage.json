@@ -1635,6 +1635,50 @@
           "dual-slot-aot-c"
         ]
       }
+    },
+    {
+      "id": "window-read-plane",
+      "title": "Bounded window read planes",
+      "operators": "",
+      "scope": "Preclipped source/destination intervals, repeated fill, clean native padding, exact source extent, and null-pointer no-access branches",
+      "bounds": "130-bit/24-byte active source; windows 13/65/130 with all bounded u64 starts/skips/counts; count zero admits all u64 source widths/start/skip and null source; window zero admits all u64 parameters and null/live guarded destination",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No caller bounds-lowering, arbitrary pointer overlap, source-level selection, or complete four-state encoding theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_read.rs",
+          "label": "Kani read-plane domain"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent bit origins"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_read.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "window-read13",
+          "window-read65",
+          "window-read130",
+          "window-fill13",
+          "window-fill65",
+          "window-fill130",
+          "window-read-empty"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
     }
   ]
 }

@@ -49,6 +49,33 @@ pub fn window_stored_from_bit(
     }
 }
 
+/// One output bit of a bounded read plane. Selected source positions must fit
+/// `source` and usize; callers establish the source interval separately. Fill
+/// repeats its 64-bit pattern over logical output bits, and storage padding is
+/// zero. This describes a plane operation; callers choose payload/XZ fill values.
+/// IEEE 1800-2023 11.5.1 supplies the logical in-range/out-of-range distinction.
+/// Zero logical windows have a separate no-access storage contract.
+pub fn window_read_bit(
+    source: &[u8],
+    window: usize,
+    start: u64,
+    skip: u64,
+    count: u64,
+    fill: u64,
+    position: usize,
+) -> bool {
+    if position >= window {
+        return false;
+    }
+    let position_u64 = position as u64;
+    if position_u64 >= skip && position_u64 - skip < count {
+        let origin = u128::from(start) + u128::from(position_u64 - skip);
+        bit(source, origin as usize)
+    } else {
+        fill & (1u64 << (position % 64)) != 0
+    }
+}
+
 /// Whether a 64-bit word contains any selected logical destination bit.
 /// The overlap test avoids adding the arbitrary u64 starting position.
 /// `word` must fit a 64-bit word interval in usize.
@@ -235,6 +262,72 @@ mod tests {
         ));
         assert!(window_stored_from_bit(&[1], &[], 8, 0, 0, usize::MAX, 0));
     }
+    #[test]
+    fn window_read_matches_integer_projection() {
+        for window in [0usize, 13, 65, 128] {
+            for start in [0usize, 1, 7, 63, 64, 65, 127, 128] {
+                for skip in [0usize, 1, 7, 12, 63, 64, 65, 127, window] {
+                    if skip > window {
+                        continue;
+                    }
+                    for count in [0usize, 1, 2, 7, 8, 63, 64, 65, 128] {
+                        if count > 128 - start || count > window - skip {
+                            continue;
+                        }
+                        let selected_mask = if count == 0 {
+                            0
+                        } else if count == 128 {
+                            u128::MAX
+                        } else {
+                            ((1u128 << count) - 1) << skip
+                        };
+                        let output_mask = if window == 128 {
+                            u128::MAX
+                        } else {
+                            (1u128 << window) - 1
+                        };
+                        for source in [
+                            0u128,
+                            u128::MAX,
+                            u128::MAX / 3,
+                            1u128 << 64,
+                            (1u128 << 127) | 7,
+                        ] {
+                            for fill in [0u64, u64::MAX, 1u64 << 63, 0x55aa_33cc_f0f0_00ff] {
+                                let repeated = u128::from(fill) | (u128::from(fill) << 64);
+                                let projected = if count == 0 {
+                                    0
+                                } else {
+                                    ((source >> start) << skip) & selected_mask
+                                };
+                                let expected =
+                                    ((repeated & !selected_mask) | projected) & output_mask;
+                                for position in 0..128 {
+                                    assert_eq!(
+                                        window_read_bit(
+                                            &source.to_le_bytes(),
+                                            window,
+                                            start as u64,
+                                            skip as u64,
+                                            count as u64,
+                                            fill,
+                                            position
+                                        ),
+                                        expected & (1u128 << position) != 0
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for skip in [0, u64::MAX] {
+            assert!(window_read_bit(&[], 130, u64::MAX, skip, 0, 1, 64));
+            assert!(!window_read_bit(&[], 130, u64::MAX, skip, 0, u64::MAX, 191));
+        }
+    }
+
     #[test]
     fn window_store_matches_integer_oracle() {
         for dst_width in [0usize, 1, 7, 8, 63, 64, 65, 127, 128] {
