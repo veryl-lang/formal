@@ -608,7 +608,7 @@
       "id": "event-gate-cycle",
       "title": "Gate policy transitions",
       "operators": "",
-      "scope": "Re-arm, period doubling, auto-off, skip reset",
+      "scope": "Re-arm, matching-read qualification, period doubling, auto-off, skip reset",
       "bounds": "64 held registers; width 16; selected transition histories",
       "native": "",
       "big": "",
