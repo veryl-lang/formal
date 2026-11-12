@@ -30,3 +30,6 @@ mod window_log_chunks;
 
 #[cfg(kani)]
 mod window_log_variable;
+
+#[cfg(kani)]
+mod window_commit;

@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 54] = [
+pub static KANI: [Contract; 56] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -329,6 +329,45 @@ pub static KANI: [Contract; 54] = [
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
     ),
+    Contract {
+        name: "log-commit-unaligned",
+        group: "window-commit",
+        harness: "window_commit_unaligned_matches_reference",
+        message: "simulator window commit semantics mismatch",
+        covers: &[
+            "unaligned commit direct alias is reachable",
+            "unaligned commit log-only alias is reachable",
+            "unaligned commit direct external is reachable",
+            "unaligned commit log-only external is reachable",
+            "unaligned commit emits a change event",
+            "unaligned unchanged commit emits no event",
+            "unaligned direct commit emits no duplicate event",
+            "unaligned commit prefix guard is reachable",
+            "unaligned commit suffix guard is reachable",
+            "unaligned commit last source bit is reachable",
+        ],
+    },
+    Contract {
+        name: "log-commit-chunks",
+        group: "window-commit",
+        harness: "window_commit_chunks_matches_reference",
+        message: "simulator window commit semantics mismatch",
+        covers: &[
+            "chunk commit direct alias is reachable",
+            "chunk commit log-only alias is reachable",
+            "chunk commit direct external is reachable",
+            "chunk commit log-only external is reachable",
+            "chunk commit emits two ordered events",
+            "chunk commit changes only first record",
+            "chunk commit changes only second record",
+            "chunk unchanged commit emits no event",
+            "chunk direct commit emits no duplicate event",
+            "chunk commit prefix guard is reachable",
+            "chunk commit suffix guard is reachable",
+            "chunk commit first record end is reachable",
+            "chunk commit second record start is reachable",
+        ],
+    },
     window_log_contract(
         "log-variable",
         "window_log_variable_matches_reference",
@@ -1232,6 +1271,15 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             1,
         ),
         (
+            "commit-window-alias-snapshot",
+            "log-commit-unaligned",
+            "",
+            "wide_window_store",
+            "*out = (old & !mask) | ((sv << shift) & mask);",
+            "*out = (old & !mask) | ((sv << shift) & mask); if in_place { wr(dst, word, *out); }",
+            1,
+        ),
+        (
             "window-two-word-drops-source-high",
             "log-two-word",
             "",
@@ -1586,6 +1634,14 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
             "self.wide_count += 1; if self.wide_count > 64 { self.narrow_count = 0; }",
         ),
         (
+            "commit-window-chunk-repeats-prefix",
+            "log-commit-chunks",
+            "",
+            "push_wide_range",
+            "payload.add(done)",
+            "payload",
+        ),
+        (
             "window-log-chunk-uses-short-boundary",
             "log-chunk-split",
             "",
@@ -1658,6 +1714,62 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         + 2;
     let commit_body = &log_original[commit_start..commit_end];
     for (name, proof, native, old, new) in [
+        (
+            "commit-window-large-copy-tail",
+            "log-commit-unaligned",
+            "",
+            "std::ptr::copy_nonoverlapping(s, p, nb);",
+            "std::ptr::copy_nonoverlapping(s, p, nb - 1);",
+        ),
+        (
+            "commit-window-missing-event",
+            "log-commit-unaligned",
+            "",
+            "MARKING && std::slice::from_raw_parts(p, nb) != std::slice::from_raw_parts(s, nb)",
+            "false",
+        ),
+        (
+            "commit-window-spurious-event",
+            "log-commit-unaligned",
+            "",
+            "MARKING && std::slice::from_raw_parts(p, nb) != std::slice::from_raw_parts(s, nb)",
+            "MARKING",
+        ),
+        (
+            "commit-window-event-offset",
+            "log-commit-unaligned",
+            "",
+            "changed(offset, nb);\n                }\n                std::ptr::copy_nonoverlapping(s, p, nb);",
+            "changed(offset + 1, nb);\n                }\n                std::ptr::copy_nonoverlapping(s, p, nb);",
+        ),
+        (
+            "commit-window-chunk-count",
+            "log-commit-chunks",
+            "",
+            "let wide_limit = buffer.wide_count as usize;",
+            "let wide_limit = (buffer.wide_count as usize).min(1);",
+        ),
+        (
+            "commit-window-chunk-event-order",
+            "log-commit-chunks",
+            "",
+            "buffer.wide_entries_slice().iter().take(wide_limit)",
+            "buffer.wide_entries_slice().iter().take(wide_limit).rev()",
+        ),
+        (
+            "commit-window-chunk-typed-store",
+            "log-commit-chunks",
+            "",
+            "(p as *mut $t).write_unaligned(v);",
+            "if nb != 8 { (p as *mut $t).write_unaligned(v); }",
+        ),
+        (
+            "commit-window-chunk-partial-compare",
+            "log-commit-chunks",
+            "",
+            "std::slice::from_raw_parts(p, nb) != std::slice::from_raw_parts(s, nb)",
+            "std::slice::from_raw_parts(p, 8) != std::slice::from_raw_parts(s, 8)",
+        ),
         (
             "commit-narrow-data",
             "commit-narrow",

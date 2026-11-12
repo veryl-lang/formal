@@ -37,6 +37,8 @@ fn main() {
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-commit-unaligned"
+                | "log-commit-chunks"
                 | "log-two-word"
                 | "log-scratch-constructor"
         )
@@ -48,6 +50,8 @@ fn main() {
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-commit-unaligned"
+                | "log-commit-chunks"
                 | "log-two-word"
                 | "log-scratch-constructor"
         )
