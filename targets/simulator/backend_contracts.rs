@@ -11,7 +11,28 @@ use std::fs;
 use std::path::Path;
 use veryl_formal_runner::{Contract, Mutation};
 
-pub static NATIVE: [Contract; 124] = [
+pub static NATIVE: [Contract; 127] = [
+    Contract {
+        name: "dual-slot-chunks-interpreter",
+        group: "dual-slot-chunk-history",
+        harness: "dual_slot_chunks::interpreter_dual_slot_chunks",
+        message: "simulator chunked dual-slot state mismatch",
+        covers: &[],
+    },
+    Contract {
+        name: "dual-slot-chunks-cranelift",
+        group: "dual-slot-chunk-history",
+        harness: "dual_slot_chunks::cranelift_dual_slot_chunks",
+        message: "simulator chunked dual-slot state mismatch",
+        covers: &[],
+    },
+    Contract {
+        name: "dual-slot-chunks-aot-c",
+        group: "dual-slot-chunk-history",
+        harness: "dual_slot_chunks::aot_c_dual_slot_chunks",
+        message: "simulator chunked dual-slot state mismatch",
+        covers: &[],
+    },
     Contract {
         name: "dual-slot-upper-interpreter",
         group: "dual-slot-upper-history",
@@ -2833,10 +2854,12 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             });
         }
     }
-    for &contract in selected
-        .iter()
-        .filter(|c| matches!(c.group, "dual-slot-history" | "dual-slot-upper-history"))
-    {
+    for &contract in selected.iter().filter(|c| {
+        matches!(
+            c.group,
+            "dual-slot-history" | "dual-slot-upper-history" | "dual-slot-chunk-history"
+        )
+    }) {
         let path = "veryl/crates/simulator/src/ir/opt/multi_write_analysis.rs";
         let original = fs::read_to_string(repo.join(path)).unwrap();
         let old = "if total >= 2 {";
@@ -2848,6 +2871,9 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "dual-slot-upper-interpreter" => "dual-slot-upper-interpreter-missed-multi-write",
             "dual-slot-upper-cranelift" => "dual-slot-upper-cranelift-missed-multi-write",
             "dual-slot-upper-aot-c" => "dual-slot-upper-aot-c-missed-multi-write",
+            "dual-slot-chunks-interpreter" => "dual-slot-chunks-interpreter-missed-multi-write",
+            "dual-slot-chunks-cranelift" => "dual-slot-chunks-cranelift-missed-multi-write",
+            "dual-slot-chunks-aot-c" => "dual-slot-chunks-aot-c-missed-multi-write",
             _ => unreachable!(),
         };
         result.push(Mutation {

@@ -872,6 +872,12 @@ pub const SHARDS: &[Shard] = &[
     ),
     Shard::new(
         "simulator-backend-contracts",
+        "dual-slot-chunks",
+        45,
+        &["dual-slot-chunk-history"],
+    ),
+    Shard::new(
+        "simulator-backend-contracts",
         "dual-slot-upper",
         45,
         &["dual-slot-upper-history"],

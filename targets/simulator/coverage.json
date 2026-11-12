@@ -1854,6 +1854,44 @@
         "cbmc": [],
         "direct": []
       }
+    },
+    {
+      "id": "dual-slot-chunk-history",
+      "title": "Chunked dual-slot partial-write histories",
+      "operators": "",
+      "scope": "Finite source lowering, old-current RHS snapshots, ordered overlapping 510-bit and 65-bit writes, distinct current/next slots and real commits over 512-bit state",
+      "bounds": "Two dense 512-bit reset seeds; FF optimization enabled/disabled; four RHS choices; sixteen clocks each; first destination/source starts0/1/2 with width510; second starts0/1/63/64/127/191/255/383/447 with width65; unsigned in-range10-bit end selectors; two-state data",
+      "native": "",
+      "big": "",
+      "direct": "256 updates per backend in interpreter, Cranelift and AOT-C; independent old-state byte-vector reference; raw q current/next and previous-current bits plus actual C commit traces",
+      "remaining": "Finite deterministic histories only; no arbitrary geometry, out-of-range or unknown selectors, X/Z data, initialization blocks or general allocation theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot_chunks.rs",
+          "label": "Finite multirecord source-to-commit histories and distinguishing data"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot_chunks.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2",
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-chunks-interpreter",
+          "dual-slot-chunks-cranelift",
+          "dual-slot-chunks-aot-c"
+        ]
+      }
     }
   ]
 }
