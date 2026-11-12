@@ -26,6 +26,29 @@ pub fn window_stored_bit(
     }
 }
 
+/// Bit-origin model for a window with a source bit offset. Selected source bits
+/// must fit `source` and their indices must fit usize.
+/// Inactive windows do not inspect source bytes or add the source offset.
+pub fn window_stored_from_bit(
+    destination: &[u8],
+    source: &[u8],
+    destination_width: usize,
+    amount: u64,
+    width: usize,
+    source_bit: usize,
+    position: usize,
+) -> bool {
+    let position_u64 = position as u64;
+    if position < destination_width
+        && position_u64 >= amount
+        && position_u64 - amount < width as u64
+    {
+        bit(source, source_bit + (position_u64 - amount) as usize)
+    } else {
+        bit(destination, position)
+    }
+}
+
 /// Whether a 64-bit word contains any selected logical destination bit.
 /// The overlap test avoids adding the arbitrary u64 starting position.
 /// `word` must fit a 64-bit word interval in usize.
@@ -148,6 +171,70 @@ pub fn arithmetic_byte(a: &[u8], b: &[u8], position: usize, subtract: bool) -> u
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn offset_window_store_matches_integer_oracle() {
+        for dst_width in [0usize, 1, 13, 64, 65, 128] {
+            for width in [0usize, 1, 8, 63, 64, 67, 128] {
+                for source_bit in [0usize, 1, 17, 63, 64, 127, 128] {
+                    for amount in (0..=129).chain([1u64 << 32, u64::MAX]) {
+                        let count = if amount >= dst_width as u64 {
+                            0
+                        } else {
+                            width.min(dst_width - amount as usize)
+                        };
+                        if source_bit + count > 128 {
+                            continue;
+                        }
+                        let mask = if count == 128 {
+                            u128::MAX
+                        } else {
+                            (1u128 << count) - 1
+                        };
+                        for source in [
+                            0u128,
+                            1,
+                            u128::MAX,
+                            u128::MAX / 3,
+                            1u128 << 64,
+                            (1u128 << 127) | 7,
+                        ] {
+                            let before = source.rotate_left(37) ^ (u128::MAX / 3);
+                            let expected = if count == 0 {
+                                before
+                            } else {
+                                (before & !(mask << amount))
+                                    | (((source >> source_bit) & mask) << amount)
+                            };
+                            for position in 0..128 {
+                                assert_eq!(
+                                    window_stored_from_bit(
+                                        &before.to_le_bytes(),
+                                        &source.to_le_bytes(),
+                                        dst_width,
+                                        amount,
+                                        width,
+                                        source_bit,
+                                        position
+                                    ),
+                                    expected & (1u128 << position) != 0
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(window_stored_from_bit(
+            &[1],
+            &[],
+            8,
+            u64::MAX,
+            usize::MAX,
+            usize::MAX,
+            0
+        ));
+        assert!(window_stored_from_bit(&[1], &[], 8, 0, 0, usize::MAX, 0));
+    }
     #[test]
     fn window_store_matches_integer_oracle() {
         for dst_width in [0usize, 1, 7, 8, 63, 64, 65, 127, 128] {

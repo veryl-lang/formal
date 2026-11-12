@@ -36,3 +36,6 @@ mod window_commit;
 
 #[cfg(kani)]
 mod window_history;
+
+#[cfg(kani)]
+mod window_from;

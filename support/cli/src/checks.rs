@@ -822,6 +822,7 @@ pub const SHARDS: &[Shard] = &[
         45,
         &["window-history"],
     ),
+    Shard::new("simulator-contracts", "window-from", 45, &["window-from"]),
     Shard::new(
         "simulator-backend-contracts",
         "core",
@@ -998,7 +999,11 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             ));
             if !matches!(
                 suite,
-                "signed-shift-full" | "window-two-word" | "window-commit" | "window-history"
+                "signed-shift-full"
+                    | "window-two-word"
+                    | "window-commit"
+                    | "window-history"
+                    | "window-from"
             ) {
                 steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
             }
