@@ -1,5 +1,7 @@
-//! Variable binary window store: source widths 0..=64, destination logical
-//! widths 0..=192 in a 192-bit allocation, and every u64 starting position.
+//! Variable binary window store: separate source-width domains 0..=64 and
+//! 65..=128, destination logical widths 0..=192 in a 192-bit allocation, and
+//! every u64 starting position.
+//! Disjoint source pointers have exactly 8 or 16 readable bytes after the guard.
 //! All payload bits, safe u32 base offsets, direct/log-only writes and disjoint/
 //! exact-base aliases are quantified; pointers have byte offset 1. One empty wide
 //! slot and one live narrow record check record extent, payload, both frames and
@@ -18,19 +20,135 @@ compile_error!("variable window proof requires a little-endian 64-bit target");
 #[kani::unwind(17)]
 #[kani::stub(smallvec::SmallVec::<[u64;16]>::from_elem, generic_word_scratch)]
 fn window_log_variable_matches_reference() {
+    let width = usize::from(kani::any::<u8>() % 65);
+    let Observation {
+        dst_width,
+        amount,
+        active,
+        direct,
+        alias,
+        ..
+    } = check_window::<1, 9>(width);
+    kani::cover!(width == 0, "zero source window is reachable");
+    kani::cover!(dst_width == 0, "zero destination width is reachable");
+    kani::cover!(amount == u64::MAX, "maximum window amount is reachable");
+    kani::cover!(
+        active && amount == 63 && width == 64 && dst_width == 192,
+        "unaligned full window crosses a word"
+    );
+    kani::cover!(
+        active && amount + width as u64 > dst_width as u64,
+        "window is clipped at logical end"
+    );
+    kani::cover!(active && width == 1, "single-bit window is reachable");
+    kani::cover!(
+        active && amount == 191 && dst_width == 192,
+        "last logical bit is reachable"
+    );
+    kani::cover!(
+        active && direct && alias,
+        "direct alias variable window is reachable"
+    );
+    kani::cover!(
+        active && !direct && alias,
+        "log-only alias variable window is reachable"
+    );
+    kani::cover!(
+        active && direct && !alias,
+        "direct external variable window is reachable"
+    );
+    kani::cover!(
+        active && !direct && !alias,
+        "log-only external variable window is reachable"
+    );
+}
+
+#[kani::proof]
+#[kani::unwind(25)]
+#[kani::stub(smallvec::SmallVec::<[u64;16]>::from_elem, generic_word_scratch)]
+fn window_log_two_word_matches_reference() {
+    let width = 65 + usize::from(kani::any::<u8>() & 63);
+    let r = check_window::<2, 17>(width);
+    kani::cover!(
+        width == 65 && r.active,
+        "two-word minimum source width is reachable"
+    );
+    kani::cover!(
+        width == 128 && r.active,
+        "two-word maximum source width is reachable"
+    );
+    kani::cover!(r.dst_width == 0, "two-word empty destination is reachable");
+    kani::cover!(r.amount == u64::MAX, "two-word maximum amount is reachable");
+    kani::cover!(
+        r.record_bytes == 24 && r.amount == 63 && width == 128,
+        "two-word window spans three destination words"
+    );
+    kani::cover!(
+        r.active && r.amount + width as u64 > r.dst_width as u64,
+        "two-word window clips at logical end"
+    );
+    kani::cover!(
+        r.logged_source_bit == Some(64),
+        "second source word begins in the record"
+    );
+    kani::cover!(
+        r.logged_source_bit == Some(127),
+        "last source bit reaches the record"
+    );
+    kani::cover!(
+        r.active && r.amount == 191 && r.dst_width == 192,
+        "two-word window clips to one bit"
+    );
+    kani::cover!(
+        r.active && r.base == u32::MAX - 23,
+        "two-word maximum safe base is reachable"
+    );
+    kani::cover!(
+        r.active && r.direct && r.alias,
+        "two-word direct alias is reachable"
+    );
+    kani::cover!(
+        r.active && !r.direct && r.alias,
+        "two-word log-only alias is reachable"
+    );
+    kani::cover!(
+        r.active && r.direct && !r.alias,
+        "two-word direct external is reachable"
+    );
+    kani::cover!(
+        r.active && !r.direct && !r.alias,
+        "two-word log-only external is reachable"
+    );
+    kani::cover!(r.observed == 0, "two-word prefix guard is reachable");
+    kani::cover!(r.observed == 25, "two-word suffix guard is reachable");
+}
+
+struct Observation {
+    dst_width: usize,
+    amount: u64,
+    active: bool,
+    direct: bool,
+    alias: bool,
+    base: u32,
+    record_bytes: u8,
+    logged_source_bit: Option<usize>,
+    observed: usize,
+}
+
+fn check_window<const SOURCE_WORDS: usize, const SOURCE_BYTES: usize>(width: usize) -> Observation {
     use veryl_formal_semantics::words;
-    let sw: u64 = kani::any();
+    let sw: [u64; SOURCE_WORDS] = kani::any();
     let dw: [u64; 3] = kani::any();
-    let mut source = [0u8; 9];
+    let mut source = [0u8; SOURCE_BYTES];
     source[0] = kani::any();
     let mut destination = [0u8; 26];
     destination[0] = kani::any();
     destination[25] = kani::any();
     unsafe {
         std::ptr::copy_nonoverlapping(
-            (&sw as *const u64).cast::<u8>(),
+            sw.as_ptr().cast::<u8>(),
             source.as_mut_ptr().add(1),
-            8,
+            SOURCE_WORDS * 8,
         );
         std::ptr::copy_nonoverlapping(
             dw.as_ptr().cast::<u8>(),
@@ -40,7 +158,6 @@ fn window_log_variable_matches_reference() {
     }
     let source_before = source;
     let before = destination;
-    let width = usize::from(kani::any::<u8>() % 65);
     let dst_width = usize::from(kani::any::<u8>() % 193);
     let amount: u64 = kani::any();
     let base: u32 = kani::any();
@@ -77,20 +194,24 @@ fn window_log_variable_matches_reference() {
         "simulator window log semantics mismatch"
     );
     let original = if alias {
-        &before[1..9]
+        &before[1..1 + SOURCE_WORDS * 8]
     } else {
         &source_before[1..]
     };
+    let mut logged_source_bit = None;
+    let mut record_bytes = 0;
     if active {
         let e = &log.wide_entries_slice()[0];
         assert!(
             e.offset >= base
                 && e.offset - base <= 16
                 && (e.offset - base).is_multiple_of(8)
-                && matches!(e.native_bytes, 8 | 16)
+                && matches!(e.native_bytes, 8 | 16 | 24)
+                && usize::from(e.native_bytes) <= (SOURCE_WORDS + 1) * 8
                 && e.offset - base + u32::from(e.native_bytes) <= 24,
             "simulator window log semantics mismatch"
         );
+        record_bytes = e.native_bytes;
         let delta = (e.offset - base) as usize;
         let word = usize::from(kani::any::<u8>() % 3);
         let stored = word * 8 >= delta && word * 8 - delta < usize::from(e.native_bytes);
@@ -98,9 +219,16 @@ fn window_log_variable_matches_reference() {
             stored == words::window_touches_word(word, dst_width, amount, width),
             "simulator window log semantics mismatch"
         );
-        let byte = usize::from(kani::any::<u8>() & 15);
+        let byte = usize::from(kani::any::<u8>()) % ((SOURCE_WORDS + 1) * 8);
         let bit = usize::from(kani::any::<u8>() & 7);
         if byte < usize::from(e.native_bytes) {
+            let position = (delta + byte) * 8 + bit;
+            if position < dst_width
+                && position >= amount as usize
+                && position - (amount as usize) < width
+            {
+                logged_source_bit = Some(position - amount as usize);
+            }
             let expected = words::window_stored_bit(
                 &before[1..25],
                 original,
@@ -133,38 +261,17 @@ fn window_log_variable_matches_reference() {
         words::bit(&destination, observed * 8 + bit) == expected && source == source_before,
         "simulator window log semantics mismatch"
     );
-    kani::cover!(width == 0, "zero source window is reachable");
-    kani::cover!(dst_width == 0, "zero destination width is reachable");
-    kani::cover!(amount == u64::MAX, "maximum window amount is reachable");
-    kani::cover!(
-        active && amount == 63 && width == 64 && dst_width == 192,
-        "unaligned full window crosses a word"
-    );
-    kani::cover!(
-        active && amount + width as u64 > dst_width as u64,
-        "window is clipped at logical end"
-    );
-    kani::cover!(active && width == 1, "single-bit window is reachable");
-    kani::cover!(
-        active && amount == 191 && dst_width == 192,
-        "last logical bit is reachable"
-    );
-    kani::cover!(
-        active && direct && alias,
-        "direct alias variable window is reachable"
-    );
-    kani::cover!(
-        active && !direct && alias,
-        "log-only alias variable window is reachable"
-    );
-    kani::cover!(
-        active && direct && !alias,
-        "direct external variable window is reachable"
-    );
-    kani::cover!(
-        active && !direct && !alias,
-        "log-only external variable window is reachable"
-    );
+    Observation {
+        dst_width,
+        amount,
+        active,
+        direct,
+        alias,
+        base,
+        record_bytes,
+        logged_source_bit,
+        observed,
+    }
 }
 
 #[kani::proof]

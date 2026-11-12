@@ -335,7 +335,7 @@
       "title": "Window write-log records",
       "operators": "",
       "scope": "Direct/log-only writes and record preservation",
-      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–64 into logical widths 0–192, all u64 starts",
+      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–128 into logical widths 0–192, all u64 starts",
       "native": "",
       "big": "",
       "direct": "Finite append/growth histories and prefilled no-op buffers",
@@ -390,6 +390,7 @@
           "log-prefix-append",
           "log-chunk-split",
           "log-variable",
+          "log-two-word",
           "log-scratch-constructor"
         ],
         "cbmc": [],

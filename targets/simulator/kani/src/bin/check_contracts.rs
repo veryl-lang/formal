@@ -37,6 +37,7 @@ fn main() {
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-two-word"
                 | "log-scratch-constructor"
         )
     });
@@ -47,15 +48,37 @@ fn main() {
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-two-word"
                 | "log-scratch-constructor"
         )
     });
+    let (two_word, history): (Vec<_>, Vec<_>) =
+        history.into_iter().partition(|c| c.name == "log-two-word");
+    let (two_word_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.name == "log-two-word");
+    let (pool, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| matches!(c.name, "log-full-pool-growth" | "log-prefix-append"));
+    let (pool_mutations, history_mutations): (Vec<_>, Vec<_>) =
+        history_mutations.into_iter().partition(|m| {
+            matches!(
+                m.contract.name,
+                "log-full-pool-growth" | "log-prefix-append"
+            )
+        });
     let (full, ordinary): (Vec<_>, Vec<_>) = selected
         .into_iter()
         .partition(|c| c.group == "signed-shift-full");
     let (full_mutations, ordinary_mutations): (Vec<_>, Vec<_>) = mutations
         .into_iter()
         .partition(|m| m.contract.group == "signed-shift-full");
+    let (direct_alias, ordinary): (Vec<_>, Vec<_>) = ordinary
+        .into_iter()
+        .partition(|c| c.name == "log-direct-alias");
+    let (direct_alias_mutations, ordinary_mutations): (Vec<_>, Vec<_>) = ordinary_mutations
+        .into_iter()
+        .partition(|m| m.contract.name == "log-direct-alias");
     let harness_timeout = if ordinary.iter().any(|c| c.group == "window-log") {
         "180s"
     } else {
@@ -74,6 +97,23 @@ fn main() {
         ],
         directories: &["veryl", "targets", "semantics", "support"],
     };
+    // The alias contract's eight named covers replace redundant assertion
+    // reachability queries; its domain, assertions, timeout and pointer settings stay fixed.
+    if !direct_alias.is_empty()
+        && (options.mode != Mode::Mutation || !direct_alias_mutations.is_empty())
+    {
+        runner.run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "180s",
+                cache_dereferences: false,
+                restrict_vtable: false,
+                auxiliary_covers: &[],
+            },
+            options.mode,
+            &direct_alias,
+            &direct_alias_mutations,
+        );
+    }
     if !ordinary.is_empty() && (options.mode != Mode::Mutation || !ordinary_mutations.is_empty()) {
         runner.run_with_backend(
             Backend::Kani { harness_timeout },
@@ -83,17 +123,26 @@ fn main() {
         );
     }
     // Explicit covers avoid redundant per-assertion reachability queries.
-    if !history.is_empty() && (options.mode != Mode::Mutation || !history_mutations.is_empty()) {
+    // The two-word source includes a third merged word and more cover queries;
+    // pool histories preserve up to 64 live records and have their own solver budget.
+    for (timeout, contracts, mutations) in [
+        ("180s", history, history_mutations),
+        ("300s", pool, pool_mutations),
+        ("300s", two_word, two_word_mutations),
+    ] {
+        if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
+            continue;
+        }
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {
-                harness_timeout: "180s",
+                harness_timeout: timeout,
                 cache_dereferences: true,
                 restrict_vtable: false,
                 auxiliary_covers: &[],
             },
             options.mode,
-            &history,
-            &history_mutations,
+            &contracts,
+            &mutations,
         );
     }
     // The bit-fill loop has up to192 iterations. Explicit covers and pointer
