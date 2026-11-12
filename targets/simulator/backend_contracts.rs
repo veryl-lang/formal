@@ -857,29 +857,52 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         };
         let original = fs::read_to_string(repo.join(path)).unwrap();
         for wake in [true, false] {
-            let (declaration, closing, old, new, count) = match (c, wake) {
-                (false, true) => (
+            let entry_snapshot = original.contains("pub(crate) const GATE_HELD: usize = 1;")
+                || original.contains("int eg_match = !eg_run;");
+            let (declaration, closing, old, new, count) = match (c, wake, entry_snapshot) {
+                (false, true, true) => (
+                    "pub unsafe fn enter(",
+                    "\n    }",
+                    "if matched && *eg.add(GATE_IDLE) != 0 {",
+                    "if *eg.add(GATE_IDLE) != 0 {",
+                    1,
+                ),
+                (true, true, true) => (
+                    "fn apply_event_gates(",
+                    "\n}",
+                    "if (!eg[{idle}]) eg_run = 1;",
+                    "eg_run = !eg[{idle}];",
+                    1,
+                ),
+                (true, false, true) => (
+                    "fn apply_event_gates(",
+                    "\n}",
+                    "eg_match && veryl_evg_unchanged(ff_values, write_log, eg_n0, eg_w0){ocmp}",
+                    "eg_match",
+                    1,
+                ),
+                (false, true, false) => (
                     "pub unsafe fn enter(",
                     "\n    }",
                     "                        run = true;",
                     "                        run = false;",
                     1,
                 ),
-                (false, false) => (
+                (false, false, _) => (
                     "pub unsafe fn exit(",
                     "\n    }",
                     "log_unchanged(ff, log, n0, w0) && self.out_comb_held(comb)",
                     "true",
                     1,
                 ),
-                (true, true) => (
+                (true, true, false) => (
                     "fn apply_event_gates(",
                     "\n}",
                     "eg_run = 1; }}",
                     "eg_run = 0; }}",
                     2,
                 ),
-                (true, false) => (
+                (true, false, false) => (
                     "fn apply_event_gates(",
                     "\n}",
                     "int eg_idle = (veryl_evg_unchanged(ff_values, write_log, eg_n0, eg_w0){ocmp});",
@@ -1357,7 +1380,21 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             "veryl/crates/simulator/src/ir/opt/event_gate.rs"
         }))
         .unwrap();
+        let entry_snapshot = original.contains("pub(crate) const GATE_HELD: usize = 1;")
+            || original.contains("int eg_match = !eg_run;");
         for (compiled, kind, old, new) in [
+            (
+                false,
+                "premature-idle",
+                "let idle = matched && unsafe {",
+                "let idle = unsafe {",
+            ),
+            (
+                true,
+                "premature-idle",
+                "eg[{idle}] = (uint8_t)(eg_match && ",
+                "eg[{idle}] = (uint8_t)(",
+            ),
             (
                 false,
                 "off-boundary",
@@ -1419,7 +1456,7 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 "      }} else {{ int eg_run",
             ),
         ] {
-            if compiled != c {
+            if compiled != c || (kind == "premature-idle" && !entry_snapshot) {
                 continue;
             }
             let path = if c {
@@ -1429,6 +1466,8 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
             };
             let decl = if c {
                 "fn apply_event_gates("
+            } else if kind == "premature-idle" {
+                "pub unsafe fn exit("
             } else {
                 "pub unsafe fn enter("
             };
@@ -1459,6 +1498,9 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                     "gate-cycle-interpreter-skip-period-reset"
                 }
                 ("gate-cycle-interpreter", "off-runs") => "gate-cycle-interpreter-off-runs",
+                ("gate-cycle-interpreter", "premature-idle") => {
+                    "gate-cycle-interpreter-premature-idle"
+                }
                 ("gate-cycle-cranelift", "off-boundary") => "gate-cycle-cranelift-off-boundary",
                 ("gate-cycle-cranelift", "rearm-boundary") => "gate-cycle-cranelift-rearm-boundary",
                 ("gate-cycle-cranelift", "period-doubling") => {
@@ -1468,11 +1510,13 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                     "gate-cycle-cranelift-skip-period-reset"
                 }
                 ("gate-cycle-cranelift", "off-runs") => "gate-cycle-cranelift-off-runs",
+                ("gate-cycle-cranelift", "premature-idle") => "gate-cycle-cranelift-premature-idle",
                 ("gate-cycle-aot-c", "off-boundary") => "gate-cycle-aot-c-off-boundary",
                 ("gate-cycle-aot-c", "rearm-boundary") => "gate-cycle-aot-c-rearm-boundary",
                 ("gate-cycle-aot-c", "period-doubling") => "gate-cycle-aot-c-period-doubling",
                 ("gate-cycle-aot-c", "skip-period-reset") => "gate-cycle-aot-c-skip-period-reset",
                 ("gate-cycle-aot-c", "off-runs") => "gate-cycle-aot-c-off-runs",
+                ("gate-cycle-aot-c", "premature-idle") => "gate-cycle-aot-c-premature-idle",
                 _ => unreachable!(),
             };
             result.push(Mutation {

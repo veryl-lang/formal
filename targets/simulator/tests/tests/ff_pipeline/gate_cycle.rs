@@ -13,6 +13,15 @@ struct Header {
     count: u32,
     period: u32,
 }
+// Select the declared shadow ABI, never an observed policy outcome. Both ABIs
+// retain exact transition expectations and the same independent output model.
+fn entry_snapshot() -> bool {
+    let source = include_str!("../../../../../veryl/crates/simulator/src/ir/opt/event_gate.rs");
+    let entry = source.contains("pub(crate) const GATE_HELD: usize = 1;");
+    let exit = source.contains("checked: bool");
+    assert_ne!(entry, exit, "unrecognized event-gate shadow ABI");
+    entry
+}
 fn header(sim: &Simulator, offset: usize) -> Header {
     let b = &sim.ir.comb_values[offset..offset + 16];
     Header {
@@ -195,7 +204,26 @@ fn compare(backend: Backend, enabled: bool) {
         }
         policy(&sim, offset, false, false, 0, 2048, "second re-arm 2048");
         model.tick(&mut sim, &trace, backend, false, 1);
-        policy(&sim, offset, true, false, 1, 2048, "idle run after re-arm");
+        let entry_snapshot = entry_snapshot();
+        policy(
+            &sim,
+            offset,
+            !entry_snapshot,
+            false,
+            1,
+            2048,
+            "first run snapshots reads after re-arm",
+        );
+        model.tick(&mut sim, &trace, backend, false, 1);
+        policy(
+            &sim,
+            offset,
+            true,
+            false,
+            if entry_snapshot { 2 } else { 0 },
+            if entry_snapshot { 2048 } else { 0 },
+            "matching run after re-arm",
+        );
         model.tick(&mut sim, &trace, backend, false, 1);
         policy(
             &sim,
@@ -229,7 +257,7 @@ fn compare(backend: Backend, enabled: bool) {
             1024,
             "new auto-off after skip starts at initial period",
         );
-        assert_eq!(model.cycle, 3285);
+        assert_eq!(model.cycle, 3286);
         eprintln!(
             "gate cycle complete backend={backend:?} gate={enabled} forced={forced} clocks={} tracked={offset:?}",
             model.cycle
@@ -259,7 +287,7 @@ fn run(backend: Backend, harness: &str) {
             "gate-cycle child failed mode={mode}:\n{log}"
         );
         assert!(
-            log.contains("1 passed; 0 failed") && log.contains("clocks=3285"),
+            log.contains("1 passed; 0 failed") && log.contains("clocks=3286"),
             "gate-cycle child did not complete"
         );
         eprintln!("{log}");
