@@ -1734,7 +1734,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         )
     };
     let all = rows("all");
-    assert_eq!(all.len(), 59);
+    assert_eq!(all.len(), 60);
     let expected: BTreeSet<_> = all.iter().map(identity).collect();
     assert_eq!(all.len(), expected.len());
     let mut selected = BTreeSet::new();
@@ -1756,7 +1756,7 @@ fn matrix_preserves_all_shards_and_manual_target_partitions() {
         }
     }
     assert_eq!(selected, expected);
-    assert_eq!(rows("simulator").len(), 20);
+    assert_eq!(rows("simulator").len(), 21);
     assert_eq!(rows("value").len(), 35);
     for shard in all {
         let check = shard["check"].as_str().unwrap();

@@ -1721,6 +1721,44 @@
         "cbmc": [],
         "direct": []
       }
+    },
+    {
+      "id": "dual-slot-upper-history",
+      "title": "Dual-slot updates across bit128",
+      "operators": "",
+      "scope": "Nonzero upper logical bits, overlapping dynamic tail writes, old-current RHS reads, current-next equality, and real commit through source lowering",
+      "bounds": "Logical width130; native24 bytes; destination windows118+:12 and122+:8; source windows63+:12 and121+:8; default/forced placement; two low seeds and upper patterns1/2/3; four RHS choices and eight updates per choice",
+      "native": "",
+      "big": "",
+      "direct": "384 updates per backend in interpreter, Cranelift, and AOT-C; byte-vector reference beyond u128",
+      "remaining": "Finite histories only; no X/Z, initial blocks, out-of-range writes, arbitrary source/selector, or general allocation theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot_upper.rs",
+          "label": "Finite upper-bit source-to-commit histories"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot_upper.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2",
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-upper-interpreter",
+          "dual-slot-upper-cranelift",
+          "dual-slot-upper-aot-c"
+        ]
+      }
     }
   ]
 }
