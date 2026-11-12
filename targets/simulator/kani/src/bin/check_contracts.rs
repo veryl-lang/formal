@@ -31,65 +31,73 @@ fn main() {
         contracts::mutations(repo, &selected, true)
     };
     let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
-        matches!(
-            c.name,
-            "log-full-pool-growth"
-                | "log-prefix-append"
-                | "log-chunk-split"
-                | "log-variable"
-                | "log-commit-unaligned"
-                | "log-history-overlap"
-                | "log-from-short"
-                | "log-dual-partial61"
-                | "log-dual-partial128"
-                | "log-dual-wide130"
-                | "log-dual-tail130"
-                | "window-read13"
-                | "window-read65"
-                | "window-read130"
-                | "window-fill13"
-                | "window-fill65"
-                | "window-fill130"
-                | "window-read-empty"
-                | "log-from-native128"
-                | "log-from-wide130"
-                | "log-from-noop"
-                | "log-history-mixed"
-                | "log-commit-chunks"
-                | "log-two-word"
-                | "log-scratch-constructor"
-        )
+        c.group == "window-read-source"
+            || matches!(
+                c.name,
+                "log-full-pool-growth"
+                    | "log-prefix-append"
+                    | "log-chunk-split"
+                    | "log-variable"
+                    | "log-commit-unaligned"
+                    | "log-history-overlap"
+                    | "log-from-short"
+                    | "log-dual-partial61"
+                    | "log-dual-partial128"
+                    | "log-dual-wide130"
+                    | "log-dual-tail130"
+                    | "window-read13"
+                    | "window-read65"
+                    | "window-read130"
+                    | "window-fill13"
+                    | "window-fill65"
+                    | "window-fill130"
+                    | "window-read-empty"
+                    | "log-from-native128"
+                    | "log-from-wide130"
+                    | "log-from-noop"
+                    | "log-history-mixed"
+                    | "log-commit-chunks"
+                    | "log-two-word"
+                    | "log-scratch-constructor"
+            )
     });
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
-        matches!(
-            m.contract.name,
-            "log-full-pool-growth"
-                | "log-prefix-append"
-                | "log-chunk-split"
-                | "log-variable"
-                | "log-commit-unaligned"
-                | "log-history-overlap"
-                | "log-from-short"
-                | "log-dual-partial61"
-                | "log-dual-partial128"
-                | "log-dual-wide130"
-                | "log-dual-tail130"
-                | "window-read13"
-                | "window-read65"
-                | "window-read130"
-                | "window-fill13"
-                | "window-fill65"
-                | "window-fill130"
-                | "window-read-empty"
-                | "log-from-native128"
-                | "log-from-wide130"
-                | "log-from-noop"
-                | "log-history-mixed"
-                | "log-commit-chunks"
-                | "log-two-word"
-                | "log-scratch-constructor"
-        )
+        m.contract.group == "window-read-source"
+            || matches!(
+                m.contract.name,
+                "log-full-pool-growth"
+                    | "log-prefix-append"
+                    | "log-chunk-split"
+                    | "log-variable"
+                    | "log-commit-unaligned"
+                    | "log-history-overlap"
+                    | "log-from-short"
+                    | "log-dual-partial61"
+                    | "log-dual-partial128"
+                    | "log-dual-wide130"
+                    | "log-dual-tail130"
+                    | "window-read13"
+                    | "window-read65"
+                    | "window-read130"
+                    | "window-fill13"
+                    | "window-fill65"
+                    | "window-fill130"
+                    | "window-read-empty"
+                    | "log-from-native128"
+                    | "log-from-wide130"
+                    | "log-from-noop"
+                    | "log-history-mixed"
+                    | "log-commit-chunks"
+                    | "log-two-word"
+                    | "log-scratch-constructor"
+            )
     });
+    let (source_reads, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "window-read-source");
+    let (source_read_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "window-read-source");
     let (two_word, history): (Vec<_>, Vec<_>) =
         history.into_iter().partition(|c| c.name == "log-two-word");
     let (two_word_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
@@ -167,6 +175,7 @@ fn main() {
         ("180s", history, history_mutations),
         ("300s", pool, pool_mutations),
         ("300s", two_word, two_word_mutations),
+        ("300s", source_reads, source_read_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
             continue;

@@ -1679,6 +1679,48 @@
         "cbmc": [],
         "direct": []
       }
+    },
+    {
+      "id": "window-read-source",
+      "title": "Read-plane source storage widths",
+      "operators": "",
+      "scope": "Exact source extents across native scalar and word capacities, bounded copied intervals, repeated fill, padding and byte frames",
+      "bounds": "All source widths1..130 partitioned1..64/65..128/129..130; windows13/65/130; arbitrary source/native padding and destination bytes; all bounded u64 starts/skips/counts and all u64 fill patterns",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No source-level selection, caller bounds lowering, arbitrary aliasing, source widths above130, complete four-state encoding, or other ABI theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_read_source.rs",
+          "label": "Source widths and exact allocation bounds"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_read_source.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "read-source13-native",
+          "read-source13-big",
+          "read-source13-tail",
+          "read-source65-native",
+          "read-source65-big",
+          "read-source65-tail",
+          "read-source130-native",
+          "read-source130-big",
+          "read-source130-tail"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
     }
   ]
 }

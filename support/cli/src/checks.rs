@@ -832,6 +832,12 @@ pub const SHARDS: &[Shard] = &[
     ),
     Shard::new("simulator-contracts", "window-read", 60, &["window-read"]),
     Shard::new(
+        "simulator-contracts",
+        "window-read-source",
+        90,
+        &["window-read-source"],
+    ),
+    Shard::new(
         "simulator-backend-contracts",
         "core",
         60,
@@ -1021,6 +1027,7 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
                     | "dual-slot"
                     | "dual-slot-wide"
                     | "window-read"
+                    | "window-read-source"
             ) {
                 steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
             }
