@@ -230,9 +230,57 @@ pub fn arithmetic_byte(a: &[u8], b: &[u8], position: usize, subtract: bool) -> u
     result
 }
 
+/// The 512-bit integer `(source * 2) mod 2^512`, retaining destination bits0/1.
+/// Equivalently, copy source bits1..511 into destination bits2..512. Both
+/// intervals are half-open; each input exposes exactly64 little-endian bytes.
+/// Four128-bit limbs implement the mathematical integer, independently of the
+/// simulator's64-bit merge loops, pointer accesses and write-log chunking.
+pub fn shifted_window512(destination: &[u8], source: &[u8]) -> [u128; 4] {
+    assert!(destination.len() >= 64 && source.len() >= 64);
+    let mut limbs = [0u128; 4];
+    for (i, limb) in limbs.iter_mut().enumerate() {
+        *limb = u128::from_le_bytes(source[i * 16..i * 16 + 16].try_into().unwrap());
+    }
+    let mut out = [0u128; 4];
+    out[0] = (limbs[0] << 1 & !3) | u128::from(destination[0] & 3);
+    for i in 1..4 {
+        out[i] = (limbs[i] << 1) | (limbs[i - 1] >> 127);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shifted_512_integer_matches_bit_origins() {
+        let check = |old: &[u8; 64], source: &[u8; 64]| {
+            let integer = shifted_window512(old, source);
+            for pos in 0..512 {
+                assert_eq!(
+                    integer[pos / 128] >> (pos % 128) & 1 != 0,
+                    window_stored_from_bit(old, source, 512, 2, 510, 1, pos),
+                    "position={pos}"
+                );
+            }
+        };
+        for (old, source) in [
+            ([0; 64], [0; 64]),
+            ([255; 64], [255; 64]),
+            ([0x55; 64], [0xaa; 64]),
+            ([0xaa; 64], [0x55; 64]),
+        ] {
+            check(&old, &source);
+        }
+        for pos in 0..512 {
+            let mut single = [0u8; 64];
+            single[pos / 8] = 1 << (pos % 8);
+            check(&[0; 64], &single);
+            check(&single, &[0; 64]);
+            check(&single, &single);
+        }
+    }
+
     #[test]
     fn offset_window_store_matches_integer_oracle() {
         for dst_width in [0usize, 1, 13, 64, 65, 128] {

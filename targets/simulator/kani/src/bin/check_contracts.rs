@@ -31,40 +31,42 @@ fn main() {
         contracts::mutations(repo, &selected, true)
     };
     let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
-        matches!(c.group, "window-read-source" | "window-from-variable")
-            || matches!(
-                c.name,
-                "log-full-pool-growth"
-                    | "log-prefix-append"
-                    | "log-chunk-split"
-                    | "log-variable"
-                    | "log-commit-unaligned"
-                    | "log-history-overlap"
-                    | "log-from-short"
-                    | "log-dual-partial61"
-                    | "log-dual-partial128"
-                    | "log-dual-wide130"
-                    | "log-dual-tail130"
-                    | "window-read13"
-                    | "window-read65"
-                    | "window-read130"
-                    | "window-fill13"
-                    | "window-fill65"
-                    | "window-fill130"
-                    | "window-read-empty"
-                    | "log-from-native128"
-                    | "log-from-wide130"
-                    | "log-from-noop"
-                    | "log-history-mixed"
-                    | "log-commit-chunks"
-                    | "log-two-word"
-                    | "log-scratch-constructor"
-            )
+        matches!(
+            c.group,
+            "window-read-source" | "window-from-variable" | "window-from-chunks"
+        ) || matches!(
+            c.name,
+            "log-full-pool-growth"
+                | "log-prefix-append"
+                | "log-chunk-split"
+                | "log-variable"
+                | "log-commit-unaligned"
+                | "log-history-overlap"
+                | "log-from-short"
+                | "log-dual-partial61"
+                | "log-dual-partial128"
+                | "log-dual-wide130"
+                | "log-dual-tail130"
+                | "window-read13"
+                | "window-read65"
+                | "window-read130"
+                | "window-fill13"
+                | "window-fill65"
+                | "window-fill130"
+                | "window-read-empty"
+                | "log-from-native128"
+                | "log-from-wide130"
+                | "log-from-noop"
+                | "log-history-mixed"
+                | "log-commit-chunks"
+                | "log-two-word"
+                | "log-scratch-constructor"
+        )
     });
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
         matches!(
             m.contract.group,
-            "window-read-source" | "window-from-variable"
+            "window-read-source" | "window-from-variable" | "window-from-chunks"
         ) || matches!(
             m.contract.name,
             "log-full-pool-growth"
@@ -100,6 +102,12 @@ fn main() {
     let (source_read_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
         .into_iter()
         .partition(|m| m.contract.group == "window-read-source");
+    let (chunked_source, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "window-from-chunks");
+    let (chunked_source_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "window-from-chunks");
     let (variable_source, history): (Vec<_>, Vec<_>) = history
         .into_iter()
         .partition(|c| c.group == "window-from-variable");
@@ -186,6 +194,7 @@ fn main() {
         ("300s", two_word, two_word_mutations),
         ("300s", source_reads, source_read_mutations),
         ("900s", variable_source, variable_source_mutations),
+        ("300s", chunked_source, chunked_source_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
             continue;
@@ -195,12 +204,15 @@ fn main() {
                 harness_timeout: timeout,
                 cache_dereferences: true,
                 restrict_vtable: false,
-                // Word loops need four unfoldings; real byte comparison may
-                // inspect all25 source bytes. Neither bound suppresses checks.
-                unwindset: contracts
-                    .iter()
-                    .any(|c| c.group == "window-from-variable")
-                    .then_some("memcmp.0:27"),
+                // Per-loop byte bounds retain unwinding assertions while the
+                // roots give their independently checked word-loop bounds.
+                unwindset: if contracts.iter().any(|c| c.group == "window-from-variable") {
+                    Some("memcmp.0:27")
+                } else if contracts.iter().any(|c| c.group == "window-from-chunks") {
+                    Some("memcmp.0:67")
+                } else {
+                    None
+                },
                 auxiliary_covers: &[],
             },
             options.mode,

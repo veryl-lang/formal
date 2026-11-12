@@ -1811,6 +1811,49 @@
         "cbmc": [],
         "direct": []
       }
+    },
+    {
+      "id": "window-from-chunks",
+      "title": "Chunked source-offset stores and commits",
+      "operators": "",
+      "scope": "Symbolic fixed512-bit geometry, nonzero source offset, exact aliases, retained low bits, two ordered wide records and both real commits",
+      "bounds": "Destination512/native64 bytes; source bits1..511 replace destination bits2..512 (half-open); all source/destination/guard bits and every direct/alias pair; record spans56+8 bytes at offsets1/57; preallocated2-wide-record pool; separately verified0..8-word inline scratch summary; the positive operation uses8 words and128-bit-limb/bit-origin model refinement",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No arbitrary geometry, partial pointer overlap, source lowering, longer histories, allocation failure or X/Z claim",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_from_chunks.rs",
+          "label": "Fixed geometry, constructor refinement and scalar-model equivalence"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent512-bit integer and bit-origin models"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_from_chunks.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "log-from-chunks-log-external",
+          "log-from-chunks-direct-external",
+          "log-from-chunks-log-alias",
+          "log-from-chunks-direct-alias",
+          "log-from-chunks-scratch8",
+          "log-from-chunks-integer-model"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
     }
   ]
 }
