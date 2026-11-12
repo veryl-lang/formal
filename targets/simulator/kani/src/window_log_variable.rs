@@ -304,7 +304,10 @@ fn window_scratch_refines_constructor() {
     std::mem::forget(modeled);
 }
 
-fn generic_word_scratch<A: smallvec::Array>(elem: A::Item, n: usize) -> smallvec::SmallVec<A>
+pub(crate) fn generic_word_scratch<A: smallvec::Array>(
+    elem: A::Item,
+    n: usize,
+) -> smallvec::SmallVec<A>
 where
     A::Item: Clone,
 {
@@ -312,6 +315,9 @@ where
         n <= 3 && A::size() >= 3,
         "scratch summary precondition violated"
     );
+    // Equal under the checked precondition; expose the finite range even when
+    // callers obtain n through symbolic width arithmetic.
+    let n = usize::from(n as u8 & 3);
     let mut buf = std::mem::MaybeUninit::<A>::uninit();
     // SAFETY: Array guarantees contiguous items; the checked bound fits A.
     // Each live slot is initialized before ownership passes to SmallVec.

@@ -76,6 +76,41 @@ pub fn window_read_bit(
     }
 }
 
+/// Low `width` bits of the mathematical 192-bit integer `source >> start`.
+/// Nonempty projections require 24 readable little-endian bytes and a selected
+/// interval inside bits0..192. Empty projections access no source bytes. The
+/// tuple stores bits0..128 and128..192; bits above `width` are zero. This scalar
+/// projection is independent of production word loops, pointers and log records.
+pub fn project_u192(source: &[u8], start: usize, width: usize) -> (u128, u64) {
+    if width == 0 {
+        return (0, 0);
+    }
+    assert!(start < 192 && width <= 192 - start);
+    let low = u128::from_le_bytes(source[..16].try_into().unwrap());
+    let high = u64::from_le_bytes(source[16..24].try_into().unwrap());
+    let projected_low = if start == 0 {
+        low
+    } else if start < 128 {
+        (low >> start) | (u128::from(high) << (128 - start))
+    } else {
+        u128::from(high) >> (start - 128)
+    };
+    let projected_high = if start < 64 { high >> start } else { 0 };
+    let low_mask = if width >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << width) - 1
+    };
+    let high_mask = if width >= 192 {
+        u64::MAX
+    } else if width > 128 {
+        (1u64 << (width - 128)) - 1
+    } else {
+        0
+    };
+    (projected_low & low_mask, projected_high & high_mask)
+}
+
 /// Whether a 64-bit word contains any selected logical destination bit.
 /// The overlap test avoids adding the arbitrary u64 starting position.
 /// `word` must fit a 64-bit word interval in usize.
@@ -325,6 +360,74 @@ mod tests {
         for skip in [0, u64::MAX] {
             assert!(window_read_bit(&[], 130, u64::MAX, skip, 0, 1, 64));
             assert!(!window_read_bit(&[], 130, u64::MAX, skip, 0, u64::MAX, 191));
+        }
+    }
+
+    #[test]
+    fn integer_projection_matches_individual_source_bits() {
+        for words in [
+            [0u64; 3],
+            [u64::MAX; 3],
+            [0x55aa_33cc_f0f0_00ff; 3],
+            [1, 0, 0],
+            [1 << 63, 0, 0],
+            [0, 1, 0],
+            [0, 1 << 63, 0],
+            [0, 0, 1],
+            [0, 0, 1 << 63],
+            [
+                0x0123_4567_89ab_cdef,
+                0xfedc_ba98_7654_3210,
+                0xa5a5_5a5a_aa55_33cc,
+            ],
+        ] {
+            let mut bytes = [0u8; 24];
+            for (i, word) in words.into_iter().enumerate() {
+                bytes[i * 8..(i + 1) * 8].copy_from_slice(&word.to_le_bytes());
+            }
+            for start in 0..=192 {
+                for width in 0..=192 - start {
+                    let mut expected = (0u128, 0u64);
+                    for position in 0..width {
+                        let index = start + position;
+                        let bit = (bytes[index / 8] >> (index % 8)) & 1;
+                        if position < 128 {
+                            expected.0 |= u128::from(bit) << position;
+                        } else {
+                            expected.1 |= u64::from(bit) << (position - 128);
+                        }
+                    }
+                    assert_eq!(
+                        project_u192(&bytes, start, width),
+                        expected,
+                        "start={start} width={width}"
+                    );
+                }
+            }
+        }
+        assert_eq!(project_u192(&[], usize::MAX, 0), (0, 0));
+    }
+
+    #[test]
+    fn window_store_reads_source_bit191_and_preserves_padding() {
+        let destination = [0xa5u8; 24];
+        let mut source = [0u8; 24];
+        source[23] = 0x80;
+        for position in 0..192 {
+            let expected = position == 129
+                || (position != 129 && destination[position / 8] & (1 << (position % 8)) != 0);
+            assert_eq!(
+                window_stored_from_bit(
+                    &destination,
+                    &source,
+                    130,
+                    129,
+                    u32::MAX as usize,
+                    191,
+                    position
+                ),
+                expected
+            );
         }
     }
 

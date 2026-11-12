@@ -194,6 +194,8 @@ pub enum Backend<'a> {
         cache_dereferences: bool,
         /// Restrict virtual dispatch using Kani's compiler-generated target sets.
         restrict_vtable: bool,
+        /// Per-loop CBMC bounds; unwinding assertions remain enabled.
+        unwindset: Option<&'a str>,
     },
     NativeTests {
         package: &'a str,
@@ -250,11 +252,13 @@ impl Backend<'_> {
                 false,
                 false,
                 false,
+                None,
             ),
             Self::KaniWithExplicitCovers {
                 harness_timeout,
                 cache_dereferences,
                 restrict_vtable,
+                unwindset,
                 ..
             } => run_proof(
                 manifest,
@@ -264,6 +268,7 @@ impl Backend<'_> {
                 true,
                 cache_dereferences,
                 restrict_vtable,
+                unwindset,
             ),
             Self::NativeTests {
                 package,
@@ -350,6 +355,7 @@ fn proof_command(
     explicit_covers: bool,
     cache_dereferences: bool,
     restrict_vtable: bool,
+    unwindset: Option<&str>,
 ) -> Command {
     let mut command = Command::new("cargo");
     command
@@ -372,8 +378,14 @@ fn proof_command(
     if explicit_covers {
         command.arg("--no-assertion-reach-checks");
     }
-    if cache_dereferences {
-        command.args(["--cbmc-args", "--symex-cache-dereferences"]);
+    if cache_dereferences || unwindset.is_some() {
+        command.arg("--cbmc-args");
+        if cache_dereferences {
+            command.arg("--symex-cache-dereferences");
+        }
+        if let Some(bounds) = unwindset {
+            command.args(["--unwindset", bounds]);
+        }
     }
     command
 }
@@ -386,6 +398,7 @@ fn run_proof(
     explicit_covers: bool,
     cache_dereferences: bool,
     restrict_vtable: bool,
+    unwindset: Option<&str>,
 ) -> Output {
     proof_command(
         manifest,
@@ -395,6 +408,7 @@ fn run_proof(
         explicit_covers,
         cache_dereferences,
         restrict_vtable,
+        unwindset,
     )
     .output()
     .expect("failed to launch cargo kani")
@@ -791,8 +805,26 @@ mod tests {
     fn explicit_cover_profile_only_changes_reachability_diagnostics() {
         let manifest = Path::new("proof/Cargo.toml");
         let target = Path::new("proof/target");
-        let legacy = proof_command(manifest, target, &CONTRACTS[0], "60s", false, false, false);
-        let explicit = proof_command(manifest, target, &CONTRACTS[0], "60s", true, false, false);
+        let legacy = proof_command(
+            manifest,
+            target,
+            &CONTRACTS[0],
+            "60s",
+            false,
+            false,
+            false,
+            None,
+        );
+        let explicit = proof_command(
+            manifest,
+            target,
+            &CONTRACTS[0],
+            "60s",
+            true,
+            false,
+            false,
+            None,
+        );
         assert_eq!(legacy.get_program(), explicit.get_program());
         assert!(legacy.get_envs().eq(explicit.get_envs()));
         let legacy_args: Vec<_> = legacy.get_args().collect();
@@ -821,6 +853,7 @@ mod tests {
                 true,
                 true,
                 restricted,
+                None,
             )
             .get_args()
             .map(|a| a.to_string_lossy().into_owned())
@@ -847,6 +880,7 @@ mod tests {
             true,
             false,
             false,
+            None,
         );
         let cached = proof_command(
             Path::new("p/Cargo.toml"),
@@ -856,6 +890,7 @@ mod tests {
             true,
             true,
             false,
+            None,
         );
         let plain_args: Vec<_> = plain.get_args().collect();
         let cached_args: Vec<_> = cached.get_args().collect();
@@ -864,6 +899,35 @@ mod tests {
             &cached_args[plain_args.len()..],
             ["--cbmc-args", "--symex-cache-dereferences"]
         );
+    }
+
+    #[test]
+    fn per_loop_bounds_are_opt_in_cbmc_arguments() {
+        for cached in [false, true] {
+            let make = |bounds| {
+                proof_command(
+                    Path::new("p/Cargo.toml"),
+                    Path::new("p/target"),
+                    &CONTRACTS[0],
+                    "600s",
+                    true,
+                    cached,
+                    false,
+                    bounds,
+                )
+                .get_args()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+            };
+            let plain = make(None);
+            let bounded = make(Some("memcmp.0:27"));
+            let mut expected = plain;
+            if !cached {
+                expected.push("--cbmc-args".into());
+            }
+            expected.extend(["--unwindset".into(), "memcmp.0:27".into()]);
+            assert_eq!(bounded, expected);
+        }
     }
 
     #[test]
@@ -882,6 +946,7 @@ mod tests {
                 auxiliary_covers: &["auxiliary diagnostic"],
                 cache_dereferences: false,
                 restrict_vtable: false,
+                unwindset: None,
             },
             Mode::Positive,
             &[&CONTRACTS[1]],
@@ -1027,6 +1092,7 @@ mod tests {
             auxiliary_covers: &["auxiliary diagnostic"],
             cache_dereferences: false,
             restrict_vtable: false,
+            unwindset: None,
         };
         let only_auxiliary = "Check 1:\n - Status: SATISFIED\n - Description: \"auxiliary diagnostic\"\nVERIFICATION:- SUCCESSFUL";
         assert!(!backend.positive(true, only_auxiliary, &CONTRACTS[0]));

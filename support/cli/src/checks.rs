@@ -823,6 +823,12 @@ pub const SHARDS: &[Shard] = &[
         &["window-history"],
     ),
     Shard::new("simulator-contracts", "window-from", 45, &["window-from"]),
+    Shard::new(
+        "simulator-contracts",
+        "window-from-variable",
+        90,
+        &["window-from-variable"],
+    ),
     Shard::new("simulator-contracts", "dual-slot", 45, &["dual-slot"]),
     Shard::new(
         "simulator-contracts",
@@ -1030,6 +1036,7 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
                     | "window-commit"
                     | "window-history"
                     | "window-from"
+                    | "window-from-variable"
                     | "dual-slot"
                     | "dual-slot-wide"
                     | "window-read"

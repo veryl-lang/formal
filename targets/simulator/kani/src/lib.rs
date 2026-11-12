@@ -51,3 +51,6 @@ mod window_read;
 
 #[cfg(kani)]
 mod window_read_source;
+
+#[cfg(kani)]
+mod window_from_variable;

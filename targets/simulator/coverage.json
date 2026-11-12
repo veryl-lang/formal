@@ -1759,6 +1759,58 @@
           "dual-slot-upper-aot-c"
         ]
       }
+    },
+    {
+      "id": "window-from-variable",
+      "title": "Variable source-offset stores and commits",
+      "operators": "",
+      "scope": "All requested u32 widths and u64 starts/source offsets under valid source extent; direct/log-only stores, snapshot aliases, real commits, guards, padding, record spans and notifications",
+      "bounds": "Logical destination130/native24 bytes; effective copied-width partitions0..64 and65..130; active source interval fits192 readable bits; arbitrary storage bits and exact aliases or disjoint buffers; no-op metadata unrestricted; temporary inline scratch constructor uses a separately checked 0..3-word summary; eight operation roots partition all four direct/alias Boolean pairs; two domain-witness roots range over every pair using the same generator",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No other destination widths, partial pointer overlap, longer histories, source lowering, allocation failure, or X/Z theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_from_variable.rs",
+          "label": "Variable source-offset proof domains"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_variable.rs",
+          "label": "Separately checked inline scratch constructor summary"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent bit origins and global integer projection"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_from_variable.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/window_log_variable.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "log-from-variable-small-log-external",
+          "log-from-variable-small-direct-external",
+          "log-from-variable-small-log-alias",
+          "log-from-variable-small-direct-alias",
+          "log-from-variable-large-log-external",
+          "log-from-variable-large-direct-external",
+          "log-from-variable-large-log-alias",
+          "log-from-variable-large-direct-alias",
+          "log-from-variable-small-domain",
+          "log-from-variable-large-domain"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
     }
   ]
 }
