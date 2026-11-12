@@ -234,7 +234,7 @@
       "title": "Write-log commit",
       "operators": "",
       "scope": "Byte replacement, record ordering, and change events",
-      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue; source-offset stores into 13/128/130-bit native destinations, plus full-metadata no-op frames; initialized dual-slot partial histories at logical widths 61/128",
+      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue; source-offset stores into 13/128/130-bit native destinations, plus full-metadata no-op frames; initialized dual-slot partial histories at logical widths 61/128; 130-bit/24-byte dual slots, fixed overlapping or clipped-tail windows, arbitrary storage padding and 16/8 or 16/16-byte wide record pairs",
       "native": "",
       "big": "",
       "direct": "Finite mixed histories, invalid spans, live prefixes, and byte marking",
@@ -264,6 +264,10 @@
         {
           "path": "targets/simulator/tests/tests/wide_memory.rs",
           "label": "Shared native suite"
+        },
+        {
+          "path": "targets/simulator/kani/src/dual_slot_wide.rs",
+          "label": "Kani initialized wide dual-slot histories"
         }
       ],
       "files": [
@@ -276,7 +280,8 @@
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/commit.rs",
         "semantics/src/write_log.rs",
-        "targets/simulator/contracts.rs"
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/dual_slot_wide.rs"
       ],
       "clauses": [],
       "reviewed": true,
@@ -300,7 +305,9 @@
           "log-from-wide130",
           "log-from-noop",
           "log-dual-partial61",
-          "log-dual-partial128"
+          "log-dual-partial128",
+          "log-dual-wide130",
+          "log-dual-tail130"
         ],
         "cbmc": [],
         "direct": [

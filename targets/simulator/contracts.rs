@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 64] = [
+pub static KANI: [Contract; 66] = [
     commit_contract(
         "commit-narrow",
         "narrow_commit_matches_reference",
@@ -329,6 +329,56 @@ pub static KANI: [Contract; 64] = [
         "window_log_direct_alias_matches_reference",
         WINDOW_LOG_COVERS,
     ),
+    Contract {
+        name: "log-dual-wide130",
+        group: "dual-slot-wide",
+        harness: "dual_slot_wide::dual_slot_wide130_matches_reference",
+        message: "simulator wide dual-slot window semantics mismatch",
+        covers: &[
+            "dual130 disjoint sources are reachable",
+            "dual130 both old-current aliases are reachable",
+            "dual130 first old-current alias is reachable",
+            "dual130 second old-current alias is reachable",
+            "dual130 old-current RHS differs from updated next",
+            "dual130 unchanged records emit no events",
+            "dual130 only the first wide record changes",
+            "dual130 only the second wide record changes",
+            "dual130 two ordered wide events are reachable",
+            "dual130 restoration still emits two wide events",
+            "dual130 first-only bits survive the last writer",
+            "dual130 last writer replaces overlapping bits",
+            "dual130 prefix guard is reachable",
+            "dual130 suffix guard is reachable",
+            "dual130 current padding byte is reachable",
+            "dual130 next padding byte is reachable",
+        ],
+    },
+    Contract {
+        name: "log-dual-tail130",
+        group: "dual-slot-wide",
+        harness: "dual_slot_wide::dual_slot_tail130_matches_reference",
+        message: "simulator wide dual-slot window semantics mismatch",
+        covers: &[
+            "tail130 disjoint sources are reachable",
+            "tail130 both old-current aliases are reachable",
+            "tail130 first old-current alias is reachable",
+            "tail130 second old-current alias is reachable",
+            "tail130 old-current RHS differs from updated next",
+            "tail130 unchanged records emit no events",
+            "tail130 only the first wide record changes",
+            "tail130 only the second wide record changes",
+            "tail130 two ordered wide events are reachable",
+            "tail130 restoration still emits two wide events",
+            "tail130 first-only bits survive the last writer",
+            "tail130 last writer replaces overlapping bits",
+            "tail130 last logical bit can be written",
+            "tail130 nonzero storage padding is preserved",
+            "tail130 prefix guard is reachable",
+            "tail130 suffix guard is reachable",
+            "tail130 current padding byte is reachable",
+            "tail130 next padding byte is reachable",
+        ],
+    },
     Contract {
         name: "log-dual-partial61",
         group: "dual-slot",
@@ -998,6 +1048,69 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
     let original = fs::read_to_string(repo.join(path)).unwrap();
     let mut result = Vec::new();
     for (name, proof, native, function, old, new, count) in [
+        (
+            "dual130-disables-next-forwarding",
+            "log-dual-wide130",
+            "",
+            "wide_window_store_from",
+            "let in_place = (log_and_flags >> 32) & 1 == 1;",
+            "let in_place = false;",
+            1,
+        ),
+        (
+            "dual130-RHS-reads-next",
+            "log-dual-wide130",
+            "",
+            "wide_window_store_from",
+            "let s_lo = if sw < src_words { rd(src, sw) } else { 0 };",
+            "let s_lo = if sw < src_words { rd(if src.wrapping_add(dst_nb) == dst.cast_const() { dst.cast_const() } else { src }, sw) } else { 0 };",
+            1,
+        ),
+        (
+            "tail130-logs-next-address",
+            "log-dual-tail130",
+            "",
+            "wide_window_store_from",
+            "log_offset + (w0 * 8) as u32",
+            "log_offset + dst_nb as u32 + (w0 * 8) as u32",
+            1,
+        ),
+        (
+            "tail130-ignores-source-bit",
+            "log-dual-tail130",
+            "",
+            "wide_window_store_from",
+            "let src_bit = src_bit as usize;",
+            "let src_bit = 0usize;",
+            1,
+        ),
+        (
+            "tail130-writes-logical-padding",
+            "log-dual-tail130",
+            "",
+            "wide_window_store_from",
+            "let width = width.min(dst_width - amount);",
+            "let width = width;",
+            1,
+        ),
+        (
+            "tail130-drops-unselected-bits",
+            "log-dual-tail130",
+            "",
+            "wide_window_store_from",
+            "*out = (old & !mask) | ((sv << shift) & mask);",
+            "*out = (sv << shift) & mask;",
+            1,
+        ),
+        (
+            "dual130-short-wide-record",
+            "log-dual-wide130",
+            "",
+            "wide_window_store_from",
+            "(dst_nb - w0 * 8).min(n * 8)",
+            "(dst_nb - w0 * 8).min(8)",
+            1,
+        ),
         (
             "copy-skips-final-word",
             "wide-copy",
@@ -1844,6 +1957,14 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
     // growth faults are injected in the Kani contracts instead of duplicated.
     for (name, proof, native, function, old, new) in [
         (
+            "tail130-loses-second-wide-record",
+            "log-dual-tail130",
+            "",
+            "push_wide",
+            "self.wide_count += 1;",
+            "self.wide_count = 1;",
+        ),
+        (
             "window-log-short-record",
             "log-only",
             "log-records",
@@ -2052,6 +2173,34 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract], kani: bool) -> Vec
         + 2;
     let commit_body = &log_original[commit_start..commit_end];
     for (name, proof, native, old, new) in [
+        (
+            "dual130-reverses-wide-commits",
+            "log-dual-wide130",
+            "",
+            "buffer.wide_entries_slice().iter().take(wide_limit)",
+            "buffer.wide_entries_slice().iter().take(wide_limit).rev()",
+        ),
+        (
+            "tail130-skips-last-wide-record",
+            "log-dual-tail130",
+            "",
+            "let wide_limit = buffer.wide_count as usize;",
+            "let wide_limit = (buffer.wide_count as usize).min(1);",
+        ),
+        (
+            "dual130-coalesces-wide-events",
+            "log-dual-wide130",
+            "",
+            "let dst = ff_values.as_mut_ptr();",
+            "let dst = ff_values.as_mut_ptr(); let mut original_changed = changed; let mut notified = false; let mut changed = |off, nb| { if !notified { original_changed(off, nb); notified = true; } };",
+        ),
+        (
+            "tail130-marks-unchanged-wide-records",
+            "log-dual-tail130",
+            "",
+            "if MARKING\n                        && ((p as *const $t).read_unaligned() != lo\n                            || (p.add(tail) as *const $t).read_unaligned() != hi_v)",
+            "if MARKING",
+        ),
         (
             "dual61-reverses-commits",
             "log-dual-partial61",

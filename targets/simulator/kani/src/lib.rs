@@ -42,3 +42,6 @@ mod window_from;
 
 #[cfg(kani)]
 mod dual_slot_window;
+
+#[cfg(kani)]
+mod dual_slot_wide;
