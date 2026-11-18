@@ -2301,15 +2301,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "similar"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f66ca1f7aca2474dc10c942eb22feffc897735f54cd1db90138c2fddb490987"
-dependencies = [
- "bstr",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2702,7 +2693,6 @@ dependencies = [
  "postcard",
  "serde",
  "serde_json",
- "similar",
  "smallvec",
  "strnum_bitwidth",
  "strum",
@@ -2742,7 +2732,6 @@ dependencies = [
  "url",
  "uuid",
  "veryl-component-sys",
- "veryl-parser",
  "veryl-path",
  "veryl-std",
  "walkdir",
