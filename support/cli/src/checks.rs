@@ -805,6 +805,57 @@ pub const SHARDS: &[Shard] = &[
     Shard::new("simulator-contracts", "bitwise", 90, &["bitwise"]),
     Shard::new("simulator-contracts", "window-log", 90, &["window-log"]),
     Shard::new(
+        "simulator-contracts",
+        "window-two-word",
+        45,
+        &["window-two-word"],
+    ),
+    Shard::new(
+        "simulator-contracts",
+        "window-commit",
+        45,
+        &["window-commit"],
+    ),
+    Shard::new(
+        "simulator-contracts",
+        "window-history",
+        45,
+        &["window-history"],
+    ),
+    Shard::new("simulator-contracts", "window-from", 45, &["window-from"]),
+    Shard::new(
+        "simulator-contracts",
+        "model-projections",
+        30,
+        &["reference-models"],
+    ),
+    Shard::new(
+        "simulator-contracts",
+        "window-from-chunks",
+        45,
+        &["window-from-chunks"],
+    ),
+    Shard::new(
+        "simulator-contracts",
+        "window-from-variable",
+        90,
+        &["window-from-variable"],
+    ),
+    Shard::new("simulator-contracts", "dual-slot", 45, &["dual-slot"]),
+    Shard::new(
+        "simulator-contracts",
+        "dual-slot-wide",
+        60,
+        &["dual-slot-wide"],
+    ),
+    Shard::new("simulator-contracts", "window-read", 60, &["window-read"]),
+    Shard::new(
+        "simulator-contracts",
+        "window-read-source",
+        90,
+        &["window-read-source"],
+    ),
+    Shard::new(
         "simulator-backend-contracts",
         "core",
         60,
@@ -818,6 +869,24 @@ pub const SHARDS: &[Shard] = &[
             "gate-max",
             "external-wide",
         ],
+    ),
+    Shard::new(
+        "simulator-backend-contracts",
+        "dual-slot",
+        45,
+        &["dual-slot-history"],
+    ),
+    Shard::new(
+        "simulator-backend-contracts",
+        "dual-slot-chunks",
+        45,
+        &["dual-slot-chunk-history"],
+    ),
+    Shard::new(
+        "simulator-backend-contracts",
+        "dual-slot-upper",
+        45,
+        &["dual-slot-upper-history"],
     ),
     Shard::new(
         "simulator-backend-contracts",
@@ -978,7 +1047,21 @@ pub fn plan(check: &str, suite: &str, mode: Mode) -> Result<Plan> {
             steps.push(Invocation::cargo(
                 "test --locked --manifest-path veryl/Cargo.toml -p veryl-simulator --lib write_log",
             ));
-            if suite != "signed-shift-full" {
+            if !matches!(
+                suite,
+                "signed-shift-full"
+                    | "window-two-word"
+                    | "window-commit"
+                    | "window-history"
+                    | "window-from"
+                    | "window-from-variable"
+                    | "window-from-chunks"
+                    | "model-projections"
+                    | "dual-slot"
+                    | "dual-slot-wide"
+                    | "window-read"
+                    | "window-read-source"
+            ) {
                 steps.push(Invocation::adapter("run --locked -p veryl-simulator-contract-tests --example check_simulator_contracts --", groups, mode));
             }
             steps.push(Invocation::adapter("run --locked --manifest-path targets/simulator/kani/Cargo.toml --bin check_contracts --", groups, mode));

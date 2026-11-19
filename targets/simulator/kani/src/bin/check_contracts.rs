@@ -32,30 +32,127 @@ fn main() {
     };
     let (history, selected): (Vec<_>, Vec<_>) = selected.into_iter().partition(|c| {
         matches!(
+            c.group,
+            "window-read-source"
+                | "window-from-variable"
+                | "window-from-chunks"
+                | "reference-models"
+        ) || matches!(
             c.name,
             "log-full-pool-growth"
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-commit-unaligned"
+                | "log-history-overlap"
+                | "log-from-short"
+                | "log-dual-partial61"
+                | "log-dual-partial128"
+                | "log-dual-wide130"
+                | "log-dual-tail130"
+                | "window-read13"
+                | "window-read65"
+                | "window-read130"
+                | "window-fill13"
+                | "window-fill65"
+                | "window-fill130"
+                | "window-read-empty"
+                | "log-from-native128"
+                | "log-from-wide130"
+                | "log-from-noop"
+                | "log-history-mixed"
+                | "log-commit-chunks"
+                | "log-two-word"
                 | "log-scratch-constructor"
         )
     });
     let (history_mutations, mutations): (Vec<_>, Vec<_>) = mutations.into_iter().partition(|m| {
         matches!(
+            m.contract.group,
+            "window-read-source"
+                | "window-from-variable"
+                | "window-from-chunks"
+                | "reference-models"
+        ) || matches!(
             m.contract.name,
             "log-full-pool-growth"
                 | "log-prefix-append"
                 | "log-chunk-split"
                 | "log-variable"
+                | "log-commit-unaligned"
+                | "log-history-overlap"
+                | "log-from-short"
+                | "log-dual-partial61"
+                | "log-dual-partial128"
+                | "log-dual-wide130"
+                | "log-dual-tail130"
+                | "window-read13"
+                | "window-read65"
+                | "window-read130"
+                | "window-fill13"
+                | "window-fill65"
+                | "window-fill130"
+                | "window-read-empty"
+                | "log-from-native128"
+                | "log-from-wide130"
+                | "log-from-noop"
+                | "log-history-mixed"
+                | "log-commit-chunks"
+                | "log-two-word"
                 | "log-scratch-constructor"
         )
     });
+    let (reference_models, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "reference-models");
+    let (reference_model_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "reference-models");
+    let (source_reads, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "window-read-source");
+    let (source_read_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "window-read-source");
+    let (chunked_source, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "window-from-chunks");
+    let (chunked_source_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "window-from-chunks");
+    let (variable_source, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| c.group == "window-from-variable");
+    let (variable_source_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.group == "window-from-variable");
+    let (two_word, history): (Vec<_>, Vec<_>) =
+        history.into_iter().partition(|c| c.name == "log-two-word");
+    let (two_word_mutations, history_mutations): (Vec<_>, Vec<_>) = history_mutations
+        .into_iter()
+        .partition(|m| m.contract.name == "log-two-word");
+    let (pool, history): (Vec<_>, Vec<_>) = history
+        .into_iter()
+        .partition(|c| matches!(c.name, "log-full-pool-growth" | "log-prefix-append"));
+    let (pool_mutations, history_mutations): (Vec<_>, Vec<_>) =
+        history_mutations.into_iter().partition(|m| {
+            matches!(
+                m.contract.name,
+                "log-full-pool-growth" | "log-prefix-append"
+            )
+        });
     let (full, ordinary): (Vec<_>, Vec<_>) = selected
         .into_iter()
         .partition(|c| c.group == "signed-shift-full");
     let (full_mutations, ordinary_mutations): (Vec<_>, Vec<_>) = mutations
         .into_iter()
         .partition(|m| m.contract.group == "signed-shift-full");
+    let (direct_alias, ordinary): (Vec<_>, Vec<_>) = ordinary
+        .into_iter()
+        .partition(|c| c.name == "log-direct-alias");
+    let (direct_alias_mutations, ordinary_mutations): (Vec<_>, Vec<_>) = ordinary_mutations
+        .into_iter()
+        .partition(|m| m.contract.name == "log-direct-alias");
     let harness_timeout = if ordinary.iter().any(|c| c.group == "window-log") {
         "180s"
     } else {
@@ -74,6 +171,24 @@ fn main() {
         ],
         directories: &["veryl", "targets", "semantics", "support"],
     };
+    // The alias contract's eight named covers replace redundant assertion
+    // reachability queries; its domain, assertions, timeout and pointer settings stay fixed.
+    if !direct_alias.is_empty()
+        && (options.mode != Mode::Mutation || !direct_alias_mutations.is_empty())
+    {
+        runner.run_with_backend(
+            Backend::KaniWithExplicitCovers {
+                harness_timeout: "180s",
+                cache_dereferences: false,
+                restrict_vtable: false,
+                unwindset: None,
+                auxiliary_covers: &[],
+            },
+            options.mode,
+            &direct_alias,
+            &direct_alias_mutations,
+        );
+    }
     if !ordinary.is_empty() && (options.mode != Mode::Mutation || !ordinary_mutations.is_empty()) {
         runner.run_with_backend(
             Backend::Kani { harness_timeout },
@@ -83,17 +198,39 @@ fn main() {
         );
     }
     // Explicit covers avoid redundant per-assertion reachability queries.
-    if !history.is_empty() && (options.mode != Mode::Mutation || !history_mutations.is_empty()) {
+    // The two-word source includes a third merged word and more cover queries;
+    // pool histories preserve up to 64 live records and have their own solver budget.
+    for (timeout, contracts, mutations) in [
+        ("180s", history, history_mutations),
+        ("180s", reference_models, reference_model_mutations),
+        ("300s", pool, pool_mutations),
+        ("300s", two_word, two_word_mutations),
+        ("300s", source_reads, source_read_mutations),
+        ("900s", variable_source, variable_source_mutations),
+        ("300s", chunked_source, chunked_source_mutations),
+    ] {
+        if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
+            continue;
+        }
         runner.run_with_backend(
             Backend::KaniWithExplicitCovers {
-                harness_timeout: "180s",
+                harness_timeout: timeout,
                 cache_dereferences: true,
                 restrict_vtable: false,
+                // Per-loop byte bounds retain unwinding assertions while the
+                // roots give their independently checked word-loop bounds.
+                unwindset: if contracts.iter().any(|c| c.group == "window-from-variable") {
+                    Some("memcmp.0:27")
+                } else if contracts.iter().any(|c| c.group == "window-from-chunks") {
+                    Some("memcmp.0:67")
+                } else {
+                    None
+                },
                 auxiliary_covers: &[],
             },
             options.mode,
-            &history,
-            &history_mutations,
+            &contracts,
+            &mutations,
         );
     }
     // The bit-fill loop has up to192 iterations. Explicit covers and pointer
@@ -104,6 +241,7 @@ fn main() {
                 harness_timeout: "300s",
                 cache_dereferences: true,
                 restrict_vtable: false,
+                unwindset: None,
                 auxiliary_covers: &[],
             },
             options.mode,

@@ -122,6 +122,7 @@ fn main() {
                 harness_timeout: timeout,
                 cache_dereferences,
                 restrict_vtable,
+                unwindset: None,
                 auxiliary_covers: analyzer::AUXILIARY_CONDITIONAL_COVERS,
             },
             options.mode,

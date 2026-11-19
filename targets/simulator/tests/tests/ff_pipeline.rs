@@ -493,3 +493,12 @@ mod optimization;
 
 #[path = "ff_pipeline/pass_shapes.rs"]
 mod pass_shapes;
+
+#[path = "ff_pipeline/dual_slot.rs"]
+mod dual_slot;
+
+#[path = "ff_pipeline/dual_slot_upper.rs"]
+mod dual_slot_upper;
+
+#[path = "ff_pipeline/dual_slot_chunks.rs"]
+mod dual_slot_chunks;

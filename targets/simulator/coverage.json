@@ -234,7 +234,7 @@
       "title": "Write-log commit",
       "operators": "",
       "scope": "Byte replacement, record ordering, and change events",
-      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes",
+      "bounds": "Kani: narrow 1/2/4/8; wide 3/7/15/17/56 bytes; real window-to-commit composition for 128-bit unaligned and 512-bit two-record writes; two overlapping wide windows and a wide window followed by a narrow enqueue; source-offset stores into 13/128/130-bit native destinations, plus full-metadata no-op frames; initialized dual-slot partial histories at logical widths 61/128; 130-bit/24-byte dual slots, fixed overlapping or clipped-tail windows, arbitrary storage padding and 16/8 or 16/16-byte wide record pairs",
       "native": "",
       "big": "",
       "direct": "Finite mixed histories, invalid spans, live prefixes, and byte marking",
@@ -246,17 +246,42 @@
           "label": "Kani"
         },
         {
+          "path": "targets/simulator/kani/src/window_commit.rs",
+          "label": "Kani window-to-commit composition"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_history.rs",
+          "label": "Kani overlapping and mixed histories"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_from.rs",
+          "label": "Kani source-offset stores and commits"
+        },
+        {
+          "path": "targets/simulator/kani/src/dual_slot_window.rs",
+          "label": "Kani initialized dual-slot partial histories"
+        },
+        {
           "path": "targets/simulator/tests/tests/wide_memory.rs",
           "label": "Shared native suite"
+        },
+        {
+          "path": "targets/simulator/kani/src/dual_slot_wide.rs",
+          "label": "Kani initialized wide dual-slot histories"
         }
       ],
       "files": [
         "targets/simulator/kani/src/commit.rs",
+        "targets/simulator/kani/src/window_commit.rs",
+        "targets/simulator/kani/src/window_history.rs",
+        "targets/simulator/kani/src/window_from.rs",
+        "targets/simulator/kani/src/dual_slot_window.rs",
         "targets/simulator/tests/tests/wide_memory.rs",
         "semantics/src/words.rs",
         "targets/simulator/tests/tests/wide_memory/commit.rs",
         "semantics/src/write_log.rs",
-        "targets/simulator/contracts.rs"
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/dual_slot_wide.rs"
       ],
       "clauses": [],
       "reviewed": true,
@@ -270,7 +295,19 @@
           "commit-wide56",
           "commit-narrow-order",
           "commit-wide-order",
-          "commit-mixed-order"
+          "commit-mixed-order",
+          "log-commit-unaligned",
+          "log-commit-chunks",
+          "log-history-overlap",
+          "log-history-mixed",
+          "log-from-short",
+          "log-from-native128",
+          "log-from-wide130",
+          "log-from-noop",
+          "log-dual-partial61",
+          "log-dual-partial128",
+          "log-dual-wide130",
+          "log-dual-tail130"
         ],
         "cbmc": [],
         "direct": [
@@ -335,7 +372,7 @@
       "title": "Window write-log records",
       "operators": "",
       "scope": "Direct/log-only writes and record preservation",
-      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–64 into logical widths 0–192, all u64 starts",
+      "bounds": "Kani: first/two-record cases and capacity 64 with every live count 0–64; 192-bit destination; aligned 512-bit window split into two records; variable windows 0–128 into logical widths 0–192, all u64 starts",
       "native": "",
       "big": "",
       "direct": "Finite append/growth histories and prefilled no-op buffers",
@@ -390,6 +427,7 @@
           "log-prefix-append",
           "log-chunk-split",
           "log-variable",
+          "log-two-word",
           "log-scratch-constructor"
         ],
         "cbmc": [],
@@ -1558,6 +1596,338 @@
           "c-shift-32",
           "c-shift-64"
         ],
+        "direct": []
+      }
+    },
+    {
+      "id": "dual-slot-history",
+      "title": "Dual-slot partial update histories",
+      "operators": "",
+      "scope": "Reset/current-next consistency, overlapping dynamic writes, and old-current RHS reads through source lowering and real commit",
+      "bounds": "Widths 61/128/130; default/forced placement; two seeds, four RHS choices, eight updates per choice; upper two bits of width 130 remain zero",
+      "native": "",
+      "big": "",
+      "direct": "384 updates per backend in interpreter, Cranelift, and AOT-C",
+      "remaining": "Finite histories only; no arbitrary initialization, allocation, source, selector, or scheduling theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot.rs",
+          "label": "Finite source-to-commit histories"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-interpreter",
+          "dual-slot-cranelift",
+          "dual-slot-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "window-read-plane",
+      "title": "Bounded window read planes",
+      "operators": "",
+      "scope": "Preclipped source/destination intervals, repeated fill, clean native padding, exact source extent, and null-pointer no-access branches",
+      "bounds": "130-bit/24-byte active source; windows 13/65/130 with all bounded u64 starts/skips/counts; count zero admits all u64 source widths/start/skip and null source; window zero admits all u64 parameters and null/live guarded destination",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No caller bounds-lowering, arbitrary pointer overlap, source-level selection, or complete four-state encoding theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_read.rs",
+          "label": "Kani read-plane domain"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent bit origins"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_read.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "window-read13",
+          "window-read65",
+          "window-read130",
+          "window-fill13",
+          "window-fill65",
+          "window-fill130",
+          "window-read-empty"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
+    },
+    {
+      "id": "window-read-source",
+      "title": "Read-plane source storage widths",
+      "operators": "",
+      "scope": "Exact source extents across native scalar and word capacities, bounded copied intervals, repeated fill, padding and byte frames",
+      "bounds": "All source widths1..130 partitioned1..64/65..128/129..130; windows13/65/130; arbitrary source/native padding and destination bytes; all bounded u64 starts/skips/counts and all u64 fill patterns",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No source-level selection, caller bounds lowering, arbitrary aliasing, source widths above130, complete four-state encoding, or other ABI theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_read_source.rs",
+          "label": "Source widths and exact allocation bounds"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_read_source.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "read-source13-native",
+          "read-source13-big",
+          "read-source13-tail",
+          "read-source65-native",
+          "read-source65-big",
+          "read-source65-tail",
+          "read-source130-native",
+          "read-source130-big",
+          "read-source130-tail"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
+    },
+    {
+      "id": "dual-slot-upper-history",
+      "title": "Dual-slot updates across bit128",
+      "operators": "",
+      "scope": "Nonzero upper logical bits, overlapping dynamic tail writes, old-current RHS reads, current-next equality, and real commit through source lowering",
+      "bounds": "Logical width130; native24 bytes; destination windows118+:12 and122+:8; source windows63+:12 and121+:8; default/forced placement; two low seeds and upper patterns1/2/3; four RHS choices and eight updates per choice",
+      "native": "",
+      "big": "",
+      "direct": "384 updates per backend in interpreter, Cranelift, and AOT-C; byte-vector reference beyond u128",
+      "remaining": "Finite histories only; no X/Z, initial blocks, out-of-range writes, arbitrary source/selector, or general allocation theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot_upper.rs",
+          "label": "Finite upper-bit source-to-commit histories"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot_upper.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2",
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-upper-interpreter",
+          "dual-slot-upper-cranelift",
+          "dual-slot-upper-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "window-from-variable",
+      "title": "Variable source-offset stores and commits",
+      "operators": "",
+      "scope": "All requested u32 widths and u64 starts/source offsets under valid source extent; direct/log-only stores, snapshot aliases, real commits, guards, padding, record spans and notifications",
+      "bounds": "Logical destination130/native24 bytes; effective copied-width partitions0..64 and65..130; active source interval fits192 readable bits; arbitrary storage bits and exact aliases or disjoint buffers; no-op metadata unrestricted; temporary inline scratch constructor uses a separately checked 0..3-word summary; eight operation roots partition all four direct/alias Boolean pairs; two domain-witness roots range over every pair using the same generator",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No other destination widths, partial pointer overlap, longer histories, source lowering, allocation failure, or X/Z theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_from_variable.rs",
+          "label": "Variable source-offset proof domains"
+        },
+        {
+          "path": "targets/simulator/kani/src/window_log_variable.rs",
+          "label": "Separately checked inline scratch constructor summary"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent bit origins and global integer projection"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_from_variable.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs",
+        "targets/simulator/kani/src/window_log_variable.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "log-from-variable-small-log-external",
+          "log-from-variable-small-direct-external",
+          "log-from-variable-small-log-alias",
+          "log-from-variable-small-direct-alias",
+          "log-from-variable-large-log-external",
+          "log-from-variable-large-direct-external",
+          "log-from-variable-large-log-alias",
+          "log-from-variable-large-direct-alias",
+          "log-from-variable-small-domain",
+          "log-from-variable-large-domain"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
+    },
+    {
+      "id": "window-from-chunks",
+      "title": "Chunked source-offset stores and commits",
+      "operators": "",
+      "scope": "Symbolic fixed512-bit geometry, nonzero source offset, exact aliases, retained low bits, two ordered wide records and both real commits",
+      "bounds": "Destination512/native64 bytes; source bits1..511 replace destination bits2..512 (half-open); all source/destination/guard bits and every direct/alias pair; record spans56+8 bytes at offsets1/57; preallocated2-wide-record pool; separately verified0..8-word inline scratch summary; the positive operation uses8 words and128-bit-limb/bit-origin model refinement",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No arbitrary geometry, partial pointer overlap, source lowering, longer histories, allocation failure or X/Z claim",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/window_from_chunks.rs",
+          "label": "Fixed geometry, constructor refinement and scalar-model equivalence"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent512-bit integer and bit-origin models"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/window_from_chunks.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "log-from-chunks-log-external",
+          "log-from-chunks-direct-external",
+          "log-from-chunks-log-alias",
+          "log-from-chunks-direct-alias",
+          "log-from-chunks-scratch8",
+          "log-from-chunks-integer-model"
+        ],
+        "cbmc": [],
+        "direct": []
+      }
+    },
+    {
+      "id": "dual-slot-chunk-history",
+      "title": "Chunked dual-slot partial-write histories",
+      "operators": "",
+      "scope": "Finite source lowering, old-current RHS snapshots, ordered overlapping 510-bit and 65-bit writes, distinct current/next slots and real commits over 512-bit state",
+      "bounds": "Two dense 512-bit reset seeds; FF optimization enabled/disabled; four RHS choices; sixteen clocks each; first destination/source starts0/1/2 with width510; second starts0/1/63/64/127/191/255/383/447 with width65; unsigned in-range10-bit end selectors; two-state data",
+      "native": "",
+      "big": "",
+      "direct": "256 updates per backend in interpreter, Cranelift and AOT-C; independent old-state byte-vector reference; raw q current/next and previous-current bits plus actual C commit traces",
+      "remaining": "Finite deterministic histories only; no arbitrary geometry, out-of-range or unknown selectors, X/Z data, initialization blocks or general allocation theorem",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/tests/tests/ff_pipeline/dual_slot_chunks.rs",
+          "label": "Finite multirecord source-to-commit histories and distinguishing data"
+        }
+      ],
+      "files": [
+        "targets/simulator/tests/tests/ff_pipeline/dual_slot_chunks.rs",
+        "targets/simulator/tests/tests/ff_pipeline.rs",
+        "targets/simulator/backend_contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 4.6",
+        "IEEE 1800-2023 10.4.2",
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [],
+        "cbmc": [],
+        "direct": [
+          "dual-slot-chunks-interpreter",
+          "dual-slot-chunks-cranelift",
+          "dual-slot-chunks-aot-c"
+        ]
+      }
+    },
+    {
+      "id": "reference-project192",
+      "title": "192-bit reference projection refinement",
+      "operators": "",
+      "scope": "Auxiliary oracle assurance: independent scalar projection agrees with source-bit origins; no new production or Veryl language feature claim",
+      "bounds": "Every 24-byte source bit pattern, every valid nonempty interval inside 192 bits and every 192-bit output position; empty source slice with width0 and every usize start; 64-bit little-endian host and two-state unsigned bits",
+      "native": "",
+      "big": "",
+      "direct": "",
+      "remaining": "No production operation checked by this lemma; no arbitrary source-length or wider projection claim",
+      "assumptions": [],
+      "scopeDocs": [
+        {
+          "path": "targets/simulator/kani/src/integer_projection.rs",
+          "label": "Symbolic oracle refinement and empty-source no-read case"
+        },
+        {
+          "path": "semantics/src/words.rs",
+          "label": "Independent scalar projection and source-bit origins"
+        }
+      ],
+      "files": [
+        "targets/simulator/kani/src/integer_projection.rs",
+        "semantics/src/words.rs",
+        "targets/simulator/contracts.rs"
+      ],
+      "clauses": [
+        "IEEE 1800-2023 11.5.1"
+      ],
+      "reviewed": true,
+      "contracts": {
+        "kani": [
+          "reference-project192"
+        ],
+        "cbmc": [],
         "direct": []
       }
     }

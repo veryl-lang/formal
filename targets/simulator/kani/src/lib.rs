@@ -30,3 +30,33 @@ mod window_log_chunks;
 
 #[cfg(kani)]
 mod window_log_variable;
+
+#[cfg(kani)]
+mod window_commit;
+
+#[cfg(kani)]
+mod window_history;
+
+#[cfg(kani)]
+mod window_from;
+
+#[cfg(kani)]
+mod dual_slot_window;
+
+#[cfg(kani)]
+mod dual_slot_wide;
+
+#[cfg(kani)]
+mod window_read;
+
+#[cfg(kani)]
+mod window_read_source;
+
+#[cfg(kani)]
+mod window_from_variable;
+
+#[cfg(kani)]
+mod window_from_chunks;
+
+#[cfg(kani)]
+mod integer_projection;
