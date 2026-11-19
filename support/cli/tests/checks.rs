@@ -204,6 +204,15 @@ fn value_shards_partition_every_proof_and_production_mutation() {
         .filter(|c| c.starts_with("signed quotient class "))
         .collect();
     assert_eq!(signedq_covers, signedq_diagnostics);
+    let full_signed_shift_budget: BTreeSet<_> = all
+        .iter()
+        .filter(|c| analyzer::uses_full_signed_shift_timeout(c))
+        .map(|c| c.name)
+        .collect();
+    assert_eq!(
+        full_signed_shift_budget,
+        BTreeSet::from(["shift256-arith-right-signed"])
+    );
     let large_context_budget: BTreeSet<_> = all
         .iter()
         .filter(|c| analyzer::uses_large_context_timeout(c))

@@ -6631,6 +6631,12 @@ pub fn uses_explicit_covers(contract: &Contract) -> bool {
     )
 }
 
+// Full signed shifts need time for all four mandatory reachability queries.
+// Their combined cost can exceed the 300s context budget under contention.
+pub fn uses_full_signed_shift_timeout(contract: &Contract) -> bool {
+    contract.name == "shift256-arith-right-signed"
+}
+
 // Mixed widths and wide comparisons can exceed the 180s proof budget.
 // Include time for both assertions and required reachability queries.
 pub fn uses_large_context_timeout(contract: &Contract) -> bool {

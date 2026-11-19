@@ -75,6 +75,12 @@ fn main() {
     let (big_mutations, explicit_mutations): (Vec<_>, Vec<_>) = explicit_mutations
         .into_iter()
         .partition(|m| m.contract.group == "public-big-values");
+    let (full_signed_shifts, big): (Vec<_>, Vec<_>) = big
+        .into_iter()
+        .partition(|c| analyzer::uses_full_signed_shift_timeout(c));
+    let (full_signed_shift_mutations, big_mutations): (Vec<_>, Vec<_>) = big_mutations
+        .into_iter()
+        .partition(|m| analyzer::uses_full_signed_shift_timeout(m.contract));
     let (large_contexts, big): (Vec<_>, Vec<_>) = big
         .into_iter()
         .partition(|c| analyzer::uses_large_context_timeout(c));
@@ -99,6 +105,13 @@ fn main() {
         ("60s", true, false, big, big_mutations),
         ("180s", true, false, big_extended, big_extended_mutations),
         ("300s", true, false, large_contexts, large_context_mutations),
+        (
+            "600s",
+            true,
+            false,
+            full_signed_shifts,
+            full_signed_shift_mutations,
+        ),
         ("180s", true, true, expressions, expression_mutations),
     ] {
         if contracts.is_empty() || (options.mode == Mode::Mutation && mutations.is_empty()) {
