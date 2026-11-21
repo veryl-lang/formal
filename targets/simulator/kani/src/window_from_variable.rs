@@ -111,7 +111,6 @@ fn source_offset_large_direct_external_matches_reference() {
 }
 
 #[kani::proof]
-#[kani::solver(kissat)]
 #[kani::unwind(4)]
 #[kani::stub(veryl_simulator::ir::WriteLogBuffer::grow_wide_to, reject_wide_growth)]
 #[kani::stub(smallvec::SmallVec::<[u64; 16]>::from_elem, guarded_word_scratch)]
@@ -287,13 +286,22 @@ fn covers_large(o: &Observation) {
         "variable source 130 copied bits are reachable"
     );
 }
+
+// Each allowed byte value can be chosen directly, without encoding a
+// modulo operation in the solver's inputs.
+fn byte_below(limit: u8) -> u8 {
+    let value = kani::any::<u8>();
+    kani::assume(value < limit);
+    value
+}
+
 fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8>() -> Observation {
     let mut memory: [u8; 26] = kani::any();
     let before = memory;
     let source: [u8; 25] = kani::any();
     let source_before = source;
     let amount = if ACTIVE {
-        u64::from(kani::any::<u8>() % 130)
+        u64::from(byte_below(130))
     } else {
         kani::any::<u64>()
     };
@@ -350,9 +358,9 @@ fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8
         0
     };
     let length = end - start;
-    let byte = usize::from(kani::any::<u8>()) % 26;
+    let byte = usize::from(byte_below(26));
     let bit = usize::from(kani::any::<u8>() & 7);
-    let frame_byte = usize::from(kani::any::<u8>()) % 56;
+    let frame_byte = usize::from(byte_below(56));
     let input_observation = Observation {
         frame_byte,
         amount,
@@ -426,7 +434,7 @@ fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8
             entry.offset as usize == 1 + start && usize::from(entry.native_bytes) == length,
             "simulator variable source-offset semantics mismatch"
         );
-        let payload_byte = usize::from(kani::any::<u8>()) % 24;
+        let payload_byte = usize::from(byte_below(24));
         if payload_byte < length {
             assert!(
                 words::bit(&entry.payload, payload_byte * 8 + bit)
