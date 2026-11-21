@@ -224,6 +224,8 @@ fn value_shards_partition_every_proof_and_production_mutation() {
     let expected_large_context_budget: BTreeSet<_> = [
         "special256-power-one-context",
         "signedpow256-div-negative-context",
+        "division256-self-div-signed-context",
+        "division256-self-rem-signed-context",
         "equality256-ne",
         "signedq256-div-positive-positive-context",
         "signedq256-div-positive-negative-context",
