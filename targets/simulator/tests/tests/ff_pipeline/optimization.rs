@@ -89,7 +89,7 @@ fn compare(backend: Backend) {
 fn run(backend: Backend, harness: &str) {
     if std::env::var_os("VERYL_FORMAL_OPT_CHILD").is_some() {
         log::set_logger(&LOGGER).unwrap();
-        log::set_max_level(log::LevelFilter::Info);
+        log::set_max_level(log::LevelFilter::Debug);
         compare(backend);
         return;
     }
