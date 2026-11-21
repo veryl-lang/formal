@@ -6646,6 +6646,7 @@ pub fn uses_large_context_timeout(contract: &Contract) -> bool {
             "special256-power-one-context"
                 | "signedpow256-div-negative-context"
                 | "division256-self-div-signed-context"
+                | "division256-self-rem-signed-context"
                 | "equality256-ne"
         )
 }
