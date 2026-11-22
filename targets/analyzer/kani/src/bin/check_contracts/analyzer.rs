@@ -6643,7 +6643,11 @@ pub fn uses_large_context_timeout(contract: &Contract) -> bool {
     (contract.name.starts_with("signedq256-") && contract.name.ends_with("-context"))
         || matches!(
             contract.name,
-            "special256-power-one-context" | "signedpow256-div-negative-context" | "equality256-ne"
+            "special256-power-one-context"
+                | "signedpow256-div-negative-context"
+                | "division256-self-div-signed-context"
+                | "division256-self-rem-signed-context"
+                | "equality256-ne"
         )
 }
 
