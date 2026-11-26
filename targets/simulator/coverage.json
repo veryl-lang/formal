@@ -1765,7 +1765,7 @@
       "title": "Variable source-offset stores and commits",
       "operators": "",
       "scope": "All requested u32 widths and u64 starts/source offsets under valid source extent; direct/log-only stores, snapshot aliases, real commits, guards, padding, record spans and notifications",
-      "bounds": "Logical destination130/native24 bytes; effective copied-width partitions0..64 and65..130; active source interval fits192 readable bits; arbitrary storage bits and exact aliases or disjoint buffers; no-op metadata unrestricted; temporary inline scratch constructor uses a separately checked 0..3-word summary; eight operation roots partition all four direct/alias Boolean pairs; two domain-witness roots range over every pair using the same generator",
+      "bounds": "Logical destination130/native24 bytes; effective copied-width partitions0..64 and65..130; active source interval fits192 readable bits; arbitrary storage bits and exact aliases or disjoint buffers; no-op metadata unrestricted; temporary inline scratch constructor uses a separately checked 0..3-word summary; operation roots cover all four direct/alias Boolean pairs, with separate two- and three-word spans for large log-only aliases; two domain-witness roots range over every pair, and the large root checks that the spans exhaust its domain",
       "native": "",
       "big": "",
       "direct": "",
@@ -1803,7 +1803,8 @@
           "log-from-variable-small-direct-alias",
           "log-from-variable-large-log-external",
           "log-from-variable-large-direct-external",
-          "log-from-variable-large-log-alias",
+          "log-from-variable-large-log-alias-two-words",
+          "log-from-variable-large-log-alias-three-words",
           "log-from-variable-large-direct-alias",
           "log-from-variable-small-domain",
           "log-from-variable-large-domain"

@@ -241,7 +241,7 @@ const fn commit_contract(
     }
 }
 
-pub static KANI: [Contract; 99] = [
+pub static KANI: [Contract; 100] = [
     Contract {
         name: "reference-project192",
         group: "reference-models",
@@ -515,9 +515,20 @@ pub static KANI: [Contract; 99] = [
         ],
     },
     Contract {
-        name: "log-from-variable-large-log-alias",
+        name: "log-from-variable-large-log-alias-two-words",
         group: "window-from-variable",
-        harness: "window_from_variable::source_offset_large_log_alias_matches_reference",
+        harness: "window_from_variable::source_offset_large_log_alias_two_words_matches_reference",
+        message: "simulator variable source-offset semantics mismatch",
+        covers: &[
+            "variable source first live record byte is reachable",
+            "variable source last live record byte is reachable",
+            "variable source changed log-only notification is reachable",
+        ],
+    },
+    Contract {
+        name: "log-from-variable-large-log-alias-three-words",
+        group: "window-from-variable",
+        harness: "window_from_variable::source_offset_large_log_alias_three_words_matches_reference",
         message: "simulator variable source-offset semantics mismatch",
         covers: &[
             "variable source first live record byte is reachable",

@@ -1,9 +1,11 @@
 //! Variable source-offset stores into a logical 130-bit, native 24-byte value.
 //! Requested widths cover every u32; starts and source offsets cover every u64.
 //! Active source intervals must fit 192 readable bits. The effective copied-width
-//! partitions are 0..64 and65..130. Eight operation roots cover all
-//! four direct/alias Boolean pairs in each partition. Small roots separate active/no-op inputs:
-//! active starts0..129 and source offsets0..191 are generated as bytes and widened
+//! partitions are 0..64 and65..130. Operation roots cover all four direct/alias
+//! Boolean pairs in each partition. The large log-only alias case additionally
+//! splits by two- or three-word record spans. The unrestricted large domain
+//! root checks that these spans exhaust the large cases. Small roots separate
+//! active/no-op inputs: active starts0..129 and source offsets0..191 are generated as bytes and widened
 //! to u64, covering every valid active input; no-op metadata stays arbitrary u64.
 //! All storage bits, including padding, are arbitrary. Sources are disjoint or
 //! exact aliases of destination; snapshots define RHS values before direct writes.
@@ -114,8 +116,17 @@ fn source_offset_large_direct_external_matches_reference() {
 #[kani::unwind(4)]
 #[kani::stub(veryl_simulator::ir::WriteLogBuffer::grow_wide_to, reject_wide_growth)]
 #[kani::stub(smallvec::SmallVec::<[u64; 16]>::from_elem, guarded_word_scratch)]
-fn source_offset_large_log_alias_matches_reference() {
-    let o = check::<true, true, true, 2>();
+fn source_offset_large_log_alias_two_words_matches_reference() {
+    let o = check_with_record_bytes::<true, true, true, 2, 16>();
+    covers_log_outputs(&o);
+}
+
+#[kani::proof]
+#[kani::unwind(4)]
+#[kani::stub(veryl_simulator::ir::WriteLogBuffer::grow_wide_to, reject_wide_growth)]
+#[kani::stub(smallvec::SmallVec::<[u64; 16]>::from_elem, guarded_word_scratch)]
+fn source_offset_large_log_alias_three_words_matches_reference() {
+    let o = check_with_record_bytes::<true, true, true, 2, 24>();
     covers_log_outputs(&o);
 }
 
@@ -296,6 +307,16 @@ fn byte_below(limit: u8) -> u8 {
 }
 
 fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8>() -> Observation {
+    check_with_record_bytes::<LARGE, ACTIVE, RUN, FLAGS, 0>()
+}
+
+fn check_with_record_bytes<
+    const LARGE: bool,
+    const ACTIVE: bool,
+    const RUN: bool,
+    const FLAGS: u8,
+    const RECORD_BYTES: usize,
+>() -> Observation {
     let mut memory: [u8; 26] = kani::any();
     let before = memory;
     let source: [u8; 25] = kani::any();
@@ -339,14 +360,6 @@ fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8
     if ACTIVE {
         kani::assume(source_bit <= 192 - copied as u64);
     }
-    let input = if alias {
-        &before[1..25]
-    } else {
-        &source_before[1..25]
-    };
-    let changed = ACTIVE
-        && words::project_u192(&before[1..25], amount as usize, copied)
-            != words::project_u192(input, source_bit as usize, copied);
     let start = if ACTIVE {
         (amount as usize / 64) * 8
     } else {
@@ -358,6 +371,26 @@ fn check<const LARGE: bool, const ACTIVE: bool, const RUN: bool, const FLAGS: u8
         0
     };
     let length = end - start;
+    let length = if RECORD_BYTES != 0 {
+        kani::assume(length == RECORD_BYTES);
+        RECORD_BYTES
+    } else {
+        if LARGE && !RUN {
+            assert!(
+                matches!(length, 16 | 24),
+                "variable source proof partition mismatch"
+            );
+        }
+        length
+    };
+    let input = if alias {
+        &before[1..25]
+    } else {
+        &source_before[1..25]
+    };
+    let changed = ACTIVE
+        && words::project_u192(&before[1..25], amount as usize, copied)
+            != words::project_u192(input, source_bit as usize, copied);
     let byte = usize::from(byte_below(26));
     let bit = usize::from(kani::any::<u8>() & 7);
     let frame_byte = usize::from(byte_below(56));
