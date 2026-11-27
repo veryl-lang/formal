@@ -2356,6 +2356,16 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
                 }
             };
             let original = fs::read_to_string(repo.join(path)).unwrap();
+            let (decl, old, count) = if kind == 0 && !jit && original.contains("\nfn apply_select(")
+            {
+                (
+                    "fn apply_select(",
+                    "let Some(idx) = dyn_sel.index_expr.eval(mask_cache).to_usize() else {\n            return out_of_range_read(dyn_sel.window, signed, use_4state);\n        };",
+                    1,
+                )
+            } else {
+                (decl, old, count)
+            };
             let start = original.find(decl).expect("packed-read function moved");
             // The runtime eval method contains both scalar and array handlers.
             let closing = if decl.starts_with("    ") {

@@ -229,6 +229,17 @@ pub fn mutations(repo: &Path, selected: &[&'static Contract]) -> Vec<Mutation> {
         };
         for &(name, path, decl, old, new) in changes {
             let original = fs::read_to_string(repo.join(path)).unwrap();
+            let (decl, old, new) = if name == "lsp-semantic-scalar-columns"
+                && original.contains("\nfn collect_semantic_tokens(")
+            {
+                (
+                    "fn collect_semantic_tokens(",
+                    "let start = range.start;",
+                    "let start = Position { character: token.column - 1, ..range.start };",
+                )
+            } else {
+                (decl, old, new)
+            };
             let start = original.find(decl).unwrap();
             let closing = if !decl.starts_with("    ") {
                 "\n}"
