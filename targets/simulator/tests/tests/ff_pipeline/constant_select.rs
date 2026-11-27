@@ -123,6 +123,7 @@ fn pattern(width: usize, mode: usize, four: bool) -> Vec<Logic4> {
 fn assert_static(stmts: &[veryl_simulator::ir::Statement]) {
     use veryl_simulator::ir::{Expression as E, Statement as S};
     fn expr(e: &E) {
+        #[allow(unreachable_patterns)] // Upstream may add expression forms outside this fixture.
         match e {
             E::Variable { dynamic_select, .. } => {
                 assert!(dynamic_select.is_none(), "constant-select remained dynamic")
@@ -149,6 +150,7 @@ fn assert_static(stmts: &[veryl_simulator::ir::Statement]) {
                 expr(false_expr);
             }
             E::DynamicVariable { .. } => panic!("constant-select unexpectedly used an array index"),
+            _ => panic!("constant-select unexpectedly used an unsupported expression"),
         }
     }
     for s in stmts {
